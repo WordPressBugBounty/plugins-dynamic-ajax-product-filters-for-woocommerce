@@ -1,0 +1,1 @@
+# plugins-dynamic-ajax-product-filters-for-woocommerce
