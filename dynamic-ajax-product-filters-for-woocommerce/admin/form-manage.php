@@ -11,15 +11,16 @@ function dapfforwc_render_checkbox($key, $settings = "dapfforwc_options")
     <label class="switch <?php echo esc_attr($key); echo $is_pro_only ? ' pro-only' : ''; ?>">
         <input <?php echo $is_pro_only ? ' disabled' : ''; ?> type='checkbox' name='<?php echo $is_pro_only ? '_pro' : esc_attr($settings); ?>[<?php echo esc_attr($key); ?>]' <?php $is_pro_only ? '' : checked(isset($$settings[$key]) && $$settings[$key] === "on"); ?>>
         <span class="slider round"></span>
-        <span class="switch-on">On</span>
-        <span class="switch-off">Off</span>
+        <span class="switch-on"><?php esc_html_e('On', 'dynamic-ajax-product-filters-for-woocommerce'); ?></span>
+        <span class="switch-off"><?php esc_html_e('Off', 'dynamic-ajax-product-filters-for-woocommerce'); ?></span>
     </label>
     <?php
     if ($key === "use_filters_word_in_permalinks") {
-        echo "<p>if you want to use permalinks filter in your front page & archive page turn it on.</p>";
+        echo "<p>" . esc_html__('Turn this on to use permalink filters on your front page and archive pages.', 'dynamic-ajax-product-filters-for-woocommerce') . "</p>";
     } 
     elseif ($key === "use_attribute_type_in_permalinks") {
-        echo "<p>".esc_html__('Enable this setting if you want permalinks Like', 'dynamic-ajax-product-filters-for-woocommerce') ."<code>?filters=1&product_cat=compact-design&pa-size=large&product-tag=tag1</code></p>";
+        echo "<p>" . esc_html__('Enable this setting to name each filter type in the URL, like', 'dynamic-ajax-product-filters-for-woocommerce') . " <code>?filters=1&amp;product_cat=compact-design&amp;pa-size=large&amp;product-tag=tag1</code>. "
+            . esc_html__('When it is off, only the values are listed, like', 'dynamic-ajax-product-filters-for-woocommerce') . " <code>?filters=compact-design,large,tag1</code>.</p>";
     } 
     elseif ($key === "show_loader") {
         echo "<p><a href='#' id='customize_loader'>".esc_html__('Customize', 'dynamic-ajax-product-filters-for-woocommerce') ."</a> ".esc_html__('loading effect', 'dynamic-ajax-product-filters-for-woocommerce') ."</p>";
@@ -38,12 +39,13 @@ function dapfforwc_render_checkbox($key, $settings = "dapfforwc_options")
                     'index,nofollow' => 'index, nofollow',
                     'index,follow' => 'index, follow',
                 ];
+                // Without a stored value "index, follow" applies; preselect it so a save does not silently store noindex,nofollow.
+                $stored_meta_tag = isset($$settings['seo_meta_tag']) && $$settings['seo_meta_tag'] !== '' ? str_replace(' ', '', (string) $$settings['seo_meta_tag']) : 'index,follow';
                 foreach ($meta_tag_options as $value => $label) {
-                    echo '<option value="' . esc_attr($value) . '" ' . selected(isset($$settings['seo_meta_tag']) ? $$settings['seo_meta_tag'] : '', $value, false) . '>' . esc_html($label) . '</option>';
+                    echo '<option value="' . esc_attr($value) . '" ' . selected($stored_meta_tag, $value, false) . '>' . esc_html($label) . '</option>';
                 }
                 ?>
             </select>
-            <p class="description"><?php esc_html_e('Select the meta tag to be added in the head section of the page.', 'dynamic-ajax-product-filters-for-woocommerce'); ?></p>
         </p>
         <?php
     }
@@ -511,14 +513,27 @@ function dapfforwc_render_form_manage_popup_assets()
                     }
 
                     $select.select2({
-                        placeholder: function () {
-                            return jQuery(this).data('placeholder');
-                        },
+                        // Select2 does not accept a function as placeholder.
+                        placeholder: $select.data('placeholder') || '',
                         width: '100%',
                         allowClear: true,
                         dropdownParent: $popup,
                     });
                 });
+            }
+
+            // Visible, enabled controls inside the dialog panel, in tab order.
+            function getPopupFocusable(popup) {
+                const panel = popup ? popup.querySelector('.dapfforwc-form-manage-popup-panel') : null;
+                if (!panel) {
+                    return [];
+                }
+                return Array.prototype.filter.call(
+                    panel.querySelectorAll('a[href], button, input, select, textarea, [tabindex]'),
+                    function (el) {
+                        return !el.disabled && el.tabIndex >= 0 && el.type !== 'hidden' && el.offsetParent !== null;
+                    }
+                );
             }
 
             function closePopup(popup) {
@@ -551,6 +566,16 @@ function dapfforwc_render_form_manage_popup_assets()
                     document.body.classList.add('dapfforwc-popup-open');
                     activePopup = popup;
                     initPopupSelects(popup);
+
+                    // Move focus into the dialog: the first field of the settings body, else the close button.
+                    const focusable = getPopupFocusable(popup);
+                    const bodyControl = focusable.find(function (el) {
+                        return el.closest('.dapfforwc-form-manage-popup-body');
+                    });
+                    const focusTarget = bodyControl || focusable[0];
+                    if (focusTarget) {
+                        focusTarget.focus();
+                    }
                 });
             });
 
@@ -565,10 +590,37 @@ function dapfforwc_render_form_manage_popup_assets()
             });
 
             document.addEventListener('keydown', function (event) {
-                if (event.key === 'Escape' && activePopup) {
-                    closePopup(activePopup);
+                // Escape is handled in the capture listener below (Select2 fields stop it from bubbling).
+                // Keep Tab inside the open dialog.
+                if (event.key === 'Tab' && activePopup) {
+                    const focusable = getPopupFocusable(activePopup);
+                    if (!focusable.length) {
+                        return;
+                    }
+                    const first = focusable[0];
+                    const last = focusable[focusable.length - 1];
+                    const inside = activePopup.contains(document.activeElement);
+                    if (event.shiftKey && (!inside || document.activeElement === first)) {
+                        event.preventDefault();
+                        last.focus();
+                    } else if (!event.shiftKey && (!inside || document.activeElement === last)) {
+                        event.preventDefault();
+                        first.focus();
+                    }
                 }
             });
+
+            // Capture phase: focus may sit in a Select2 field, which stops Escape from bubbling. An open Select2 dropdown
+            // still gets the first Escape (it closes the dropdown); otherwise Escape closes the dialog.
+            document.addEventListener('keydown', function (event) {
+                if (event.key !== 'Escape' || !activePopup) {
+                    return;
+                }
+                if (activePopup.querySelector('.select2-container--open')) {
+                    return;
+                }
+                closePopup(activePopup);
+            }, true);
         });
     <?php
     dapfforwc_add_inline_script(ob_get_clean(), 'dapfforwc-admin-script');
@@ -1050,10 +1102,11 @@ function dapfforwc_use_url_filter_render()
             // Check if the current value is "pro_only"
             $disabled = $value === 'pro_only' ? 'disabled' : '';
             $label_class = $value === 'pro_only' ? 'pro-only' : '';
+            $pro_badge = ($value === 'pro_only' && function_exists('dapfforwc_admin_pro_badge_markup')) ? ' ' . dapfforwc_admin_pro_badge_markup() : '';
 
             echo '<label class="' . esc_attr($label_class) . '">
                     <input type="radio" name="dapfforwc_options[use_url_filter]" value="' . esc_attr($value) . '" ' . checked(isset($dapfforwc_options['use_url_filter'])?$dapfforwc_options['use_url_filter']:"", $value, false) . ' ' . esc_attr($disabled) . '> 
-                    ' . esc_html($label) . '
+                    ' . esc_html($label) . wp_kses_post($pro_badge) . '
                   </label><br>';
         }
         ?>

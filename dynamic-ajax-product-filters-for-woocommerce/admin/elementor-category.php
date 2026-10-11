@@ -98,11 +98,23 @@ class DAPFFORWC_Elementor_Category_Alternative
                 $reordered = ['plugincy' => $plugincy_cat] + $reordered;
             }
 
-            // Update the categories order
-            $reflection = new ReflectionClass($elements_manager);
-            $property = $reflection->getProperty('categories');
-            $property->setAccessible(true);
-            $property->setValue($elements_manager, $reordered);
+            // Update the categories order. Elementor has no public setter, so this touches its private
+            // property; if Elementor renames it the reordering is skipped (only cosmetic) instead of throwing
+            // an uncaught ReflectionException in the editor.
+            try {
+                $reflection = new ReflectionClass($elements_manager);
+                if (!$reflection->hasProperty('categories')) {
+                    return;
+                }
+                $property = $reflection->getProperty('categories');
+                if (PHP_VERSION_ID < 80100) {
+                    // Needed before PHP 8.1 only; a no-op (and deprecated in 8.5) afterwards.
+                    $property->setAccessible(true);
+                }
+                $property->setValue($elements_manager, $reordered);
+            } catch (ReflectionException $exception) {
+                return;
+            }
         }
     }
 }

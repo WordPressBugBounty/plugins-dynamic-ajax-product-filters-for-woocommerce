@@ -1,1523 +1,4515 @@
-#, fuzzy
+# Copyright (C) 2026 Plugincy
+# This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: dynamic-ajax-product-filters-for-woocommerce\n"
-"POT-Creation-Date: 2025-08-12 06:46+0000\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Project-Id-Version: Dynamic AJAX Product Filters for WooCommerce 1.6.5\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/dynamic-ajax-product-filters-for-woocommerce\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
-"X-Generator: Loco https://localise.biz/"
+"POT-Creation-Date: 2026-10-09T19:54:02+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: dynamic-ajax-product-filters-for-woocommerce\n"
 
-#: admin/admin-page.php:564
-msgid "1"
+#. Plugin Name of the plugin
+#. translators: %s: plugin name.
+#: dynamic-ajax-product-filters-for-woocommerce.php
+#: admin/admin-page.php:417
+#: includes/get_review.php:44
+#: includes/get_review.php:213
+msgid "Dynamic AJAX Product Filters for WooCommerce"
 msgstr ""
 
-#: admin/admin-page.php:571
-msgid "2"
-msgstr ""
-
-#: admin/admin-page.php:137 admin/admin-page.php:612
-msgid "24/7 Premium Support"
-msgstr ""
-
-#: admin/admin-page.php:578
-msgid "3"
-msgstr ""
-
-#: admin/admin-page.php:145 admin/admin-page.php:620
-msgid "Money Back Guarantee"
+#. Plugin URI of the plugin
+#: dynamic-ajax-product-filters-for-woocommerce.php
+msgid "https://plugincy.com/"
 msgstr ""
 
 #. Description of the plugin
-msgid ""
-"A WooCommerce plugin to filter products by attributes, categories, and tags "
-"using AJAX for seamless user experience."
+#: dynamic-ajax-product-filters-for-woocommerce.php
+msgid "A WooCommerce plugin to filter products by attributes, categories, and tags using AJAX for seamless user experience."
 msgstr ""
 
-#: includes/blocks_widget_create.php:2018
-msgid "Absolute"
+#. Author of the plugin
+#: dynamic-ajax-product-filters-for-woocommerce.php
+#: admin/elementor-category.php:74
+#: dynamic-ajax-product-filters-for-woocommerce.php:3444
+msgid "Plugincy"
 msgstr ""
 
-#: includes/blocks_widget_create.php:1742
-msgid "Active Background Color"
+#. Author URI of the plugin
+#: dynamic-ajax-product-filters-for-woocommerce.php
+msgid "https://plugincy.com"
 msgstr ""
 
-#: includes/blocks_widget_create.php:1337
-msgid "Active Color"
+#: includes/block.min.js:17
+#: admin/form_style_tab.php:731
+#: includes/blocks_widget_create.php:2262
+msgid "Top"
 msgstr ""
 
-#: includes/blocks_widget_create.php:1752
-msgid "Active Text Color"
+#: includes/block.min.js:18
+#: includes/block.min.js:385
+#: includes/block.min.js:753
+#: includes/blocks_widget_create.php:811
+#: includes/blocks_widget_create.php:1289
+#: includes/blocks_widget_create.php:2303
+#: includes/filter-template.php:538
+msgid "Right"
 msgstr ""
 
-#: admin/form-manage.php:27
-msgid ""
-"Add \"robots\" meta tag in head tag of HTML page if filters have been "
-"activated."
+#: includes/block.min.js:19
+#: admin/form_style_tab.php:732
+#: includes/blocks_widget_create.php:2263
+msgid "Bottom"
 msgstr ""
 
-#: admin/admin-page.php:581
-msgid "Add filters to your shop pages and track performance improvements"
+#: includes/block.min.js:20
+#: includes/block.min.js:384
+#: includes/block.min.js:751
+#: includes/blocks_widget_create.php:810
+#: includes/blocks_widget_create.php:1277
+#: includes/blocks_widget_create.php:2302
+#: includes/filter-template.php:537
+msgid "Left"
 msgstr ""
 
-#: admin/admin-page.php:1110
-msgid "Adjust the selectors in the Advanced Settings to match your theme."
+#: includes/block.min.js:66
+#: includes/widget_design_template.php:324
+#: includes/widget_design_template.php:346
+#: includes/widget_design_template.php:426
+#: includes/widget_design_template.php:533
+#: includes/widget_design_template.php:580
+#: includes/widget_design_template.php:685
+#: includes/widget_design_template.php:750
+#: includes/widget_design_template.php:822
+#: includes/widget_design_template.php:880
+#: includes/widget_design_template.php:942
+#: includes/widget_design_template.php:1012
+#: includes/widget_design_template.php:1104
+#: includes/widget_design_template.php:1190
+#: includes/widget_design_template.php:1222
+#: includes/widget_design_template.php:1256
+msgid "Reset"
 msgstr ""
 
-#: admin/admin-page.php:937
-msgid "Advance Settings"
+#: includes/block.min.js:75
+msgid "Desktop"
 msgstr ""
 
-#: admin/form_style_tab.php:255
-msgid "Advanced Options for Terms"
+#: includes/block.min.js:76
+msgid "Tablet"
 msgstr ""
 
-#: admin/settings-init.php:175
-msgid "Advanced Settings"
+#: includes/block.min.js:77
+msgid "Mobile"
 msgstr ""
 
-#: includes/blocks_widget_create.php:595
-msgid "All Filters"
+#: includes/block.min.js:98
+msgid "Device"
 msgstr ""
 
-#: admin/admin-page.php:1314
-msgid "All plugin settings have been reset to defaults."
+#: includes/block.min.js:142
+#: dynamic-ajax-product-filters-for-woocommerce.php:4243
+#: includes/blocks_widget_create.php:705
+msgid "Dynamic Ajax Filter"
 msgstr ""
 
-#: admin/admin-page.php:56
-msgid ""
-"Allow customers to filter products by star ratings for better product "
-"discovery."
+#: includes/block.min.js:143
+msgid "A dynamic filter that uses AJAX to filter products."
 msgstr ""
 
-#: admin/license-page.php:412
-msgid "Are you sure you want to deactivate your license?"
+#: includes/block.min.js:221
+msgid "Search Text"
 msgstr ""
 
-#: admin/admin-page.php:1298
-msgid ""
-"Are you sure you want to reset all settings? This action cannot be undone."
+#: includes/block.min.js:222
+#: admin/form_style_tab.php:88
+#: admin/page-seo-permalinks.php:50
+#: includes/blocks_widget_create.php:666
+#: includes/widget_design_template.php:322
+msgid "Rating"
 msgstr ""
 
-#: includes/blocks_widget_create.php:685
+#: includes/block.min.js:223
+#: includes/widget_design_template.php:344
+msgid "Price Range"
+msgstr ""
+
+#: includes/block.min.js:224
+#: admin/form_template_tab.php:827
+#: includes/blocks_widget_create.php:668
+#: includes/blocks_widget_create.php:888
+#: includes/filter-template.php:543
+#: includes/widget_design_template.php:424
+#: includes/widget_design_template.php:531
+msgid "Category"
+msgstr ""
+
+#: includes/block.min.js:225
+#: includes/blocks_widget_create.php:669
+#: includes/blocks_widget_create.php:897
+#: includes/filter-template.php:565
+msgid "Tag"
+msgstr ""
+
+#: includes/block.min.js:226
+#: admin/form_style_tab.php:89
+#: admin/form_style_tab.php:1678
+#: includes/blocks_widget_create.php:670
+#: includes/widget_design_template.php:820
+msgid "Brands"
+msgstr ""
+
+#: includes/block.min.js:227
+#: admin/form_style_tab.php:91
+#: admin/form_style_tab.php:1675
+#: includes/blocks_widget_create.php:671
+#: includes/widget_design_template.php:878
+msgid "Authors"
+msgstr ""
+
+#: includes/block.min.js:228
+msgid "Status"
+msgstr ""
+
+#: includes/block.min.js:229
+#: admin/form_style_tab.php:93
+#: admin/page-seo-permalinks.php:54
+#: includes/blocks_widget_create.php:673
+#: includes/widget_design_template.php:1010
+msgid "Sale Status"
+msgstr ""
+
+#: includes/block.min.js:230
+#: admin/form_style_tab.php:94
+#: includes/blocks_widget_create.php:674
+#: includes/widget_design_template.php:1102
+msgid "Dimensions"
+msgstr ""
+
+#: includes/block.min.js:231
+#: admin/form_style_tab.php:95
+#: admin/form_style_tab.php:1663
+#: admin/page-seo-permalinks.php:67
+#: includes/blocks_widget_create.php:675
+#: includes/widget_design_template.php:1188
+#: includes/widget_design_template.php:1200
+msgid "SKU"
+msgstr ""
+
+#: includes/block.min.js:232
+#: admin/form_style_tab.php:96
+#: admin/page-seo-permalinks.php:68
+#: includes/blocks_widget_create.php:676
+msgid "Discount"
+msgstr ""
+
+#: includes/block.min.js:233
+#: admin/page-seo-permalinks.php:69
+#: includes/blocks_widget_create.php:677
+#: includes/widget_design_template.php:1254
+msgid "Date Filter"
+msgstr ""
+
+#: includes/block.min.js:310
+msgid "General"
+msgstr ""
+
+#: includes/block.min.js:315
+msgid "Style"
+msgstr ""
+
+#: includes/block.min.js:320
+#: includes/block.min.js:1269
+msgid "Advanced"
+msgstr ""
+
+#: includes/block.min.js:327
+msgid "Filter Settings"
+msgstr ""
+
+#: includes/block.min.js:329
+msgid "Filter Type"
+msgstr ""
+
+#: includes/block.min.js:332
+msgid "All"
+msgstr ""
+
+#: includes/block.min.js:333
+msgid "Single"
+msgstr ""
+
+#: includes/block.min.js:334
+msgid "Selected"
+msgstr ""
+
+#: includes/block.min.js:341
+#: admin/settings-init.php:261
+#: includes/blocks_widget_create.php:746
+#: includes/filter-template.php:631
+msgid "Product Selector"
+msgstr ""
+
+#: includes/block.min.js:348
+#: admin/settings-init.php:269
+#: includes/blocks_widget_create.php:758
+#: includes/filter-template.php:639
+msgid "Pagination Selector"
+msgstr ""
+
+#: includes/block.min.js:355
+#: includes/blocks_widget_create.php:769
+msgid "Redirect When Products Missing (Pro)"
+msgstr ""
+
+#: includes/block.min.js:358
+#: includes/blocks_widget_create.php:772
+msgid "No (Pro)"
+msgstr ""
+
+#: includes/block.min.js:359
+#: includes/blocks_widget_create.php:773
+msgid "Yes (Pro)"
+msgstr ""
+
+#: includes/block.min.js:366
+msgid "Filter Layout"
+msgstr ""
+
+#: includes/block.min.js:369
+msgid "Sidebar"
+msgstr ""
+
+#: includes/block.min.js:370
+msgid "Top View"
+msgstr ""
+
+#: includes/block.min.js:371
+msgid "Top View Wrap (Pro)"
+msgstr ""
+
+#: includes/block.min.js:372
+msgid "Popup (Pro)"
+msgstr ""
+
+#: includes/block.min.js:373
+msgid "Popup Horizontal Wrap (Pro)"
+msgstr ""
+
+#: includes/block.min.js:374
+msgid "Drawer (Pro)"
+msgstr ""
+
+#: includes/block.min.js:381
+#: includes/blocks_widget_create.php:807
+msgid "Drawer Side (Pro)"
+msgstr ""
+
+#: includes/block.min.js:392
+#: includes/blocks_widget_create.php:822
+msgid "Collapsable Filters (Pro)"
+msgstr ""
+
+#: includes/block.min.js:395
+#: admin/form_style_tab.php:610
+#: admin/form_style_tab.php:1627
+#: includes/blocks_widget_create.php:825
+#: includes/filter-template.php:524
+#: includes/filter-template.php:686
+#: includes/filter-template.php:699
+msgid "No"
+msgstr ""
+
+#: includes/block.min.js:396
+#: admin/form_style_tab.php:607
+#: admin/form_style_tab.php:1624
+#: includes/blocks_widget_create.php:826
+#: includes/filter-template.php:525
+#: includes/filter-template.php:687
+#: includes/filter-template.php:700
+msgid "Yes"
+msgstr ""
+
+#: includes/block.min.js:414
+msgid "Attribute ID"
+msgstr ""
+
+#: includes/block.min.js:422
+#: includes/blocks_widget_create.php:865
+msgid "Database Query"
+msgstr ""
+
+#: includes/block.min.js:423
+#: includes/blocks_widget_create.php:876
+msgid "Our plugin will automatically detect your query. If the automatic detection is incorrect and displays irrelevant filter options, please configure the database accordingly."
+msgstr ""
+
+#: includes/block.min.js:426
+#: admin/form_style_tab.php:1669
+#: admin/form_template_tab.php:828
+#: admin/page-seo-permalinks.php:47
+msgid "Categories"
+msgstr ""
+
+#: includes/block.min.js:432
+#: includes/blocks_widget_create.php:891
+msgid "Use Category slugs, comma separated."
+msgstr ""
+
+#: includes/block.min.js:435
+#: admin/form_style_tab.php:1666
+#: admin/page-seo-permalinks.php:48
+#: includes/widget_design_template.php:748
+msgid "Tags"
+msgstr ""
+
+#: includes/block.min.js:441
+#: includes/blocks_widget_create.php:900
+msgid "Use Tag slugs, comma separated."
+msgstr ""
+
+#: includes/block.min.js:444
+#: admin/form_style_tab.php:286
+#: includes/blocks_widget_create.php:906
+#: includes/filter-template.php:587
+#: includes/filter-template.php:779
 msgid "Attribute"
 msgstr ""
 
-#. %s is replaced with the attribute label.
-#: admin/page-seo-permalinks.php:163 admin/page-seo-permalinks.php:171
+#: includes/block.min.js:452
+#: includes/blocks_widget_create.php:914
+#: includes/filter-template.php:595
+msgid "Attribute Terms"
+msgstr ""
+
+#: includes/block.min.js:458
+#: includes/blocks_widget_create.php:917
+msgid "Use Attribute terms slugs, comma separated."
+msgstr ""
+
+#: includes/block.min.js:462
+#: admin/admin-page.php:829
+#: includes/blocks_widget_create.php:928
+msgid "Form Manage"
+msgstr ""
+
+#. translators: %s: filter name.
+#: includes/block.min.js:478
+#, js-format
+msgid "Move %s up"
+msgstr ""
+
+#. translators: %s: filter name.
+#: includes/block.min.js:485
+#, js-format
+msgid "Move %s down"
+msgstr ""
+
+#. translators: %s: filter name.
+#: includes/block.min.js:492
+#, js-format
+msgid "Show %s"
+msgstr ""
+
+#: includes/block.min.js:501
+#: includes/blocks_widget_create.php:970
+msgid "Mobile Responsive Style"
+msgstr ""
+
+#: includes/block.min.js:503
+msgid "Style Type"
+msgstr ""
+
+#: includes/block.min.js:506
+#: dynamic-ajax-product-filters-for-woocommerce.php:4289
+#: includes/blocks_widget_create.php:984
+msgid "Use global setting"
+msgstr ""
+
+#: includes/block.min.js:507
+#: dynamic-ajax-product-filters-for-woocommerce.php:1018
+msgid "Style 1 (Horizontal bar)"
+msgstr ""
+
+#: includes/block.min.js:508
+#: dynamic-ajax-product-filters-for-woocommerce.php:1019
+msgid "Style 2 (Keep in place: use the theme's own mobile filter panel)"
+msgstr ""
+
+#: includes/block.min.js:509
+#: dynamic-ajax-product-filters-for-woocommerce.php:1020
+msgid "Style 3 (Popup)"
+msgstr ""
+
+#: includes/block.min.js:510
+#: dynamic-ajax-product-filters-for-woocommerce.php:1021
+msgid "Style 4 (Drawer)"
+msgstr ""
+
+#: includes/block.min.js:521
+msgid "Filter Word (Mobile)"
+msgstr ""
+
+#: includes/block.min.js:523
+msgid "Show Filter Word on Mobile"
+msgstr ""
+
+#: includes/block.min.js:531
+msgid "Showing"
+msgstr ""
+
+#: includes/block.min.js:531
+#: includes/block.min.js:700
+#: includes/block.min.js:1243
+#: includes/blocks_widget_create.php:1202
+#: includes/blocks_widget_create.php:2058
+#: includes/blocks_widget_create.php:2179
+msgid "Hidden"
+msgstr ""
+
+#: includes/block.min.js:533
+#: admin/admin-page.php:830
+msgid "Form Style"
+msgstr ""
+
+#: includes/block.min.js:534
+#: includes/block.min.js:641
+#: includes/block.min.js:710
+#: includes/block.min.js:785
+#: includes/block.min.js:853
+#: includes/block.min.js:951
+#: includes/block.min.js:1021
+#: includes/block.min.js:1082
+#: includes/block.min.js:1189
+#: includes/blocks_widget_create.php:1043
+#: includes/blocks_widget_create.php:1143
+#: includes/blocks_widget_create.php:1232
+#: includes/blocks_widget_create.php:1438
+#: includes/blocks_widget_create.php:1622
+msgid "Background"
+msgstr ""
+
+#: includes/block.min.js:544
+#: includes/block.min.js:652
+#: includes/block.min.js:759
+#: includes/block.min.js:808
+#: includes/block.min.js:883
+#: includes/block.min.js:995
+#: includes/block.min.js:1037
+#: includes/block.min.js:1213
+#: includes/blocks_widget_create.php:1065
+#: includes/blocks_widget_create.php:1165
+#: includes/blocks_widget_create.php:1309
+#: includes/blocks_widget_create.php:1376
+#: includes/blocks_widget_create.php:1489
+#: includes/blocks_widget_create.php:1689
+#: includes/blocks_widget_create.php:1753
+#: includes/blocks_widget_create.php:2022
+#: includes/blocks_widget_create.php:2132
+msgid "Padding"
+msgstr ""
+
+#: includes/block.min.js:556
+#: includes/block.min.js:664
+#: includes/block.min.js:771
+#: includes/block.min.js:820
+#: includes/block.min.js:895
+#: includes/block.min.js:1007
+#: includes/block.min.js:1049
+#: includes/block.min.js:1221
+#: includes/blocks_widget_create.php:1077
+#: includes/blocks_widget_create.php:1177
+#: includes/blocks_widget_create.php:1320
+#: includes/blocks_widget_create.php:1387
+#: includes/blocks_widget_create.php:1501
+#: includes/blocks_widget_create.php:1702
+#: includes/blocks_widget_create.php:1766
+#: includes/blocks_widget_create.php:1883
+#: includes/blocks_widget_create.php:2033
+#: includes/blocks_widget_create.php:2143
+msgid "Margin"
+msgstr ""
+
+#: includes/block.min.js:568
+#: includes/block.min.js:688
+msgid "Shadow"
+msgstr ""
+
+#. translators: %s: example CSS box-shadow value.
+#: includes/block.min.js:577
+#, js-format
+msgid "e.g. %s"
+msgstr ""
+
+#: includes/block.min.js:581
+#: admin/form-manage.php:848
+#: admin/page-seo-permalinks.php:61
+#: includes/blocks_widget_create.php:2193
+msgid "Height"
+msgstr ""
+
+#: includes/block.min.js:627
+#: includes/block.min.js:676
+#: includes/block.min.js:735
+#: includes/block.min.js:832
+#: includes/block.min.js:907
+#: includes/block.min.js:1061
+#: includes/block.min.js:1091
+#: includes/blocks_widget_create.php:1053
+#: includes/blocks_widget_create.php:1153
+#: includes/blocks_widget_create.php:1261
+#: includes/blocks_widget_create.php:1398
+#: includes/blocks_widget_create.php:1512
+#: includes/blocks_widget_create.php:1779
+#: includes/blocks_widget_create.php:2153
+msgid "Border Radius"
+msgstr ""
+
+#: includes/block.min.js:640
+#: includes/block.min.js:1237
+msgid "Container Style"
+msgstr ""
+
+#: includes/block.min.js:695
+#: includes/block.min.js:1238
+#: includes/blocks_widget_create.php:1198
+#: includes/blocks_widget_create.php:2054
+#: includes/blocks_widget_create.php:2175
+msgid "Overflow"
+msgstr ""
+
+#: includes/block.min.js:699
+#: includes/block.min.js:1242
+#: includes/blocks_widget_create.php:951
+#: includes/blocks_widget_create.php:1201
+#: includes/blocks_widget_create.php:2057
+#: includes/blocks_widget_create.php:2178
+msgid "Visible"
+msgstr ""
+
+#: includes/block.min.js:701
+#: includes/block.min.js:1244
+#: includes/blocks_widget_create.php:1203
+#: includes/blocks_widget_create.php:2059
+#: includes/blocks_widget_create.php:2180
+msgid "Scroll"
+msgstr ""
+
+#: includes/block.min.js:702
+#: includes/block.min.js:1245
+#: includes/blocks_widget_create.php:1204
+#: includes/blocks_widget_create.php:2060
+#: includes/blocks_widget_create.php:2181
+msgid "Auto"
+msgstr ""
+
+#: includes/block.min.js:709
+msgid "Widget Title Style"
+msgstr ""
+
+#: includes/block.min.js:721
+#: includes/block.min.js:794
+#: includes/block.min.js:960
+#: includes/block.min.js:1204
+#: includes/blocks_widget_create.php:1242
+#: includes/blocks_widget_create.php:1357
+#: includes/blocks_widget_create.php:1632
+#: includes/blocks_widget_create.php:2003
+#: includes/blocks_widget_create.php:2113
+msgid "Typography"
+msgstr ""
+
+#: includes/block.min.js:728
+#: includes/block.min.js:801
+#: includes/block.min.js:862
+#: includes/block.min.js:967
+#: includes/block.min.js:1030
+#: admin/form_template_tab.php:239
+#: includes/blocks_widget_create.php:1250
+#: includes/blocks_widget_create.php:1365
+#: includes/blocks_widget_create.php:1447
+#: includes/blocks_widget_create.php:1642
+#: includes/blocks_widget_create.php:1741
+#: includes/blocks_widget_create.php:2011
+#: includes/blocks_widget_create.php:2121
+msgid "Text Color"
+msgstr ""
+
+#: includes/block.min.js:747
+#: includes/blocks_widget_create.php:1273
+msgid "Text Align"
+msgstr ""
+
+#: includes/block.min.js:752
+#: includes/blocks_widget_create.php:1281
+msgid "Center"
+msgstr ""
+
+#: includes/block.min.js:784
+msgid "Widget Items Style"
+msgstr ""
+
+#: includes/block.min.js:844
+#: includes/block.min.js:1229
+#: includes/blocks_widget_create.php:1410
+#: includes/blocks_widget_create.php:1588
+#: includes/blocks_widget_create.php:2043
+#: includes/blocks_widget_create.php:2164
+msgid "Gap"
+msgstr ""
+
+#: includes/block.min.js:852
+#: includes/blocks_widget_create.php:1426
+msgid "Button Style"
+msgstr ""
+
+#: includes/block.min.js:869
+#: includes/block.min.js:974
+#: includes/blocks_widget_create.php:1458
+#: includes/blocks_widget_create.php:1655
+msgid "Hover Background"
+msgstr ""
+
+#: includes/block.min.js:876
+#: includes/block.min.js:981
+#: includes/blocks_widget_create.php:1469
+#: includes/blocks_widget_create.php:1667
+msgid "Hover Text Color"
+msgstr ""
+
+#: includes/block.min.js:920
+#: includes/blocks_widget_create.php:1527
+msgid "Rating Style"
+msgstr ""
+
+#: includes/block.min.js:921
+#: includes/blocks_widget_create.php:1538
+msgid "Rating Size"
+msgstr ""
+
+#: includes/block.min.js:928
+#: includes/blocks_widget_create.php:1555
+msgid "Inactive Color"
+msgstr ""
+
+#: includes/block.min.js:935
+#: includes/blocks_widget_create.php:1566
+msgid "Active Color"
+msgstr ""
+
+#: includes/block.min.js:942
+#: includes/blocks_widget_create.php:1577
+msgid "Hover Color"
+msgstr ""
+
+#: includes/block.min.js:950
+#: includes/blocks_widget_create.php:1609
+msgid "Reset Button Style"
+msgstr ""
+
+#: includes/block.min.js:988
+#: includes/block.min.js:1073
+#: includes/blocks_widget_create.php:1481
+#: includes/blocks_widget_create.php:1680
+#: includes/blocks_widget_create.php:1793
+msgid "Border"
+msgstr ""
+
+#: includes/block.min.js:1020
+#: includes/blocks_widget_create.php:1717
+msgid "Input Style"
+msgstr ""
+
+#: includes/block.min.js:1081
+msgid "Slider Style"
+msgstr ""
+
+#: includes/block.min.js:1103
+msgid "Progress Background"
+msgstr ""
+
+#: includes/block.min.js:1110
+msgid "Progress Border Radius"
+msgstr ""
+
+#: includes/block.min.js:1122
+msgid "Progress Margin"
+msgstr ""
+
+#: includes/block.min.js:1134
+#: includes/blocks_widget_create.php:1896
+msgid "Thumb Size"
+msgstr ""
+
+#: includes/block.min.js:1141
+#: includes/blocks_widget_create.php:1916
+msgid "Thumb Background"
+msgstr ""
+
+#: includes/block.min.js:1148
+#: includes/blocks_widget_create.php:1930
+msgid "Tooltip Background"
+msgstr ""
+
+#: includes/block.min.js:1160
+msgid "Inactive Style"
+msgstr ""
+
+#: includes/block.min.js:1161
+#: includes/blocks_widget_create.php:1959
+msgid "Inactive Background Color"
+msgstr ""
+
+#: includes/block.min.js:1166
+msgid "Inactive Text Color"
+msgstr ""
+
+#: includes/block.min.js:1174
+msgid "Active Style"
+msgstr ""
+
+#: includes/block.min.js:1175
+#: includes/blocks_widget_create.php:1969
+msgid "Active Background Color"
+msgstr ""
+
+#: includes/block.min.js:1180
+#: includes/blocks_widget_create.php:1979
+msgid "Active Text Color"
+msgstr ""
+
+#: includes/block.min.js:1188
+msgid "Hover Style"
+msgstr ""
+
+#: includes/block.min.js:1196
+#: dynamic-ajax-product-filters-for-woocommerce.php:2417
+msgid "Color"
+msgstr ""
+
+#: includes/block.min.js:1212
+msgid "Spacing"
+msgstr ""
+
+#: includes/block.min.js:1251
+#: includes/blocks_widget_create.php:2071
+#: includes/blocks_widget_create.php:2222
+msgid "Flex Wrap"
+msgstr ""
+
+#: includes/block.min.js:1255
+#: includes/blocks_widget_create.php:2074
+#: includes/blocks_widget_create.php:2225
+msgid "No Wrap"
+msgstr ""
+
+#: includes/block.min.js:1256
+#: includes/blocks_widget_create.php:2075
+#: includes/blocks_widget_create.php:2226
+msgid "Wrap"
+msgstr ""
+
+#: includes/block.min.js:1257
+#: includes/blocks_widget_create.php:2076
+#: includes/blocks_widget_create.php:2227
+msgid "Wrap Reverse"
+msgstr ""
+
+#: includes/block.min.js:1271
+msgid "Extra Class Name"
+msgstr ""
+
+#: includes/block.min.js:1277
+msgid "Custom CSS"
+msgstr ""
+
+#: admin/admin-notice.php:72
+msgid "The following slugs are duplicated across categories, tags, or attributes:"
+msgstr ""
+
+#: admin/admin-notice.php:78
+msgid "Please ensure each slug is unique to avoid filtering issues."
+msgstr ""
+
+#: admin/admin-notice.php:79
+#: includes/get_review.php:47
+#: includes/get_review.php:216
+msgid "Remind Me Later"
+msgstr ""
+
+#: admin/admin-notice.php:114
+msgid "You do not have permission to dismiss this notice."
+msgstr ""
+
+#: admin/admin-notice.php:146
+msgid "Insufficient permissions."
+msgstr ""
+
+#. translators: %d: number of hours the notice stays dismissed.
+#: admin/admin-notice.php:161
+#, php-format
+msgid "Notice dismissed for %d hours."
+msgstr ""
+
+#: admin/admin-page.php:11
+msgid "WooCommerce Product Filters"
+msgstr ""
+
+#: admin/admin-page.php:12
+msgid "Product Filters"
+msgstr ""
+
+#: admin/admin-page.php:21
+#: admin/admin-page.php:22
+#: dynamic-ajax-product-filters-for-woocommerce.php:3121
+msgid "Our Plugins"
+msgstr ""
+
+#: admin/admin-page.php:33
+#: admin/admin-page.php:457
+#: admin/admin-page.php:805
+#: admin/admin-page.php:834
+#: admin/form-manage.php:832
+#: admin/license-page.php:73
+#: dynamic-ajax-product-filters-for-woocommerce.php:3122
+msgid "Get Pro"
+msgstr ""
+
+#: admin/admin-page.php:34
+msgid "⭐ Get Pro"
+msgstr ""
+
+#: admin/admin-page.php:56
+msgid "You do not have sufficient permissions to install plugins on this site."
+msgstr ""
+
+#: admin/admin-page.php:84
+msgid "Plugincy Plugins"
+msgstr ""
+
+#: admin/admin-page.php:94
+msgid "No plugins found for this author."
+msgstr ""
+
+#: admin/admin-page.php:114
+msgid "Install Now"
+msgstr ""
+
+#: admin/admin-page.php:119
+msgid "Update Now"
+msgstr ""
+
+#: admin/admin-page.php:125
+#: admin/form_template_tab.php:107
+#: admin/form_template_tab.php:820
+msgid "Active"
+msgstr ""
+
+#: admin/admin-page.php:129
+#: admin/form_template_tab.php:141
+#: admin/form_template_tab.php:818
+msgid "Activate"
+msgstr ""
+
+#: admin/admin-page.php:133
+msgid "Installed"
+msgstr ""
+
+#. translators: %s: Plugin name.
+#: admin/admin-page.php:173
+#, php-format
+msgid "More details about %s"
+msgstr ""
+
+#. translators: %s: Plugin author.
+#: admin/admin-page.php:182
+#, php-format
+msgid "By %s"
+msgstr ""
+
+#. translators: %s: Plugin version.
+#: admin/admin-page.php:209
+#, php-format
+msgid "Version %s"
+msgstr ""
+
+#. translators: %s: Number of active installs.
+#: admin/admin-page.php:216
+#, php-format
+msgid "%s+ active installs"
+msgstr ""
+
+#: admin/admin-page.php:226
+msgid "Untested with your version of WordPress"
+msgstr ""
+
+#: admin/admin-page.php:229
+msgid "Incompatible with your version of WordPress"
+msgstr ""
+
+#: admin/admin-page.php:232
+msgid "Compatible with your version of WordPress"
+msgstr ""
+
+#: admin/admin-page.php:248
+msgid "Basic"
+msgstr ""
+
+#: admin/admin-page.php:268
+msgid "Comet"
+msgstr ""
+
+#: admin/admin-page.php:287
+msgid "Counter Arcs"
+msgstr ""
+
+#: admin/admin-page.php:326
+msgid "Dot Ring"
+msgstr ""
+
+#: admin/admin-page.php:344
+msgid "Half Ring"
+msgstr ""
+
+#: admin/admin-page.php:362
+msgid "Chase"
+msgstr ""
+
+#: admin/admin-page.php:418
+msgid "Transform your store with lightning-fast, user-friendly product filtering"
+msgstr ""
+
+#: admin/admin-page.php:421
+msgid "Version"
+msgstr ""
+
+#: admin/admin-page.php:427
+msgid "Quick Start Guide"
+msgstr ""
+
+#: admin/admin-page.php:430
+#: admin/form_style_tab.php:1583
+msgid "1"
+msgstr ""
+
+#: admin/admin-page.php:432
+msgid "Configure Filters"
+msgstr ""
+
+#: admin/admin-page.php:433
+msgid "Set up your product attributes, categories, and price ranges"
+msgstr ""
+
+#: admin/admin-page.php:437
+#: admin/form_style_tab.php:1586
+msgid "2"
+msgstr ""
+
+#: admin/admin-page.php:439
+msgid "Customize Appearance"
+msgstr ""
+
+#: admin/admin-page.php:440
+msgid "Choose colors, layouts, and animations that match your theme"
+msgstr ""
+
+#: admin/admin-page.php:444
+#: admin/form_style_tab.php:1589
+msgid "3"
+msgstr ""
+
+#: admin/admin-page.php:446
+msgid "Deploy & Monitor"
+msgstr ""
+
+#: admin/admin-page.php:447
+msgid "Add filters to your shop pages and track performance improvements"
+msgstr ""
+
+#: admin/admin-page.php:461
+msgid "View Demo"
+msgstr ""
+
+#: admin/admin-page.php:466
+msgid "View Documentation"
+msgstr ""
+
+#: admin/admin-page.php:471
+msgid "Get Support"
+msgstr ""
+
+#: admin/admin-page.php:478
+msgid "24/7 Premium Support"
+msgstr ""
+
+#: admin/admin-page.php:482
+msgid "Regular Updates"
+msgstr ""
+
+#: admin/admin-page.php:486
+msgid "Money Back Guarantee"
+msgstr ""
+
+#: admin/admin-page.php:800
+msgid "Manage WooCommerce Product Filters"
+msgstr ""
+
+#: admin/admin-page.php:801
+#: admin/settings-init.php:201
+msgid "Form Style Configuration"
+msgstr ""
+
+#: admin/admin-page.php:802
+#: admin/form_template_tab.php:15
+msgid "Form Templates"
+msgstr ""
+
+#: admin/admin-page.php:803
+#: admin/settings-init.php:396
+msgid "SEO Configuration"
+msgstr ""
+
+#: admin/admin-page.php:804
+#: admin/form_style_tab.php:1433
+#: admin/settings-init.php:251
+msgid "Advanced Settings"
+msgstr ""
+
+#: admin/admin-page.php:831
+msgid "Form Template"
+msgstr ""
+
+#: admin/admin-page.php:832
+msgid "SEO & Permalinks Settings"
+msgstr ""
+
+#: admin/admin-page.php:833
+msgid "Advance Settings"
+msgstr ""
+
+#: admin/admin-page.php:845
+msgid "Customize Loading Effect"
+msgstr ""
+
+#: admin/admin-page.php:847
+msgid "Note:"
+msgstr ""
+
+#: admin/admin-page.php:847
+msgid "style=\"display:none;\" id=\"loader\" is required"
+msgstr ""
+
+#: admin/admin-page.php:848
+msgid "html values will be here"
+msgstr ""
+
+#: admin/admin-page.php:857
+msgid "CSS values will be here"
+msgstr ""
+
+#: admin/admin-page.php:865
+msgid "Select a loading effect (or get html & css code from anywhere paste & save):"
+msgstr ""
+
+#: admin/admin-page.php:885
+#: admin/admin-page.php:1084
+#: admin/admin-page.php:1104
+msgid "Save"
+msgstr ""
+
+#: admin/admin-page.php:911
+msgid "Cache Management"
+msgstr ""
+
+#: admin/admin-page.php:924
+msgid "Cache Status"
+msgstr ""
+
+#. translators: %s: Date and time the cache status was last updated.
+#: admin/admin-page.php:932
+#, php-format
+msgid "Last updated: %s"
+msgstr ""
+
+#: admin/admin-page.php:942
+#: admin/admin-page.php:949
+msgid "Clear Cache"
+msgstr ""
+
+#: admin/admin-page.php:944
+msgid "Clear the filter caches (term, product and price data) so the filters are rebuilt from the current products and settings."
+msgstr ""
+
+#: admin/admin-page.php:955
+#: admin/admin-page.php:979
+msgid "Refresh Filter Cache"
+msgstr ""
+
+#. translators: %d: published product count
+#: admin/admin-page.php:962
+#, php-format
+msgid "Current published products: %d. This store is using database-safe automatic mode, so full-catalog serialized caches are not built. Refresh clears cached filter metadata and keeps the large-catalog safe path active."
+msgstr ""
+
+#. translators: %d: published product count
+#: admin/admin-page.php:968
+#, php-format
+msgid "Queues an automatic background refresh for filter counts and product detail caches. Current published products: %d. Large catalogues switch to database-safe automatic mode instead of full-catalog serialized caches."
+msgstr ""
+
+#: admin/admin-page.php:988
+msgid "Import &amp; Export Settings"
+msgstr ""
+
+#: admin/admin-page.php:992
+msgid "Import Settings"
+msgstr ""
+
+#: admin/admin-page.php:998
+msgid "Import"
+msgstr ""
+
+#: admin/admin-page.php:1003
+msgid "Export Settings"
+msgstr ""
+
+#: admin/admin-page.php:1007
+msgid "Export"
+msgstr ""
+
+#: admin/admin-page.php:1061
+msgid "Shortcodes for Displaying Filters"
+msgstr ""
+
+#: admin/admin-page.php:1078
+msgid "Displays the full filter form."
+msgstr ""
+
+#: admin/admin-page.php:1083
+msgid "set value"
+msgstr ""
+
+#: admin/admin-page.php:1085
+#: admin/admin-page.php:1105
+msgid "Cancel"
+msgstr ""
+
+#: admin/admin-page.php:1087
+msgid "Shortcode builder"
+msgstr ""
+
+#: admin/admin-page.php:1088
+#: admin/admin-page.php:1108
+#: admin/admin-page.php:1121
+#: admin/admin-page.php:1830
+msgid "Copy shortcode"
+msgstr ""
+
+#: admin/admin-page.php:1096
+msgid "Click a value to edit it. Use + to add parameters and x to remove them."
+msgstr ""
+
+#: admin/admin-page.php:1098
+msgid "Shows a single filter button."
+msgstr ""
+
+#: admin/admin-page.php:1103
+msgid "select attribute"
+msgstr ""
+
+#: admin/admin-page.php:1107
+msgid "Single filter shortcode builder"
+msgstr ""
+
+#: admin/admin-page.php:1117
+msgid "Click the attribute value to search and choose the attribute slug for this shortcode."
+msgstr ""
+
+#: admin/admin-page.php:1118
+msgid "Displays selected filters."
+msgstr ""
+
+#: admin/admin-page.php:1127
+msgid "Learn more about using shortcodes"
+msgstr ""
+
+#: admin/admin-page.php:1131
+msgid "Tip: instead of shortcodes, use our Elementor widget & Gutenberg block for easier management"
+msgstr ""
+
+#: admin/admin-page.php:1133
+msgid "Dynamic Ajax Filter (Block/Widget)"
+msgstr ""
+
+#: admin/admin-page.php:1144
+msgid "Filters Not Working?"
+msgstr ""
+
+#: admin/admin-page.php:1151
+msgid "Filters not updating?"
+msgstr ""
+
+#: admin/admin-page.php:1152
+msgid "If you are using a cache plugin, clear the cache. If it persists, go to Advanced Settings and click \"Clear Cache\"."
+msgstr ""
+
+#: admin/admin-page.php:1157
+msgid "Filters not responding?"
+msgstr ""
+
+#: admin/admin-page.php:1158
+msgid "Adjust the selectors in Advanced Settings to match your theme."
+msgstr ""
+
+#: admin/admin-page.php:1160
+msgid "View docs"
+msgstr ""
+
+#: admin/admin-page.php:1166
+msgid "Filters behaving unexpectedly?"
+msgstr ""
+
+#: admin/admin-page.php:1167
+msgid "Temporarily deactivate other filter plugins to check for conflicts."
+msgstr ""
+
+#: admin/admin-page.php:1172
+msgid "Still facing issues?"
+msgstr ""
+
+#: admin/admin-page.php:1173
+msgid "Reach out to Plugincy Support - we're always here to help."
+msgstr ""
+
+#: admin/admin-page.php:1175
+msgid "Plugincy Support"
+msgstr ""
+
+#: admin/admin-page.php:1195
+msgid "Full tutorial"
+msgstr ""
+
+#: admin/admin-page.php:1196
+msgid "Learn how to install the plugin and configure basic settings. This tutorial covers the initial setup process and activation."
+msgstr ""
+
+#: admin/admin-page.php:1203
+msgid "Add product filter in any pages with elementor"
+msgstr ""
+
+#: admin/admin-page.php:1204
+#: admin/admin-page.php:1670
+msgid "Learn how to add product filters to any page using Elementor."
+msgstr ""
+
+#: admin/admin-page.php:1212
+msgid "Add Dynamic AJAX Product Filters to WooCommerce Sidebar (Widget & Elementor Method)"
+msgstr ""
+
+#: admin/admin-page.php:1213
+msgid "This step-by-step guide shows how to quickly enable product filtering without page reloads, improving user experience, navigation, and conversions for your WooCommerce store."
+msgstr ""
+
+#: admin/admin-page.php:1220
+msgid "Display WooCommerce Product Filters with Gutenberg Block Editor | Widget & Page Editor"
+msgstr ""
+
+#: admin/admin-page.php:1221
+msgid ""
+"In this tutorial, you’ll learn how to display Dynamic AJAX Product Filters using the Gutenberg (Block) Editor in WooCommerce.\n"
+"\n"
+"We’ll cover both methods:\n"
+"-Using the Widget (Block-based Widgets screen)\n"
+"-Using the Page Editor (Gutenberg blocks)\n"
+"This allows you to easily add product filters to shop pages, archive pages, or custom layouts without any coding."
+msgstr ""
+
+#: admin/admin-page.php:1233
+msgid "Display Dynamic Ajax Product Filter on other page builder (using shortcode method)"
+msgstr ""
+
+#: admin/admin-page.php:1234
+msgid ""
+"In this tutorial, you’ll learn how to display Dynamic AJAX Product Filters in Divi using the shortcode method for WooCommerce.\n"
+"If you’re using the Divi theme or Divi Builder, this video will show you how to easily insert product filters anywhere on your site without coding. Using shortcodes ensures full compatibility and flexible placement within Divi layouts."
+msgstr ""
+
+#: admin/admin-page.php:1242
+#: admin/admin-page.php:1685
+msgid "Mobile Responsive Configuration for Dynamic AJAX Product Filters"
+msgstr ""
+
+#: admin/admin-page.php:1243
+msgid ""
+"Learn how to configure mobile-responsive filters using Dynamic AJAX Product Filters for WooCommerce to ensure a smooth shopping experience on all devices.\n"
+"This tutorial focuses on optimizing filters for mobile users without compromising performance or design."
+msgstr ""
+
+#: admin/admin-page.php:1251
+msgid "Display chips or active widget on Widget, Elementor, Gutenburg & with Shortcode"
+msgstr ""
+
+#: admin/admin-page.php:1252
+msgid ""
+"In this tutorial, you’ll learn how to display active filter chips (selected filters) using Dynamic AJAX Product Filters for WooCommerce across multiple builders and methods.\n"
+"We’ll show you how to display the active filters widget."
+msgstr ""
+
+#: admin/admin-page.php:1260
+msgid "Display single button style filter widget on Elementor, Gutenburg & with shortcode"
+msgstr ""
+
+#: admin/admin-page.php:1261
+msgid ""
+"In this tutorial, you’ll learn how to display a Single Button Style Product Filter using Dynamic AJAX Product Filters for WooCommerce with multiple methods.\n"
+"We’ll show how to add and use the single button filter with Widget,\n"
+"Elementor, Gutenberg Shortcode. Single button style filters are perfect for minimal UI designs, mobile-friendly layouts, and stores that want a clean, distraction-free filtering experience."
+msgstr ""
+
+#: admin/admin-page.php:1270
+msgid " How to reorder/rearrange filter widget with elementor & gutenburg."
+msgstr ""
+
+#: admin/admin-page.php:1271
+msgid "Learn how to reorder and rearrange filter widgets using Elementor and Gutenberg."
+msgstr ""
+
+#: admin/admin-page.php:1277
+msgid " Terms Ordering in WooCommerce"
+msgstr ""
+
+#: admin/admin-page.php:1278
+#: admin/admin-page.php:1702
+msgid "Learn how to order filter terms."
+msgstr ""
+
+#: admin/admin-page.php:1284
+msgid "How to Remove a Filter with global settings, Exclude Attribute & Custom Fields"
+msgstr ""
+
+#: admin/admin-page.php:1285
+msgid "Learn how to remove a filter widget from the global settings, exclude attributes, and manage custom fields."
+msgstr ""
+
+#: admin/admin-page.php:1292
+msgid "Best Seo configuration with dynamic ajax product filter"
+msgstr ""
+
+#: admin/admin-page.php:1293
+msgid "Learn how to configure SEO settings for the Dynamic Ajax Product Filter plugin."
+msgstr ""
+
+#: admin/admin-page.php:1300
+msgid "Text Management in Dynamic AJAX Product Filters | Customize Filter Titles, Labels, and Placeholders"
+msgstr ""
+
+#: admin/admin-page.php:1301
+msgid "Learn how to customize filter titles, labels, and placeholders in Dynamic AJAX Product Filters."
+msgstr ""
+
+#: admin/admin-page.php:1308
+#: admin/admin-page.php:1717
+msgid "How to Debug & Fix Dynamic AJAX Product Filter Issues in WooCommerce (Cache Clean Included)"
+msgstr ""
+
+#: admin/admin-page.php:1309
+msgid "Learn how to debug and fix issues in Dynamic AJAX Product Filters."
+msgstr ""
+
+#: admin/admin-page.php:1665
+msgid "Full Tutorial - Dynamic AJAX Product Filters Plugin"
+msgstr ""
+
+#: admin/admin-page.php:1666
+msgid "Learn how to install the plugin and configure basic settings. Covers initial setup and activation."
+msgstr ""
+
+#: admin/admin-page.php:1669
+msgid "How to Add Product Filter in Any Pages with Elementor"
+msgstr ""
+
+#: admin/admin-page.php:1673
+msgid "Add Dynamic AJAX Product Filter on Sidebar Widget & Elementor (Archive Pages)"
+msgstr ""
+
+#: admin/admin-page.php:1674
+msgid "Quickly enable product filtering without page reloads, improving UX, navigation, and conversions."
+msgstr ""
+
+#: admin/admin-page.php:1677
+msgid "Display WooCommerce Product Filters with Gutenberg Block Editor (Widget & Page Editor)"
+msgstr ""
+
+#: admin/admin-page.php:1678
+msgid "Display filters using the Gutenberg Widget and Page Editor - no coding required."
+msgstr ""
+
+#: admin/admin-page.php:1681
+msgid "Display Dynamic AJAX Product Filter with Divi (Using Shortcode)"
+msgstr ""
+
+#: admin/admin-page.php:1682
+msgid "Insert product filters anywhere in Divi layouts using the shortcode method."
+msgstr ""
+
+#: admin/admin-page.php:1686
+msgid "Configure mobile-responsive filters for a smooth shopping experience on all devices."
+msgstr ""
+
+#: admin/admin-page.php:1689
+msgid "Display Chips or Active Widget on Widget, Elementor, Gutenberg & with Shortcode"
+msgstr ""
+
+#: admin/admin-page.php:1690
+msgid "Display active filter chips (selected filters) across multiple builders and methods."
+msgstr ""
+
+#: admin/admin-page.php:1693
+msgid "Display Single Button Style Filter Widget on Elementor, Gutenberg & with Shortcode"
+msgstr ""
+
+#: admin/admin-page.php:1694
+msgid "Add a single button style filter - perfect for minimal, mobile-friendly, distraction-free layouts."
+msgstr ""
+
+#: admin/admin-page.php:1697
+msgid "How to Reorder/Rearrange Filter Widget with Elementor & Gutenberg"
+msgstr ""
+
+#: admin/admin-page.php:1698
+msgid "Reorder and rearrange filter widgets using Elementor and Gutenberg."
+msgstr ""
+
+#: admin/admin-page.php:1701
+msgid "Terms Ordering in WooCommerce Product Filters"
+msgstr ""
+
+#: admin/admin-page.php:1705
+msgid "How to Remove a Filter Widget with Global Settings, Exclude Attribute & Custom Fields"
+msgstr ""
+
+#: admin/admin-page.php:1706
+msgid "Remove a filter widget from global settings, exclude attributes, and manage custom fields."
+msgstr ""
+
+#: admin/admin-page.php:1709
+msgid "Best SEO Configuration with Dynamic AJAX Product Filter"
+msgstr ""
+
+#: admin/admin-page.php:1710
+msgid "Configure SEO settings for the Dynamic AJAX Product Filter plugin."
+msgstr ""
+
+#: admin/admin-page.php:1713
+msgid "Text Management in Dynamic AJAX Product Filters | Customize Titles, Labels & Placeholders"
+msgstr ""
+
+#: admin/admin-page.php:1714
+msgid "Customize filter titles, labels, and placeholders."
+msgstr ""
+
+#: admin/admin-page.php:1718
+msgid "Debug and fix issues in Dynamic AJAX Product Filters."
+msgstr ""
+
+#: admin/admin-page.php:1738
+msgid "Video Tutorials & Documentation"
+msgstr ""
+
+#: admin/admin-page.php:1741
+msgid "Step-by-step guides to help you master every part of the plugin."
+msgstr ""
+
+#: admin/admin-page.php:1748
+msgid "Tutorials"
+msgstr ""
+
+#: admin/admin-page.php:1778
+msgid "Play tutorial video"
+msgstr ""
+
+#: admin/admin-page.php:1797
+msgid "Read Full Documentation"
+msgstr ""
+
+#: admin/admin-page.php:1809
+msgid "Topics Covered"
+msgstr ""
+
+#: admin/admin-page.php:1826
+msgid "Related Shortcode"
+msgstr ""
+
+#: admin/admin-page.php:1831
+#: admin/admin-page.php:4705
+msgid "Copy"
+msgstr ""
+
+#: admin/admin-page.php:1844
+msgid "Parameters"
+msgstr ""
+
+#: admin/admin-page.php:1865
+msgid "Usage Examples"
+msgstr ""
+
+#: admin/admin-page.php:1883
+msgid "Endpoint:"
+msgstr ""
+
+#: admin/admin-page.php:1888
+msgid "Headers:"
+msgstr ""
+
+#: admin/admin-page.php:1894
+msgid "Steps / Request Body:"
+msgstr ""
+
+#: admin/admin-page.php:1915
+msgid "Response:"
+msgstr ""
+
+#: admin/admin-page.php:3808
+msgid "Search options..."
+msgstr ""
+
+#: admin/admin-page.php:3820
+msgid "No options available."
+msgstr ""
+
+#: admin/admin-page.php:4015
+msgid "Remove parameter"
+msgstr ""
+
+#: admin/admin-page.php:4036
+msgid "Add parameter"
+msgstr ""
+
+#: admin/admin-page.php:4443
+#: admin/admin-page.php:4491
+msgid "Security check failed."
+msgstr ""
+
+#: admin/admin-page.php:4448
+#: admin/admin-page.php:4495
+#: admin/admin-page.php:4598
+msgid "You do not have sufficient permissions to perform this action."
+msgstr ""
+
+#: admin/admin-page.php:4458
+#: admin/admin-page.php:4539
+msgid "Filter caches cleared. They are rebuilt automatically from the current products and settings."
+msgstr ""
+
+#: admin/admin-page.php:4547
+msgid "Filter cache refresh queued. The cache will rebuild automatically in background batches."
+msgstr ""
+
+#: admin/admin-page.php:4555
+msgid "Large-catalog database-safe mode is active. Filter metadata was refreshed without building full-catalog serialized caches."
+msgstr ""
+
+#: admin/admin-page.php:4563
+msgid "Filter cache refresh could not be queued. Please check the debug log."
+msgstr ""
+
+#: admin/admin-page.php:4590
+msgid "Security check failed. Settings were not reset."
+msgstr ""
+
+#: admin/admin-page.php:4617
+msgid "Dynamic AJAX Product Filters for WooCommerce settings have been reset to defaults."
+msgstr ""
+
+#: admin/admin-page.php:4641
+msgid "Reset Settings"
+msgstr ""
+
+#: admin/admin-page.php:4642
+msgid "Click the button below to reset all plugin settings to their default values. This action cannot be undone."
+msgstr ""
+
+#: admin/admin-page.php:4648
+msgid "Are you sure you want to reset all settings? This action cannot be undone."
+msgstr ""
+
+#: admin/admin-page.php:4649
+msgid "Reset All Settings"
+msgstr ""
+
+#: admin/admin-page.php:4667
+msgid "All plugin settings have been reset to defaults."
+msgstr ""
+
+#: admin/admin-page.php:4704
+msgid "Pro Features only"
+msgstr ""
+
+#: admin/admin-page.php:4706
+msgid "Copied"
+msgstr ""
+
+#: admin/admin-page.php:4748
+msgid "Will this plugin work with my theme?"
+msgstr ""
+
+#: admin/admin-page.php:4749
+msgid "Yes - it works with any theme following standard WooCommerce markup. If filters do not appear, adjust the CSS selectors in Advanced Settings to match your theme."
+msgstr ""
+
+#: admin/admin-page.php:4752
+msgid "Do the filters support pretty/SEO URLs?"
+msgstr ""
+
+#: admin/admin-page.php:4753
+msgid "Yes. See the “SEO & Permalinks Setup” tab to configure prefixes and enable attribute-based permalinks."
+msgstr ""
+
+#: admin/admin-page.php:4756
+msgid "How to reorder filter widget?"
+msgstr ""
+
+#: admin/admin-page.php:4757
+msgid "To reorder, use our built-in Dynamic Ajax Filter block or Elementor widget. You can see the “Form Manage” option there. Just drag & drop for re-order."
+msgstr ""
+
+#: admin/admin-page.php:4760
+msgid "How can I speed up filtering?"
+msgstr ""
+
+#: admin/admin-page.php:4761
+msgid "Enable caching at the server/plugin level, use smaller per-page sizes, and avoid overly broad queries. Our built-in AJAX cache also helps."
+msgstr ""
+
+#: admin/admin-page.php:4770
+msgid "Frequently Asked Questions"
+msgstr ""
+
+#: admin/advance_settings.php:14
+msgid "Enter the CSS selector for the product container. Default is ul.products."
+msgstr ""
+
+#: admin/advance_settings.php:30
+msgid "Manage advanced pagination settings"
+msgstr ""
+
+#: admin/advance_settings.php:31
+msgid "Advanced Pagination"
+msgstr ""
+
+#: admin/advance_settings.php:32
+msgid "Set an explicit pagination mode only when your theme uses custom pagination markup or mixed pagination behaviors."
+msgstr ""
+
+#: admin/advance_settings.php:38
+#: includes/filter-template.php:640
+msgid "Enter the CSS selector for the pagination container. Default is .woocommerce-pagination."
+msgstr ""
+
+#: admin/advance_settings.php:50
+msgid "Enter the CSS selector for the WooCommerce sorting dropdown. Default is form.woocommerce-ordering select."
+msgstr ""
+
+#: admin/advance_settings.php:62
+msgid "Enter the CSS selector for the result count wrapper. Default is .woocommerce-result-count."
+msgstr ""
+
+#: admin/advance_settings.php:144
+msgid "Number"
+msgstr ""
+
+#: admin/advance_settings.php:145
+msgid "Number + Prev/Next"
+msgstr ""
+
+#: admin/advance_settings.php:146
+msgid "Load More"
+msgstr ""
+
+#: admin/advance_settings.php:147
+msgid "Infinite Scroll"
+msgstr ""
+
+#: admin/advance_settings.php:168
+msgid "Keep the Pagination Selector above pointed at the container that should be refreshed after AJAX. Enable advanced pagination only when you need to force a specific pagination behavior."
+msgstr ""
+
+#: admin/advance_settings.php:173
+msgid "Enable Advanced Pagination"
+msgstr ""
+
+#: admin/advance_settings.php:176
+msgid "When enabled, the selected mode and selectors will take priority over the plugin's automatic pagination detection."
+msgstr ""
+
+#: admin/advance_settings.php:180
+msgid "Pagination Mode"
+msgstr ""
+
+#: admin/advance_settings.php:186
+msgid "Choose the only pagination behavior this filter should use to avoid conflicts with theme or builder markup."
+msgstr ""
+
+#: admin/advance_settings.php:190
+msgid "Previous Selector"
+msgstr ""
+
+#: admin/advance_settings.php:192
+msgid "Optional. Use this when the Previous control has custom markup or sits outside the main pagination wrapper."
+msgstr ""
+
+#: admin/advance_settings.php:196
+msgid "Next Selector"
+msgstr ""
+
+#: admin/advance_settings.php:198
+msgid "Optional. Use this when the Next control has custom markup or sits outside the main pagination wrapper."
+msgstr ""
+
+#: admin/advance_settings.php:202
+msgid "Load More Trigger Selector"
+msgstr ""
+
+#: admin/advance_settings.php:204
+msgid "Optional. Use this when the Load More button is custom or outside the main pagination wrapper."
+msgstr ""
+
+#: admin/advance_settings.php:208
+msgid "Infinite Scroll Trigger Selector"
+msgstr ""
+
+#: admin/advance_settings.php:210
+msgid "Optional. Use this when infinite scrolling depends on a custom trigger or sentinel element."
+msgstr ""
+
+#: admin/advance_settings.php:224
+msgid "Enter the selector for the products shortcode. Default is products"
+msgstr ""
+
+#: admin/advance_settings.php:233
+#: admin/advance_settings.php:241
+#: dynamic-ajax-product-filters-for-woocommerce.php:2871
+msgid "Select Options"
+msgstr ""
+
+#: admin/advance_settings.php:236
+msgid "No products message"
+msgstr ""
+
+#: admin/advance_settings.php:238
+msgid "Shown when a filter results in zero products."
+msgstr ""
+
+#: admin/advance_settings.php:240
+msgid "Select2 dropdown placeholder"
+msgstr ""
+
+#: admin/advance_settings.php:242
+msgid "Default placeholder text for Select2 dropdowns."
+msgstr ""
+
+#: admin/advance_settings.php:249
+msgid "Enable this option to remove out-of-stock products from the filter results."
+msgstr ""
+
+#: admin/advance_settings.php:311
+msgid "Manage exclusions"
+msgstr ""
+
+#: admin/advance_settings.php:313
+#: admin/form-manage.php:802
+#: admin/form-manage.php:810
+#: includes/filter-template.php:495
+#: includes/filter-template.php:500
+#: includes/filter-template.php:505
+#: includes/filter-template.php:510
+#: includes/filter-template.php:521
+#: includes/filter-template.php:534
+#: includes/filter-template.php:555
+#: includes/filter-template.php:577
+#: includes/filter-template.php:607
+#: includes/filter-template.php:621
+#: includes/filter-template.php:667
+#: includes/filter-template.php:682
+#: includes/filter-template.php:696
+#: includes/filter-template.php:709
+msgid "Pro"
+msgstr ""
+
+#: admin/advance_settings.php:316
+msgid "Activate a premium license to exclude products from filter results."
+msgstr ""
+
+#: admin/advance_settings.php:323
+msgid "Show the browser wait cursor while filters are loading new products."
+msgstr ""
+
+#: admin/advance_settings.php:327
+msgid "Display a page overlay during AJAX filtering requests."
+msgstr ""
+
+#: admin/advance_settings.php:331
+msgid "Automatically scroll to the product grid after AJAX updates and enable scroll-based pagination helpers."
+msgstr ""
+
+#: admin/advance_settings.php:335
+msgid "Load pagination links through AJAX instead of a full page reload."
+msgstr ""
+
+#: admin/advance_settings.php:339
+msgid "Apply WooCommerce product sorting with AJAX instead of a full page reload."
+msgstr ""
+
+#: admin/advance_settings.php:343
+msgid "Enable one-step browser back/forward navigation for URL-based filters by reloading the page for each history step."
+msgstr ""
+
+#: admin/advance_settings.php:349
+msgid "We collect non-sensitive technical details from your website, like the PHP version and features usage, to help us troubleshoot issues faster, make informed development decisions, and build features that truly benefit you."
+msgstr ""
+
+#: admin/advance_settings.php:350
+msgid "Learn more..."
+msgstr ""
+
+#: admin/advance_settings.php:355
+msgid "For mobile move the sidebar to top position."
+msgstr ""
+
+#: admin/advance_settings.php:364
+msgid "Set the maximum viewport width (in pixels) where mobile-specific filter behavior should apply."
+msgstr ""
+
+#: admin/advance_settings.php:373
+msgid "Default (each filter's own style)"
+msgstr ""
+
+#: admin/advance_settings.php:379
+msgid "Applies to filters that do not set their own mobile style (classic widget, shortcode without mobile_responsive, blocks and Elementor widgets set to \"Use global setting\"). Choose Style 2 when your theme has its own mobile or off-canvas filter panel (for example Rey, Savoy, WoodMart, Flatsome, Martfury, Electro, TheGem, Woostify, Botiga, Riode, Zota, Shoptimizer): the plugin then leaves the filter in the sidebar so it shows inside the theme's panel."
+msgstr ""
+
+#: admin/advance_settings.php:385
+msgid "Make default value from shortcode & pages selected/checked"
+msgstr ""
+
+#: admin/advance_settings.php:393
+msgid "When the plugin is deleted from the Plugins page, remove its settings, caches and scheduled tasks. Off by default. While the Pro version is still installed, the settings shared with Pro are kept."
+msgstr ""
+
+#: admin/advance_settings.php:430
+msgid "Select Attributes to Exclude"
+msgstr ""
+
+#: admin/advance_settings.php:456
+msgid "Select Custom Fields to Exclude"
+msgstr ""
+
+#: admin/form-manage.php:14
+#: admin/form-manage.php:883
+#: admin/form_style_tab.php:1166
+msgid "On"
+msgstr ""
+
+#: admin/form-manage.php:15
+#: admin/form-manage.php:884
+#: admin/form_style_tab.php:1167
+msgid "Off"
+msgstr ""
+
+#: admin/form-manage.php:19
+msgid "Turn this on to use permalink filters on your front page and archive pages."
+msgstr ""
+
+#: admin/form-manage.php:22
+msgid "Enable this setting to name each filter type in the URL, like"
+msgstr ""
+
+#: admin/form-manage.php:23
+msgid "When it is off, only the values are listed, like"
+msgstr ""
+
+#: admin/form-manage.php:26
+msgid "Customize"
+msgstr ""
+
+#: admin/form-manage.php:26
+msgid "loading effect"
+msgstr ""
+
+#: admin/form-manage.php:29
+msgid "Add \"robots\" meta tag in head tag of HTML page if filters have been activated."
+msgstr ""
+
+#: admin/form-manage.php:33
+msgid "Choose Meta Tag:"
+msgstr ""
+
+#: admin/form-manage.php:651
+msgid "Close settings popup"
+msgstr ""
+
+#: admin/form-manage.php:668
+msgid "Save Changes"
+msgstr ""
+
+#: admin/form-manage.php:724
+#: admin/form-manage.php:762
+msgid "This control is available in Pro."
+msgstr ""
+
+#: admin/form-manage.php:766
+msgid "No custom product taxonomies were found on this site."
+msgstr ""
+
+#: admin/form-manage.php:772
+msgid "Select Custom Taxonomies"
+msgstr ""
+
+#: admin/form-manage.php:795
+msgid "Auto-detect and manual brand taxonomy mapping are available in the Pro version. Upgrade when you want to control which product taxonomies behave as brand sources for filters and product queries."
+msgstr ""
+
+#: admin/form-manage.php:801
+msgid "Auto-detect available brand taxonomies"
+msgstr ""
+
+#: admin/form-manage.php:804
+msgid "Use detected WooCommerce and third-party brand taxonomies automatically."
+msgstr ""
+
+#: admin/form-manage.php:809
+msgid "Manually choose brand taxonomies"
+msgstr ""
+
+#: admin/form-manage.php:812
+msgid "Map a custom product taxonomy to the brand filter when your store keeps brand data outside the default brand taxonomies."
+msgstr ""
+
+#: admin/form-manage.php:817
+msgid "Selected Brand Taxonomies"
+msgstr ""
+
+#: admin/form-manage.php:819
+msgid "Custom brand mapping preview"
+msgstr ""
+
+#: admin/form-manage.php:821
+msgid "Want to filter by custom brand taxonomies? Get the Pro version to unlock brand filter settings."
+msgstr ""
+
+#: admin/form-manage.php:831
+msgid "Maybe Later"
+msgstr ""
+
+#: admin/form-manage.php:840
+#: admin/page-seo-permalinks.php:58
+msgid "Length"
+msgstr ""
+
+#: admin/form-manage.php:844
+#: admin/page-seo-permalinks.php:55
+msgid "Width"
+msgstr ""
+
+#: admin/form-manage.php:852
+#: admin/page-seo-permalinks.php:64
+msgid "Weight"
+msgstr ""
+
+#: admin/form-manage.php:859
+msgid "Choose which dimensions should be visible and arrange their display order in the Pro version. The free version keeps the default dimension output."
+msgstr ""
+
+#: admin/form-manage.php:870
+msgid "Preview dimension visibility and ordering controls."
+msgstr ""
+
+#: admin/form-manage.php:875
+msgid "Move dimension preview up"
+msgstr ""
+
+#: admin/form-manage.php:876
+msgid "Move dimension preview down"
+msgstr ""
+
+#: admin/form-manage.php:891
+msgid "Want to choose which dimensions are visible and reorder them? Get the Pro version to unlock dimension filter settings."
+msgstr ""
+
+#: admin/form-manage.php:908
+msgid "Open attribute settings"
+msgstr ""
+
+#: admin/form-manage.php:909
+msgid "Exclude Attributes"
+msgstr ""
+
+#: admin/form-manage.php:910
+msgid "Choose which attributes should stay hidden from the filter form."
+msgstr ""
+
+#: admin/form-manage.php:929
+msgid "Open custom taxonomy filter settings"
+msgstr ""
+
+#: admin/form-manage.php:930
+msgid "Custom Taxonomy Filters"
+msgstr ""
+
+#: admin/form-manage.php:931
+msgid "Select which custom product taxonomies should be available in the filter form."
+msgstr ""
+
+#: admin/form-manage.php:958
+msgid "Open brand filter settings"
+msgstr ""
+
+#: admin/form-manage.php:959
+msgid "Brand Filter Settings"
+msgstr ""
+
+#: admin/form-manage.php:960
+msgid "Choose how brand taxonomies are mapped to brand filters in the Pro version."
+msgstr ""
+
+#: admin/form-manage.php:992
+msgid "Open dimension filter settings"
+msgstr ""
+
+#: admin/form-manage.php:993
+msgid "Dimension Filter Settings"
+msgstr ""
+
+#: admin/form-manage.php:994
+msgid "Preview dimension visibility and ordering controls available in the Pro version."
+msgstr ""
+
+#: admin/form-manage.php:1022
+msgid "Open custom field settings"
+msgstr ""
+
+#: admin/form-manage.php:1023
+msgid "Exclude Custom Fields"
+msgstr ""
+
+#: admin/form-manage.php:1024
+msgid "Choose which custom fields should stay hidden from the filter form."
+msgstr ""
+
+#: admin/form-manage.php:1082
+msgid "Enter your custom template code here."
+msgstr ""
+
+#: admin/form-manage.php:1094
+msgid "Select URL Filter Type"
+msgstr ""
+
+#: admin/form-manage.php:1097
+msgid "With Query String (e.g., ?filters)"
+msgstr ""
+
+#: admin/form-manage.php:1098
+msgid "With Permalinks (e.g., brand/size/color)"
+msgstr ""
+
+#: admin/form-manage.php:1099
+msgid "With Ajax"
+msgstr ""
+
+#: admin/form_style_tab.php:55
+#: includes/widget_design_template.php:1268
+msgid "All Time"
+msgstr ""
+
+#: admin/form_style_tab.php:56
+#: includes/widget_design_template.php:1269
+msgid "Today"
+msgstr ""
+
+#: admin/form_style_tab.php:57
+#: includes/widget_design_template.php:1270
+msgid "This Week"
+msgstr ""
+
+#: admin/form_style_tab.php:58
+#: includes/widget_design_template.php:1271
+msgid "This Month"
+msgstr ""
+
+#: admin/form_style_tab.php:59
+#: includes/widget_design_template.php:1272
+msgid "This Year"
+msgstr ""
+
+#. translators: %s: lowest dimension value of the shop's products, filled in on the filter.
+#: admin/form_style_tab.php:63
+#, php-format
+msgid "Min (%s)"
+msgstr ""
+
+#. translators: %s: highest dimension value of the shop's products, filled in on the filter.
+#: admin/form_style_tab.php:65
+#, php-format
+msgid "Max (%s)"
+msgstr ""
+
+#: admin/form_style_tab.php:69
+#: includes/filter-template.php:3593
+msgid "Min Price:"
+msgstr ""
+
+#: admin/form_style_tab.php:70
+#: includes/filter-template.php:3596
+msgid "Max Price:"
+msgstr ""
+
+#: admin/form_style_tab.php:74
+#: includes/widget_design_template.php:966
+msgid "In Stock"
+msgstr ""
+
+#: admin/form_style_tab.php:75
+#: includes/widget_design_template.php:968
+msgid "Out of Stock"
+msgstr ""
+
+#: admin/form_style_tab.php:78
+#: includes/widget_design_template.php:1034
+msgid "On Sale"
+msgstr ""
+
+#: admin/form_style_tab.php:79
+msgid "Not On Sale"
+msgstr ""
+
+#: admin/form_style_tab.php:85
+msgid "Category Options"
+msgstr ""
+
+#: admin/form_style_tab.php:86
+msgid "Tag Options"
+msgstr ""
+
+#: admin/form_style_tab.php:87
+#: admin/page-seo-permalinks.php:49
+#: dynamic-ajax-product-filters-for-woocommerce.php:2455
+#: includes/blocks_widget_create.php:667
+msgid "Price"
+msgstr ""
+
+#: admin/form_style_tab.php:92
+#: admin/page-seo-permalinks.php:53
+#: includes/blocks_widget_create.php:672
+#: includes/widget_design_template.php:940
+msgid "Stock Status"
+msgstr ""
+
+#: admin/form_style_tab.php:97
+msgid "Post Date"
+msgstr ""
+
+#: admin/form_style_tab.php:98
+#: includes/widget_design_template.php:263
+#: includes/widget_design_template.php:267
+msgid "Search Product"
+msgstr ""
+
+#: admin/form_style_tab.php:99
+msgid "Apply, Reset Button"
+msgstr ""
+
+#: admin/form_style_tab.php:102
+#: admin/form_style_tab.php:1672
+msgid "Attributes"
+msgstr ""
+
+#: admin/form_style_tab.php:276
+msgid "Configure Style for:"
+msgstr ""
+
+#: admin/form_style_tab.php:293
+msgid "Custom field"
+msgstr ""
+
+#: admin/form_style_tab.php:571
+msgid "Filter Style"
+msgstr ""
+
+#: admin/form_style_tab.php:574
+#: admin/form_style_tab.php:1044
+msgid "Optional Settings:"
+msgstr ""
+
+#: admin/form_style_tab.php:579
+#: admin/form_style_tab.php:1078
+msgid "Enable Minimization Option:"
+msgstr ""
+
+#: admin/form_style_tab.php:583
+#: admin/form_style_tab.php:1057
+#: admin/form_style_tab.php:1082
+msgid "Disabled"
+msgstr ""
+
+#: admin/form_style_tab.php:588
+#: admin/form_style_tab.php:1087
+msgid "Enabled with Arrow"
+msgstr ""
+
+#: admin/form_style_tab.php:593
+#: admin/form_style_tab.php:1092
+msgid "Enabled without Arrow"
+msgstr ""
+
+#: admin/form_style_tab.php:598
+#: admin/form_style_tab.php:1097
+msgid "Initially Minimized"
+msgstr ""
+
+#: admin/form_style_tab.php:603
+#: admin/form_style_tab.php:1620
+msgid "Show in Active/Chips Filter Widget:"
+msgstr ""
+
+#: admin/form_style_tab.php:617
+#: admin/form_style_tab.php:1131
+msgid "Show/Hide Widget Title:"
+msgstr ""
+
+#: admin/form_style_tab.php:621
+#: admin/form_style_tab.php:1135
+#: includes/blocks_widget_create.php:953
+#: includes/blocks_widget_create.php:1016
+msgid "Show"
+msgstr ""
+
+#: admin/form_style_tab.php:624
+#: admin/form_style_tab.php:1138
+#: includes/blocks_widget_create.php:954
+#: includes/blocks_widget_create.php:1017
+msgid "Hide"
+msgstr ""
+
+#: admin/form_style_tab.php:632
+#: admin/form_style_tab.php:1145
+msgid "Widget Title:"
+msgstr ""
+
+#: admin/form_style_tab.php:647
+#: admin/form_style_tab.php:1227
+msgid "Button Text:"
+msgstr ""
+
+#: admin/form_style_tab.php:662
+msgid "Enable Apply Button:"
+msgstr ""
+
+#: admin/form_style_tab.php:666
+msgid "Show Apply Button"
+msgstr ""
+
+#: admin/form_style_tab.php:674
+msgid "Apply Button Text:"
+msgstr ""
+
+#: admin/form_style_tab.php:686
+msgid "Apply filter on:"
+msgstr ""
+
+#: admin/form_style_tab.php:690
+msgid "Button click"
+msgstr ""
+
+#: admin/form_style_tab.php:693
+msgid "Button click & Select Option"
+msgstr ""
+
+#: admin/form_style_tab.php:697
+msgid "Apply Button Only: filters apply only when the apply button is clicked. Apply Button & Select Option: filters apply on both selecting an option and clicking the apply button."
+msgstr ""
+
+#: admin/form_style_tab.php:704
+msgid "Enable Reset Button:"
+msgstr ""
+
+#: admin/form_style_tab.php:708
+msgid "Show Reset Button"
+msgstr ""
+
+#: admin/form_style_tab.php:716
+msgid "Reset Button Text:"
+msgstr ""
+
+#: admin/form_style_tab.php:727
+msgid "Show Apply & Reset Button On:"
+msgstr ""
+
+#: admin/form_style_tab.php:733
+msgid "Separately"
+msgstr ""
+
+#: admin/form_style_tab.php:743
+msgid "Desktop Filter Heading:"
+msgstr ""
+
+#: admin/form_style_tab.php:747
+msgid "Show a heading beside the top buttons on desktop"
+msgstr ""
+
+#: admin/form_style_tab.php:755
+msgid "Desktop Filter Heading Text:"
+msgstr ""
+
+#: admin/form_style_tab.php:758
+#: includes/filter-template.php:3100
+#: includes/widget_design_template.php:1321
+msgid "Filter"
+msgstr ""
+
+#: admin/form_style_tab.php:766
+msgid "Mobile Drawer Title:"
+msgstr ""
+
+#: admin/form_style_tab.php:769
+#: includes/filter-template.php:3295
+msgid "Showing (All)"
+msgstr ""
+
+#: admin/form_style_tab.php:771
+msgid "Leave empty to show the dynamic product result count."
+msgstr ""
+
+#: admin/form_style_tab.php:776
+msgid "Note: \"Separately\" option is only available when there is any select layout or single selection layout in the filter."
+msgstr ""
+
+#: admin/form_style_tab.php:783
+msgid "All Time:"
+msgstr ""
+
+#: admin/form_style_tab.php:793
+msgid "Today:"
+msgstr ""
+
+#: admin/form_style_tab.php:803
+msgid "This Week:"
+msgstr ""
+
+#: admin/form_style_tab.php:813
+msgid "This Month:"
+msgstr ""
+
+#: admin/form_style_tab.php:823
+msgid "This Year:"
+msgstr ""
+
+#: admin/form_style_tab.php:908
+msgid "Choose Display Style"
+msgstr ""
+
+#: admin/form_style_tab.php:962
+msgid "Advanced Options for Terms"
+msgstr ""
+
+#: admin/form_style_tab.php:963
+msgid "No terms found. Please create terms for this attribute first."
+msgstr ""
+
+#: admin/form_style_tab.php:967
+msgid "Set Colors for Terms"
+msgstr ""
+
+#: admin/form_style_tab.php:993
+msgid "Set Images for Terms"
+msgstr ""
+
+#: admin/form_style_tab.php:1018
+#: admin/form_style_tab.php:2491
+msgid "Image URL"
+msgstr ""
+
+#: admin/form_style_tab.php:1020
+#: admin/form_style_tab.php:1024
+#: admin/form_style_tab.php:1724
+msgid "Select image"
+msgstr ""
+
+#: admin/form_style_tab.php:1026
+#: admin/form_style_tab.php:1030
+#: admin/form_style_tab.php:1725
+msgid "Remove image"
+msgstr ""
+
+#: admin/form_style_tab.php:1050
+msgid "Enable Hierarchical:"
+msgstr ""
+
+#: admin/form_style_tab.php:1062
+msgid "Enabled"
+msgstr ""
+
+#: admin/form_style_tab.php:1067
+msgid "Enabled & Separate"
+msgstr ""
+
+#: admin/form_style_tab.php:1072
+msgid "Enabled & hide child"
+msgstr ""
+
+#: admin/form_style_tab.php:1104
+msgid "Single Selection:"
+msgstr ""
+
+#: admin/form_style_tab.php:1108
+msgid "Only one value can be selected at a time"
+msgstr ""
+
+#: admin/form_style_tab.php:1114
+msgid "Show/Hide Number of Products:"
+msgstr ""
+
+#: admin/form_style_tab.php:1118
+msgid "Show number of products"
+msgstr ""
+
+#: admin/form_style_tab.php:1123
+msgid "Max Height:"
+msgstr ""
+
+#: admin/form_style_tab.php:1155
+msgid "Widget Title Icon:"
+msgstr ""
+
+#: admin/form_style_tab.php:1156
+#: admin/settings-init.php:13
+msgid "Pro feature"
+msgstr ""
+
+#: admin/form_style_tab.php:1158
+#: admin/settings-init.php:14
+msgid "PRO"
+msgstr ""
+
+#: admin/form_style_tab.php:1161
+msgid "Display a small icon before this filter title."
+msgstr ""
+
+#: admin/form_style_tab.php:1170
+msgid "Enable"
+msgstr ""
+
+#: admin/form_style_tab.php:1177
+msgid "Additional Text for 1 Star:"
+msgstr ""
+
+#: admin/form_style_tab.php:1184
+msgid "Additional Text for 2-4 Stars:"
+msgstr ""
+
+#: admin/form_style_tab.php:1192
+msgid "Additional Text for 5 Stars:"
+msgstr ""
+
+#: admin/form_style_tab.php:1203
+msgid "Min input label:"
+msgstr ""
+
+#: admin/form_style_tab.php:1214
+msgid "Max input label:"
+msgstr ""
+
+#: admin/form_style_tab.php:1242
+msgid "In Stock Text:"
+msgstr ""
+
+#: admin/form_style_tab.php:1253
+msgid "Out of Stock Text:"
+msgstr ""
+
+#: admin/form_style_tab.php:1267
+msgid "On Sale Text:"
+msgstr ""
+
+#: admin/form_style_tab.php:1278
+msgid "Not On Sale Text:"
+msgstr ""
+
+#: admin/form_style_tab.php:1292
+msgid "Placeholder:"
+msgstr ""
+
+#. translators: 1: placeholder token, 2: example placeholder token.
+#: admin/form_style_tab.php:1307
+#, php-format
+msgid "Dimension number fields stay empty until a shopper enters a value. Use %1$s or {value} in the min/max placeholder text to show the current catalog bound, for example Min (%2$s)."
+msgstr ""
+
+#: admin/form_style_tab.php:1358
+msgid "Min Placeholder:"
+msgstr ""
+
+#: admin/form_style_tab.php:1367
+msgid "Max Placeholder:"
+msgstr ""
+
+#: admin/form_style_tab.php:1385
+msgid "Order Values/Terms By:"
+msgstr ""
+
+#: admin/form_style_tab.php:1389
+#: includes/blocks_widget_create.php:2244
+msgid "Default"
+msgstr ""
+
+#: admin/form_style_tab.php:1392
+msgid "Alphabetical"
+msgstr ""
+
+#: admin/form_style_tab.php:1395
+msgid "Numeric"
+msgstr ""
+
+#: admin/form_style_tab.php:1398
+msgid "Month & Year"
+msgstr ""
+
+#: admin/form_style_tab.php:1401
+msgid "Menu Order"
+msgstr ""
+
+#: admin/form_style_tab.php:1404
+msgid "Product Count"
+msgstr ""
+
+#: admin/form_style_tab.php:1412
+msgid "Order Direction:"
+msgstr ""
+
+#: admin/form_style_tab.php:1416
+msgid "Ascending"
+msgstr ""
+
+#: admin/form_style_tab.php:1419
+msgid "Descending"
+msgstr ""
+
+#: admin/form_style_tab.php:1438
+msgid "CSS Class:"
+msgstr ""
+
+#: admin/form_style_tab.php:1448
+msgid "Operator:"
+msgstr ""
+
+#: admin/form_style_tab.php:1453
+#: includes/filter-template.php:560
+#: includes/filter-template.php:582
+#: includes/filter-template.php:612
+#: includes/filter-template.php:626
+msgid "AND"
+msgstr ""
+
+#: admin/form_style_tab.php:1456
+msgid "OR"
+msgstr ""
+
+#: admin/form_style_tab.php:1464
+msgid "Include/Exclude Terms From Filters:"
+msgstr ""
+
+#: admin/form_style_tab.php:1471
+msgid "Select terms"
+msgstr ""
+
+#: admin/form_style_tab.php:1489
+msgid "None"
+msgstr ""
+
+#: admin/form_style_tab.php:1492
+msgid "Include"
+msgstr ""
+
+#: admin/form_style_tab.php:1495
+msgid "Exclude"
+msgstr ""
+
+#: admin/form_style_tab.php:1518
+msgid "Terms Search"
+msgstr ""
+
+#: admin/form_style_tab.php:1520
+msgid "Enable/Disable Terms Search:"
+msgstr ""
+
+#: admin/form_style_tab.php:1524
+msgid "Enable Terms Search"
+msgstr ""
+
+#: admin/form_style_tab.php:1529
+msgid "Terms Search Title & Placeholder:"
+msgstr ""
+
+#: admin/form_style_tab.php:1533
+msgid "Placeholder"
+msgstr ""
+
+#: admin/form_style_tab.php:1539
+msgid "Terms Search Position:"
+msgstr ""
+
+#: admin/form_style_tab.php:1544
+msgid "In Title Bar (Pro)"
+msgstr ""
+
+#: admin/form_style_tab.php:1547
+msgid "After Title"
+msgstr ""
+
+#: admin/form_style_tab.php:1550
+msgid "After All Terms"
+msgstr ""
+
+#: admin/form_style_tab.php:1564
+msgid "Layout:"
+msgstr ""
+
+#: admin/form_style_tab.php:1569
+msgid "Vertical"
+msgstr ""
+
+#: admin/form_style_tab.php:1572
+msgid "Horizontal"
+msgstr ""
+
+#: admin/form_style_tab.php:1578
+msgid "Number of Columns:"
+msgstr ""
+
+#: admin/form_style_tab.php:1592
+msgid "4"
+msgstr ""
+
+#: admin/form_style_tab.php:1602
+msgid "Enable/Disable Tooltip:"
+msgstr ""
+
+#: admin/form_style_tab.php:1606
+msgid "Enable Tooltip"
+msgstr ""
+
+#: admin/form_style_tab.php:1611
+msgid "Tooltip Text:"
+msgstr ""
+
+#: admin/form_style_tab.php:1636
+msgid "Enable/Disable Auto Suggestion:"
+msgstr ""
+
+#: admin/form_style_tab.php:1639
+msgid "Enable Auto Suggestion (Pro)"
+msgstr ""
+
+#: admin/form_style_tab.php:1643
+msgid "Search In (Pro):"
+msgstr ""
+
+#: admin/form_style_tab.php:1652
+msgid "Select search behavior"
+msgstr ""
+
+#: admin/form_style_tab.php:1654
+msgid "Title"
+msgstr ""
+
+#: admin/form_style_tab.php:1657
+msgid "Content"
+msgstr ""
+
+#: admin/form_style_tab.php:1660
+msgid "Excerpt"
+msgstr ""
+
+#: admin/form_style_tab.php:1685
+msgid "Enable/Disable Full Match:"
+msgstr ""
+
+#: admin/form_style_tab.php:1689
+msgid "Enable Full Match"
+msgstr ""
+
+#: admin/form_style_tab.php:1705
+msgid "No attributes found. Please create attributes in WooCommerce first."
+msgstr ""
+
+#: admin/form_style_tab.php:2239
+msgid "Filter type"
+msgstr ""
+
+#: admin/form_style_tab.php:2289
+msgid "Filter style"
+msgstr ""
+
+#: admin/form_template_tab.php:16
+msgid "Choose a template design and customize colors to match your store's branding."
+msgstr ""
+
+#: admin/form_template_tab.php:22
+msgid "Activating template..."
+msgstr ""
+
+#: admin/form_template_tab.php:31
+#: dynamic-ajax-product-filters-for-woocommerce.php:4201
+msgid "Minimal Template"
+msgstr ""
+
+#: admin/form_template_tab.php:46
+msgid "Simple, No border, no shadow."
+msgstr ""
+
+#: admin/form_template_tab.php:47
+msgid "No box shadow"
+msgstr ""
+
+#: admin/form_template_tab.php:47
+msgid "No borders"
+msgstr ""
+
+#: admin/form_template_tab.php:47
+msgid "Lightweight"
+msgstr ""
+
+#: admin/form_template_tab.php:51
+#: dynamic-ajax-product-filters-for-woocommerce.php:4202
+msgid "Elevated Template"
+msgstr ""
+
+#: admin/form_template_tab.php:69
+msgid "Card UI with subtle box shadow."
+msgstr ""
+
+#: admin/form_template_tab.php:70
+msgid "Box shadow card"
+msgstr ""
+
+#: admin/form_template_tab.php:70
+msgid "Soft border"
+msgstr ""
+
+#: admin/form_template_tab.php:70
+msgid "Compact spacing"
+msgstr ""
+
+#: admin/form_template_tab.php:74
+#: dynamic-ajax-product-filters-for-woocommerce.php:4203
+msgid "Modern Template"
+msgstr ""
+
+#: admin/form_template_tab.php:77
+msgid "A clean and contemporary card design with a balanced mix of shadow and borders. Perfect for modern eCommerce layouts."
+msgstr ""
+
+#: admin/form_template_tab.php:78
+msgid "Subtle card shadow for depth"
+msgstr ""
+
+#: admin/form_template_tab.php:78
+msgid "Soft borders for clarity"
+msgstr ""
+
+#: admin/form_template_tab.php:78
+msgid "Compact spacing for neat alignment"
+msgstr ""
+
+#: admin/form_template_tab.php:82
+#: dynamic-ajax-product-filters-for-woocommerce.php:4205
+msgid "Classic Template"
+msgstr ""
+
+#: admin/form_template_tab.php:85
+msgid "A timeless and versatile filter style with soft shadows and structured spacing. Works with any theme."
+msgstr ""
+
+#: admin/form_template_tab.php:86
+msgid "Box shadow card for subtle emphasis"
+msgstr ""
+
+#: admin/form_template_tab.php:86
+msgid "Soft border separation"
+msgstr ""
+
+#: admin/form_template_tab.php:86
+msgid "Compact and space-efficient layout"
+msgstr ""
+
+#: admin/form_template_tab.php:90
+#: dynamic-ajax-product-filters-for-woocommerce.php:4206
+msgid "Bordered Template"
+msgstr ""
+
+#: admin/form_template_tab.php:93
+msgid "A sharper design with clear borders and neat spacing, ideal for structured product categories."
+msgstr ""
+
+#: admin/form_template_tab.php:94
+msgid "Defined soft borders for separation"
+msgstr ""
+
+#: admin/form_template_tab.php:94
+msgid "Subtle box shadow for balance"
+msgstr ""
+
+#: admin/form_template_tab.php:94
+msgid "Compact spacing for organized display"
+msgstr ""
+
+#: admin/form_template_tab.php:109
+#: admin/form_template_tab.php:821
+msgid "Inactive"
+msgstr ""
+
+#: admin/form_template_tab.php:114
+msgid "Free"
+msgstr ""
+
+#: admin/form_template_tab.php:116
+msgid "Premium"
+msgstr ""
+
+#: admin/form_template_tab.php:122
+msgid "Quick Preview"
+msgstr ""
+
+#: admin/form_template_tab.php:147
+#: admin/form_template_tab.php:819
+msgid "Activated"
+msgstr ""
+
+#: admin/form_template_tab.php:150
+msgid "Pro Feature Only"
+msgstr ""
+
+#: admin/form_template_tab.php:154
+msgid "Preview"
+msgstr ""
+
+#: admin/form_template_tab.php:169
+msgid "More templates coming soon"
+msgstr ""
+
+#: admin/form_template_tab.php:175
+msgid "More coming soon"
+msgstr ""
+
+#: admin/form_template_tab.php:176
+msgid "We’re crafting additional styles and layouts. Stay tuned!"
+msgstr ""
+
+#: admin/form_template_tab.php:182
+msgid "Color Settings"
+msgstr ""
+
+#: admin/form_template_tab.php:188
+#: includes/blocks_widget_create.php:1345
+#: includes/blocks_widget_create.php:1729
+#: includes/blocks_widget_create.php:2102
+msgid "Background Color"
+msgstr ""
+
+#: admin/form_template_tab.php:203
+msgid "Primary Color"
+msgstr ""
+
+#: admin/form_template_tab.php:215
+msgid "Secondary Color"
+msgstr ""
+
+#: admin/form_template_tab.php:227
+msgid "Border Color"
+msgstr ""
+
+#: admin/form_template_tab.php:284
+msgid "Template Preview"
+msgstr ""
+
+#: admin/form_template_tab.php:285
+msgid "Close preview"
+msgstr ""
+
+#: admin/form_template_tab.php:302
+#: admin/form_template_tab.php:823
+msgid "Activate This Template"
+msgstr ""
+
+#: admin/form_template_tab.php:303
+msgid "Close Preview"
+msgstr ""
+
+#: admin/form_template_tab.php:822
+msgid "Pro Features Only"
+msgstr ""
+
+#: admin/form_template_tab.php:824
+msgid "Key Features:"
+msgstr ""
+
+#: admin/form_template_tab.php:825
+msgid "Error activating template. Please try again."
+msgstr ""
+
+#: admin/form_template_tab.php:826
+msgid "Network error. Please try again."
+msgstr ""
+
+#: admin/form_template_tab.php:829
+msgid "Dismiss this notice."
+msgstr ""
+
+#: admin/form_template_tab.php:830
+msgid "No preview available."
+msgstr ""
+
+#: admin/license-page.php:16
+msgid "You do not have permission to access this page."
+msgstr ""
+
+#: admin/license-page.php:33
+msgid "Pro plugin active"
+msgstr ""
+
+#: admin/license-page.php:34
+msgid "Your Pro setup is ready"
+msgstr ""
+
+#: admin/license-page.php:35
+msgid "The Pro plugin is active. Manage licensing, premium updates, and account actions from the Pro plugin settings."
+msgstr ""
+
+#: admin/license-page.php:39
+msgid "Action needed"
+msgstr ""
+
+#: admin/license-page.php:40
+msgid "Pro is installed but inactive"
+msgstr ""
+
+#: admin/license-page.php:41
+msgid "Activate the Pro plugin from Installed Plugins, then open the Pro settings to complete license management."
+msgstr ""
+
+#: admin/license-page.php:45
+msgid "Upgrade available"
+msgstr ""
+
+#: admin/license-page.php:46
+msgid "Upgrade to Dynamic AJAX Product Filters Pro"
+msgstr ""
+
+#: admin/license-page.php:47
+msgid "Unlock advanced WooCommerce filtering controls, premium templates, SEO options, and priority Plugincy support with the separate Pro plugin."
+msgstr ""
+
+#: admin/license-page.php:55
+msgid "Plugincy Pro"
+msgstr ""
+
+#: admin/license-page.php:63
+msgid "View Installed Plugins"
+msgstr ""
+
+#: admin/license-page.php:68
+msgid "Open Installed Plugins"
+msgstr ""
+
+#: admin/license-page.php:77
+msgid "Download from My Account"
+msgstr ""
+
+#: admin/license-page.php:82
+msgid "Upload Pro ZIP"
+msgstr ""
+
+#: admin/license-page.php:94
+msgid "Dynamic AJAX Product Filters Pro"
+msgstr ""
+
+#: admin/license-page.php:98
+msgid "Premium extension detected and running on this site."
+msgstr ""
+
+#: admin/license-page.php:100
+msgid "Premium extension files are present and waiting for activation."
+msgstr ""
+
+#: admin/license-page.php:102
+msgid "Install the separate Pro plugin ZIP to add licensing and premium update controls."
+msgstr ""
+
+#: admin/license-page.php:113
+msgid "Setup Workflow"
+msgstr ""
+
+#: admin/license-page.php:119
+msgid "Get the Pro ZIP"
+msgstr ""
+
+#: admin/license-page.php:120
+msgid "Purchase or download the Pro package from your Plugincy account."
+msgstr ""
+
+#: admin/license-page.php:126
+msgid "Upload through WordPress"
+msgstr ""
+
+#: admin/license-page.php:127
+msgid "Open Plugins > Add Plugin > Upload Plugin, then upload the Pro ZIP."
+msgstr ""
+
+#: admin/license-page.php:133
+msgid "Activate and manage license"
+msgstr ""
+
+#: admin/license-page.php:134
+msgid "Activate Pro, then enter and manage your license inside the Pro plugin settings."
+msgstr ""
+
+#: admin/license-page.php:141
+msgid "Ask a site or network administrator with plugin installation permission to upload the Pro ZIP."
+msgstr ""
+
+#: admin/license-page.php:149
+msgid "Premium Benefits"
+msgstr ""
+
+#: admin/license-page.php:154
+msgid "Advanced Filters"
+msgstr ""
+
+#: admin/license-page.php:155
+msgid "Extend product discovery with premium filtering controls."
+msgstr ""
+
+#: admin/license-page.php:159
+msgid "SEO Controls"
+msgstr ""
+
+#: admin/license-page.php:160
+msgid "Build richer URL and permalink experiences for filtered pages."
+msgstr ""
+
+#: admin/license-page.php:164
+msgid "Priority Support"
+msgstr ""
+
+#: admin/license-page.php:165
+msgid "Get faster help from the Plugincy support team."
+msgstr ""
+
+#: admin/license-page.php:169
+msgid "Premium Updates"
+msgstr ""
+
+#: admin/license-page.php:170
+msgid "Receive Pro improvements and compatibility updates."
+msgstr ""
+
+#: admin/license-page.php:179
+msgid "For WordPress.org security compliance, this free plugin does not download, install, activate, or update executable Pro packages from an external server. It also does not delete existing Pro license data. Licensing and premium updates are handled by the separately installed Pro plugin."
+msgstr ""
+
+#: admin/page-seo-permalinks.php:17
+msgid "filters"
+msgstr ""
+
+#: admin/page-seo-permalinks.php:19
+msgid "Choose the permalink segment used before filter values."
+msgstr ""
+
+#: admin/page-seo-permalinks.php:21
+msgid "Use lowercase letters, numbers, or hyphens. Rewrite rules refresh when you save."
+msgstr ""
+
+#: admin/page-seo-permalinks.php:51
+msgid "Brand"
+msgstr ""
+
+#: admin/page-seo-permalinks.php:52
+msgid "Author"
+msgstr ""
+
+#: admin/page-seo-permalinks.php:56
+msgid "Min Width"
+msgstr ""
+
+#: admin/page-seo-permalinks.php:57
+msgid "Max Width"
+msgstr ""
+
+#: admin/page-seo-permalinks.php:59
+msgid "Min Length"
+msgstr ""
+
+#: admin/page-seo-permalinks.php:60
+msgid "Max Length"
+msgstr ""
+
+#: admin/page-seo-permalinks.php:62
+msgid "Min Height"
+msgstr ""
+
+#: admin/page-seo-permalinks.php:63
+msgid "Max Height"
+msgstr ""
+
+#: admin/page-seo-permalinks.php:65
+msgid "Min Weight"
+msgstr ""
+
+#: admin/page-seo-permalinks.php:66
+msgid "Max Weight"
+msgstr ""
+
+#: admin/page-seo-permalinks.php:70
+#: includes/widget_design_template.php:276
+msgid "Search"
+msgstr ""
+
+#: admin/page-seo-permalinks.php:71
+msgid "Pagination"
+msgstr ""
+
+#: admin/page-seo-permalinks.php:72
+msgid "Order By"
+msgstr ""
+
+#. translators: %s: Product attribute label.
+#: admin/page-seo-permalinks.php:121
 #, php-format
 msgid "Attribute (%s)"
 msgstr ""
 
-#: includes/blocks_widget_create.php:642
-msgid "attribute id"
+#: admin/page-seo-permalinks.php:140
+msgid "See More"
 msgstr ""
 
-#: includes/blocks_widget_create.php:693
-msgid "Attribute Terms"
-msgstr ""
-
-#: admin/form_style_tab.php:62
-msgid "Attributes"
-msgstr ""
-
-#: includes/widget_design_template.php:548
-msgid "Authors"
-msgstr ""
-
-#: includes/blocks_widget_create.php:982 includes/blocks_widget_create.php:1833
-#: includes/blocks_widget_create.php:1954
-msgid "Auto"
-msgstr ""
-
-#: includes/blocks_widget_create.php:821 includes/blocks_widget_create.php:921
-#: includes/blocks_widget_create.php:1010
-#: includes/blocks_widget_create.php:1209
-#: includes/blocks_widget_create.php:1393
-msgid "Background"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1116
-#: includes/blocks_widget_create.php:1500
-#: includes/blocks_widget_create.php:1875
-msgid "Background Color"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1252
-#: includes/blocks_widget_create.php:1451
-#: includes/blocks_widget_create.php:1564
-msgid "Border"
-msgstr ""
-
-#: includes/blocks_widget_create.php:831 includes/blocks_widget_create.php:931
-#: includes/blocks_widget_create.php:1039
-#: includes/blocks_widget_create.php:1169
-#: includes/blocks_widget_create.php:1283
-#: includes/blocks_widget_create.php:1550
-#: includes/blocks_widget_create.php:1926
-msgid "Border Radius"
-msgstr ""
-
-#: includes/blocks_widget_create.php:2036
-msgid "Bottom"
-msgstr ""
-
-#: includes/blocks_widget_create.php:868 includes/blocks_widget_create.php:968
-msgid "Box Shadow"
-msgstr ""
-
-#: admin/form_style_tab.php:51 includes/widget_design_template.php:509
-msgid "Brands"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1197
-msgid "Button Style"
-msgstr ""
-
-#: admin/admin-page.php:1195 admin/admin-page.php:1222
-msgid ""
-"Cache cleared successfully! WooCommerce and object caches have been flushed."
-msgstr ""
-
-#: admin/admin-page.php:1016
-msgid "Cache Management"
-msgstr ""
-
-#: includes/blocks_widget_create.php:667
-#: includes/widget_design_template.php:198
-#: includes/widget_design_template.php:250
-msgid "Category"
-msgstr ""
-
-#: admin/form_style_tab.php:47
-msgid "Category Options"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1059
-msgid "Center"
-msgstr ""
-
-#: dynamic-ajax-product-filters-for-woocommerce.php:689
-#: dynamic-ajax-product-filters-for-woocommerce.php:742
-msgid "change selector"
-msgstr ""
-
-#: dynamic-ajax-product-filters-for-woocommerce.php:664
-msgid "Checking..."
-msgstr ""
-
-#: admin/admin-page.php:574
-msgid "Choose colors, layouts, and animations that match your theme"
-msgstr ""
-
-#: admin/form_style_tab.php:205
-msgid "Choose Display Style"
-msgstr ""
-
-#: admin/settings-init.php:108
-msgid "Choose Filter Method"
-msgstr ""
-
-#: admin/admin-page.php:72
-msgid ""
-"Choose from multiple loading animations to match your site's design and "
-"branding."
-msgstr ""
-
-#: admin/form-manage.php:31
-msgid "Choose Meta Tag:"
-msgstr ""
-
-#: includes/blocks_widget_create.php:758
-msgid "Choose style"
-msgstr ""
-
-#: admin/admin-page.php:1020 admin/admin-page.php:1028
-msgid "Clear Cache"
-msgstr ""
-
-#: admin/admin-page.php:1022
-msgid ""
-"Clear WooCommerce and object caches to ensure filters work properly after "
-"configuration changes."
-msgstr ""
-
-#: admin/admin-page.php:1292
-msgid ""
-"Click the button below to reset all plugin settings to their default values. "
-"This action cannot be undone."
-msgstr ""
-
-#: admin/admin-page.php:566
-msgid "Configure Filters"
-msgstr ""
-
-#: admin/settings-init.php:279
-msgid ""
-"Configure SEO options for your product filters to improve search engine "
-"visibility and customize permalinks structure."
-msgstr ""
-
-#: admin/form_style_tab.php:79
-msgid "Configure Style for:"
-msgstr ""
-
-#: admin/license-page.php:436
-msgid "Contact Support"
-msgstr ""
-
-#: includes/blocks_widget_create.php:910
-msgid "Container Styles"
-msgstr ""
-
-#: admin/settings-init.php:208
-msgid "Contribute to Plugincy"
-msgstr ""
-
-#: admin/admin-page.php:80
-msgid ""
-"Create unique product layouts with advanced template customization options."
-msgstr ""
-
-#: admin/license-page.php:371 admin/license-page.php:391
-msgid "Current License Key"
-msgstr ""
-
-#: admin/admin-page.php:87
-msgid "Custom CSS Editor"
-msgstr ""
-
-#. %s is replaced with the Custom Field label.
-#: admin/page-seo-permalinks.php:183
+#. translators: %1$s: name of the "Use Attribute Type in Permalinks" setting, %2$s: example URL query.
+#: admin/page-seo-permalinks.php:149
 #, php-format
-msgid "Custom Field (%s)"
+msgid "Enable %1$s to manage the category, tag, attribute and other taxonomy prefixes. The prefixes shown above still apply. Currently your URL format is: %2$s"
 msgstr ""
 
-#: admin/form_style_tab.php:63
-msgid "Custom Fields"
-msgstr ""
-
-#: admin/admin-page.php:79
-msgid "Custom Product Template Design"
-msgstr ""
-
-#. %s is replaced with the attribute label.
-#: admin/page-seo-permalinks.php:191
-#, php-format
-msgid "custom_field (%s)"
-msgstr ""
-
-#: admin/form-manage.php:24
-msgid "Customize"
-msgstr ""
-
-#: admin/admin-page.php:573
-msgid "Customize Appearance"
-msgstr ""
-
-#: admin/admin-page.php:71
-msgid "Customize Loading Effects"
-msgstr ""
-
-#: admin/settings-init.php:149
-msgid ""
-"Customize the appearance and behavior of your filter components with our "
-"comprehensive styling options"
-msgstr ""
-
-#: includes/blocks_widget_create.php:657
-msgid "Database Query"
-msgstr ""
-
-#: includes/widget_design_template.php:807
-msgid "Date Filter"
-msgstr ""
-
-#: admin/license-page.php:412
-msgid "Deactivate License"
-msgstr ""
-
-#: includes/blocks_widget_create.php:2017
-msgid "Default"
-msgstr ""
-
-#: admin/admin-page.php:580
-msgid "Deploy & Monitor"
-msgstr ""
-
-#: includes/widget_design_template.php:679
-msgid "Dimensions"
-msgstr ""
-
-#: admin/form_style_tab.php:346 admin/form_style_tab.php:413
-msgid "Disabled"
-msgstr ""
-
-#: admin/admin-page.php:40
-msgid ""
-"Display child categories and attributes separately for better organization "
-"and user experience."
-msgstr ""
-
-#: includes/blocks_widget_create.php:565
-msgid "Dynamic Ajax Filter"
-msgstr ""
-
-#. Name of the plugin
-#: admin/admin-page.php:551
-msgid "Dynamic AJAX Product Filters for WooCommerce"
-msgstr ""
-
-#: admin/admin-page.php:1268
-msgid ""
-"Dynamic AJAX Product Filters for WooCommerce settings have been reset to "
-"defaults."
-msgstr ""
-
-#: admin/admin-page.php:64
-msgid "Easily backup and transfer your filter configurations between sites."
-msgstr ""
-
-#: includes/blocks_widget_create.php:723
-msgid "Element Type"
-msgstr ""
-
-#: admin/form_style_tab.php:342
-msgid "Enable Hierarchical:"
-msgstr ""
-
-#: admin/form_style_tab.php:409
-msgid "Enable Minimization Option:"
-msgstr ""
-
-#: admin/settings-init.php:300
-msgid "Enable SEO"
-msgstr ""
-
-#: admin/settings-init.php:112
-msgid "Enable this option to dynamically update filter options."
-msgstr ""
-
-#: admin/advance_settings.php:45
-msgid ""
-"Enable this option to remove out-of-stock products from the filter results."
-msgstr ""
-
-#: admin/settings-init.php:116
-msgid "Enable this option to show a loading indicator during AJAX requests."
-msgstr ""
-
-#: admin/settings-init.php:52
-msgid "Enable this option to show attributes in the filter."
-msgstr ""
-
-#: admin/settings-init.php:76
-msgid "Enable this option to show authors filter."
-msgstr ""
-
-#: admin/settings-init.php:72
-msgid "Enable this option to show brand filter."
-msgstr ""
-
-#: admin/settings-init.php:48
-msgid "Enable this option to show categories in the filter."
-msgstr ""
-
-#: admin/settings-init.php:104
-msgid "Enable this option to show custom fields filter."
-msgstr ""
-
-#: admin/settings-init.php:100
-msgid "Enable this option to show date filter."
-msgstr ""
-
-#: admin/settings-init.php:88
-msgid "Enable this option to show dimensions filter."
-msgstr ""
-
-#: admin/settings-init.php:96
-msgid "Enable this option to show discount filter."
-msgstr ""
-
-#: admin/settings-init.php:84
-msgid "Enable this option to show on sale filter."
-msgstr ""
-
-#: admin/settings-init.php:60
-msgid "Enable this option to show price range filter."
-msgstr ""
-
-#: admin/settings-init.php:64
-msgid "Enable this option to show product rating filter."
-msgstr ""
-
-#: admin/settings-init.php:68
-msgid "Enable this option to show search box for products."
-msgstr ""
-
-#: admin/settings-init.php:92
-msgid "Enable this option to show sku filter."
-msgstr ""
-
-#: admin/settings-init.php:80
-msgid "Enable this option to show status filter."
-msgstr ""
-
-#: admin/settings-init.php:56
-msgid "Enable this option to show tags in the filter."
-msgstr ""
-
-#: admin/form-manage.php:21
-msgid "Enable this setting if you want permalinks Like"
-msgstr ""
-
-#: admin/form_style_tab.php:351
-msgid "Enabled"
-msgstr ""
-
-#: admin/form_style_tab.php:361
-msgid "Enabled & hide child"
-msgstr ""
-
-#: admin/form_style_tab.php:356
-msgid "Enabled & Separate"
-msgstr ""
-
-#: admin/form_style_tab.php:418
-msgid "Enabled with Arrow"
-msgstr ""
-
-#: admin/form_style_tab.php:423
-msgid "Enabled without Arrow"
-msgstr ""
-
-#: admin/page-seo-permalinks.php:222
-msgid "Enter SEO Description"
-msgstr ""
-
-#: admin/page-seo-permalinks.php:233
-msgid "Enter SEO Keywords"
-msgstr ""
-
-#: admin/page-seo-permalinks.php:209
-msgid "Enter SEO Title"
-msgstr ""
-
-#: admin/advance_settings.php:26
-msgid ""
-"Enter the CSS selector for the pagination container. Default is .woocommerce-"
-"pagination ul.page-numbers."
-msgstr ""
-
-#: admin/advance_settings.php:13
-msgid "Enter the CSS selector for the product container. Default is .products."
-msgstr ""
-
-#: admin/advance_settings.php:38
-msgid "Enter the selector for the products shortcode. Default is products"
-msgstr ""
-
-#: admin/form-manage.php:162
-msgid "Enter your custom template code here."
-msgstr ""
-
-#: admin/license-page.php:425
-msgid "Enter your license key to download and activate the Pro version."
-msgstr ""
-
-#: admin/settings-init.php:211 admin/settings-init.php:212
-msgid "Exclude Attribute"
-msgstr ""
-
-#: admin/admin-page.php:1052 admin/admin-page.php:1056
-msgid "Export Settings"
-msgstr ""
-
-#: admin/admin-page.php:55
-msgid "Filter by Dynamic Rating"
-msgstr ""
-
-#: dynamic-ajax-product-filters-for-woocommerce.php:685
-msgid "Filter is not added"
-msgstr ""
-
-#: includes/blocks_widget_create.php:585
-msgid "Filter Options"
-msgstr ""
-
-#: dynamic-ajax-product-filters-for-woocommerce.php:216
-msgid "Filter Plugin"
-msgstr ""
-
-#: admin/form_style_tab.php:183
-msgid "Filter Style"
-msgstr ""
-
-#: dynamic-ajax-product-filters-for-woocommerce.php:746
-msgid "Filter working fine"
-msgstr ""
-
-#: admin/admin-page.php:1115
-msgid "Filters behaving unexpectedly?"
-msgstr ""
-
-#: admin/admin-page.php:1110
-msgid "Filters not responding?"
-msgstr ""
-
-#: admin/admin-page.php:1104
-msgid "Filters Not Working?"
-msgstr ""
-
-#: includes/blocks_widget_create.php:779
-msgid "Filters Word (Mobile)"
-msgstr ""
-
-#: admin/admin-page.php:88
-msgid ""
-"Fine-tune the appearance with built-in CSS editor for pixel-perfect "
-"customization."
-msgstr ""
-
-#: includes/blocks_widget_create.php:2019
-msgid "Fixed"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1844
-#: includes/blocks_widget_create.php:1995
-msgid "Flex Wrap"
-msgstr ""
-
-#: admin/admin-page.php:1000
-msgid "For button style filter use this shortcode:"
-msgstr ""
-
-#: admin/advance_settings.php:53
-msgid "For mobile move the sidebar to top position."
-msgstr ""
-
-#: admin/admin-page.php:1001
-msgid "For show currently selected filter above product:"
-msgstr ""
-
-#: includes/blocks_widget_create.php:876
-msgid "Form Height"
-msgstr ""
-
-#: admin/admin-page.php:934 includes/blocks_widget_create.php:707
-msgid "Form Manage"
-msgstr ""
-
-#: admin/admin-page.php:935
-msgid "Form Style"
-msgstr ""
-
-#: admin/settings-init.php:147
-msgid "Form Style Configuration"
-msgstr ""
-
-#: includes/blocks_widget_create.php:810
-msgid "Form Styles"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1181
-#: includes/blocks_widget_create.php:1359
-#: includes/blocks_widget_create.php:1816
-#: includes/blocks_widget_create.php:1937
-msgid "Gap"
-msgstr ""
-
-#: admin/admin-page.php:48
-msgid ""
-"Generate clean, SEO-optimized URLs for filtered pages to improve search "
-"engine rankings."
-msgstr ""
-
-#: admin/admin-page.php:96
-msgid ""
-"Get priority email support from our expert team with faster response times."
-msgstr ""
-
-#: dynamic-ajax-product-filters-for-woocommerce.php:594 admin/admin-page.php:19
-#: admin/admin-page.php:20 admin/admin-page.php:118 admin/admin-page.php:591
-msgid "Get Pro"
-msgstr ""
-
-#: admin/admin-page.php:130 admin/admin-page.php:605
-msgid "Get Support"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1966
-msgid "Height"
-msgstr ""
-
-#: includes/blocks_widget_create.php:980 includes/blocks_widget_create.php:1831
-#: includes/blocks_widget_create.php:1952
-msgid "Hidden"
-msgstr ""
-
-#: includes/blocks_widget_create.php:733 includes/blocks_widget_create.php:792
-msgid "Hide"
-msgstr ""
-
-#: includes/blocks_widget_create.php:2087
-msgid "Horizontal Offset"
-msgstr ""
-
-#: includes/blocks_widget_create.php:2072
-msgid "Horizontal Orientation"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1229
-#: includes/blocks_widget_create.php:1426
-msgid "Hover Background"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1348
-msgid "Hover Color"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1240
-#: includes/blocks_widget_create.php:1438
-msgid "Hover Text Color"
-msgstr ""
-
-#. Author URI of the plugin
-msgid "https://plugincy.com"
-msgstr ""
-
-#. URI of the plugin
-msgid "https://plugincy.com/"
-msgstr ""
-
-#: includes/blocks_widget_create.php:658
-msgid ""
-"Our plugin will automatically detect your query. If the automatic detection is incorrect and displays irrelevant filter options, please configure the database accordingly."
-"these options to query options."
-msgstr ""
-
-#: admin/form_style_tab.php:315
-msgid "Image URL"
-msgstr ""
-
-#: admin/admin-page.php:63
-msgid "Import & Export Settings"
-msgstr ""
-
-#: admin/admin-page.php:1036
-msgid "Import &amp; Export Settings"
-msgstr ""
-
-#: admin/admin-page.php:1041 admin/admin-page.php:1047
-msgid "Import Settings"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1732
-msgid "Inactive Background Color"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1326
-msgid "Inactive Color"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1764
-msgid "Inactive Hover Color"
-msgstr ""
-
-#: admin/form_style_tab.php:428
-msgid "Initially Minimized"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1488
-msgid "Input Style"
-msgstr ""
-
-#: admin/admin-page.php:113
-msgid ""
-"Join thousands of store owners who have enhanced their WooCommerce filtering "
-"experience with our Pro version."
-msgstr ""
-
-#: admin/advance_settings.php:49
-msgid "Learn more…"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1055
-#: includes/blocks_widget_create.php:2075
-msgid "Left"
-msgstr ""
-
-#: admin/license-page.php:385
-msgid "License Active but Pro Plugin Not Running!"
-msgstr ""
-
-#: admin/license-page.php:395
-msgid ""
-"License is valid but Pro plugin is not active. Click below to reinstall and "
-"activate the Pro plugin."
-msgstr ""
-
-#: admin/license-page.php:421
-msgid "License Key"
-msgstr ""
-
-#: admin/form-manage.php:24
-msgid "loading effect"
-msgstr ""
-
-#: admin/settings-init.php:210
-msgid "Make Default Options Selected"
-msgstr ""
-
-#: admin/advance_settings.php:57
-msgid "Make default value from shortcode & pages selected/checked"
-msgstr ""
-
-#: admin/settings-init.php:302
-msgid "Make filter link indexable for best SEO"
-msgstr ""
-
-#: includes/blocks_widget_create.php:717
-msgid "Manage order & show/hide"
-msgstr ""
-
-#: admin/admin-page.php:923
-msgid "Manage WooCommerce Product Filters"
-msgstr ""
-
-#: admin/license-page.php:436
-msgid "Manage Your Licenses"
-msgstr ""
-
-#: admin/admin-page.php:103
-msgid "Many More Features"
-msgstr ""
-
-#: includes/blocks_widget_create.php:855 includes/blocks_widget_create.php:955
-#: includes/blocks_widget_create.php:1091
-#: includes/blocks_widget_create.php:1158
-#: includes/blocks_widget_create.php:1272
-#: includes/blocks_widget_create.php:1473
-#: includes/blocks_widget_create.php:1537
-#: includes/blocks_widget_create.php:1654
-#: includes/blocks_widget_create.php:1806
-#: includes/blocks_widget_create.php:1916
-msgid "Margin"
-msgstr ""
-
-#: admin/form_style_tab.php:456
-msgid "Max Height:"
-msgstr ""
-
-#: includes/widget_design_template.php:777
-msgid "Minimum Discount (%)"
-msgstr ""
-
-#: includes/blocks_widget_create.php:748
-msgid "Mobile Responsive Style"
-msgstr ""
-
-#: admin/license-page.php:436
-msgid "Need help?"
-msgstr ""
-
-#: admin/form_style_tab.php:474
-msgid "No attributes found. Please create attributes in WooCommerce first."
-msgstr ""
-
-#: dynamic-ajax-product-filters-for-woocommerce.php:811
-msgid "No product attributes found"
-msgstr ""
-
-#: admin/form_style_tab.php:327
-msgid "No terms found. Please create terms for this attribute first."
-msgstr ""
-
-#: includes/blocks_widget_create.php:1847
-#: includes/blocks_widget_create.php:1998
-msgid "No Wrap"
-msgstr ""
-
-#: admin/form_style_tab.php:439
-msgid "Only one value can be selected at a time"
-msgstr ""
-
-#: admin/form_style_tab.php:336
-msgid "Optional Settings:"
-msgstr ""
-
-#: includes/blocks_widget_create.php:976 includes/blocks_widget_create.php:1827
-#: includes/blocks_widget_create.php:1948
-msgid "Overflow"
-msgstr ""
-
-#: includes/blocks_widget_create.php:843 includes/blocks_widget_create.php:943
-#: includes/blocks_widget_create.php:1080
-#: includes/blocks_widget_create.php:1147
-#: includes/blocks_widget_create.php:1260
-#: includes/blocks_widget_create.php:1460
-#: includes/blocks_widget_create.php:1524
-#: includes/blocks_widget_create.php:1795
-#: includes/blocks_widget_create.php:1905
-msgid "Padding"
-msgstr ""
-
-#: dynamic-ajax-product-filters-for-woocommerce.php:742
-msgid "Pagination is not found"
-msgstr ""
-
-#: admin/settings-init.php:193 includes/blocks_widget_create.php:618
-msgid "Pagination Selector"
-msgstr ""
-
-#: admin/settings-init.php:288
-msgid "Permalinks Prefix"
-msgstr ""
-
-#: admin/admin-notice.php:73
-msgid "Please ensure each slug is unique to avoid filtering issues."
-msgstr ""
-
-#: admin/admin-page.php:938
-msgid "Plugin License"
-msgstr ""
-
-#. Author of the plugin
-msgid "Plugincy"
-msgstr ""
-
-#: admin/admin-page.php:1120
-msgid "Plugincy Support"
-msgstr ""
-
-#: includes/blocks_widget_create.php:2014
-msgid "Position"
-msgstr ""
-
-#: admin/admin-page.php:33
-msgid "Premium Features"
-msgstr ""
-
-#: admin/admin-page.php:95
-msgid "Premium Support"
-msgstr ""
-
-#: admin/form_style_tab.php:49 admin/page-seo-permalinks.php:146
-#: admin/page-seo-permalinks.php:149 includes/blocks_widget_create.php:513
-msgid "Price"
-msgstr ""
-
-#: includes/widget_design_template.php:153
-msgid "Price Range"
-msgstr ""
-
-#: admin/license-page.php:363
-msgid "Pro Version Activated!"
-msgstr ""
-
-#: dynamic-ajax-product-filters-for-woocommerce.php:654
-msgid "Product Filter"
-msgstr ""
-
-#: admin/admin-page.php:10
-msgid "Product Filters"
-msgstr ""
-
-#: admin/settings-init.php:185 includes/blocks_widget_create.php:606
-msgid "Product Selector"
-msgstr ""
-
-#: admin/settings-init.php:201
-msgid "Product Shortcode Selector"
-msgstr ""
-
-#: admin/page-seo-permalinks.php:134 admin/page-seo-permalinks.php:137
-#: includes/blocks_widget_create.php:514
-msgid "product-category"
-msgstr ""
-
-#: dynamic-ajax-product-filters-for-woocommerce.php:689
-msgid "Products are not found. Add product or"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1620
-msgid "plugrogress Background"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1633
-msgid "plugrogress Border Radius"
-msgstr ""
-
-#: admin/admin-page.php:561
-msgid "Quick Start Guide:"
-msgstr ""
-
-#: admin/admin-page.php:1105
-msgid "Quick troubleshooting steps"
-msgstr ""
-
-#: admin/form_style_tab.php:50 admin/page-seo-permalinks.php:152
-#: admin/page-seo-permalinks.php:155 includes/blocks_widget_create.php:512
-#: includes/widget_design_template.php:143
-msgid "Rating"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1309
-msgid "Rating Size"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1298
-msgid "Rating Style"
-msgstr ""
-
-#: admin/admin-page.php:112
-msgid "Ready to Upgrade?"
-msgstr ""
-
-#: admin/admin-page.php:141 admin/admin-page.php:616
-msgid "Regular Updates"
-msgstr ""
-
-#: admin/admin-page.php:104
-msgid ""
-"Regular updates with new features, improvements, and compatibility "
-"enhancements."
-msgstr ""
-
-#: admin/license-page.php:405
-msgid "Reinstall & Activate Pro Plugin"
-msgstr ""
-
-#: admin/admin-notice.php:74
-msgid "Remind Me Later"
-msgstr ""
-
-#: admin/settings-init.php:207
-msgid "Remove out of stock product"
-msgstr ""
-
-#: dynamic-ajax-product-filters-for-woocommerce.php:216
-msgid "requires WooCommerce to be installed and activated."
-msgstr ""
-
-#: includes/widget_design_template.php:143
-msgid "reset"
-msgstr ""
-
-#: admin/admin-page.php:1299
-msgid "Reset All Settings"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1380
-msgid "Reset Button Style"
-msgstr ""
-
-#: admin/admin-page.php:1291
-msgid "Reset Settings"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1067
-#: includes/blocks_widget_create.php:2076
-msgid "Right"
-msgstr ""
-
-#: includes/widget_design_template.php:624
-msgid "Sale Status"
-msgstr ""
-
-#: admin/admin-page.php:990
-msgid "Save"
-msgstr ""
-
-#: includes/blocks_widget_create.php:981 includes/blocks_widget_create.php:1832
-#: includes/blocks_widget_create.php:1953
-msgid "Scroll"
-msgstr ""
-
-#: includes/blocks_widget_create.php:511
-msgid "Search Attributes"
-msgstr ""
-
-#: includes/widget_design_template.php:102
-msgid "Search Product"
-msgstr ""
-
-#: includes/widget_design_template.php:104
-msgid "Search Products"
-msgstr ""
-
-#: admin/admin-page.php:1247
-msgid "Security check failed. Settings were not reset."
-msgstr ""
-
-#: admin/admin-page.php:968
-msgid ""
-"Select a loading effect (or get html & css code from anywhere paste & save):"
-msgstr ""
-
-#: includes/blocks_widget_create.php:592
-msgid "Select Filter Type"
-msgstr ""
-
-#: admin/form-manage.php:45
-msgid "Select the meta tag to be added in the head section of the page."
-msgstr ""
-
-#: admin/form-manage.php:174
-msgid "Select URL Filter Type"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1864
-msgid "Selected Filter Styles"
-msgstr ""
-
-#: includes/blocks_widget_create.php:597
-msgid "Selected Filters"
-msgstr ""
-
-#: admin/admin-page.php:936
-msgid "SEO & Permalinks Setup"
-msgstr ""
-
-#: admin/settings-init.php:277
-msgid "SEO Configuration"
-msgstr ""
-
-#: admin/settings-init.php:316
-msgid "SEO Description"
-msgstr ""
-
-#: admin/admin-page.php:47
-msgid "SEO Friendly URLs"
-msgstr ""
-
-#: admin/settings-init.php:326
-msgid "SEO Keywords"
-msgstr ""
-
-#: admin/settings-init.php:293
-msgid "SEO Setup"
-msgstr ""
-
-#: admin/settings-init.php:307
-msgid "SEO Title"
-msgstr ""
-
-#: admin/admin-page.php:39
-msgid "Separate Child Values for Hierarchical Filters"
-msgstr ""
-
-#: admin/page-seo-permalinks.php:223
-msgid "Set a custom SEO description for your permalinks."
-msgstr ""
-
-#: admin/page-seo-permalinks.php:210
-msgid "Set a custom SEO title for your permalinks."
-msgstr ""
-
-#: admin/form_style_tab.php:260
-msgid "Set Colors for Terms"
-msgstr ""
-
-#: admin/page-seo-permalinks.php:234
-msgid "Set custom SEO keywords for your permalinks."
-msgstr ""
-
-#: admin/form_style_tab.php:291
-msgid "Set Images for Terms"
-msgstr ""
-
-#: admin/form_style_tab.php:376
-msgid "Set Min & Max Price:"
-msgstr ""
-
-#: admin/admin-page.php:567
-msgid "Set up your product attributes, categories, and price ranges"
-msgstr ""
-
-#: includes/blocks_widget_create.php:732 includes/blocks_widget_create.php:793
-msgid "Show"
-msgstr ""
-
-#: admin/settings-init.php:51
-msgid "Show Attributes"
-msgstr ""
-
-#: admin/settings-init.php:75
-msgid "Show Authors"
-msgstr ""
-
-#: admin/settings-init.php:71
-msgid "Show Brand"
-msgstr ""
-
-#: admin/settings-init.php:47
-msgid "Show Categories"
-msgstr ""
-
-#: admin/settings-init.php:103
-msgid "Show Custom Fields Filter"
-msgstr ""
-
-#: admin/settings-init.php:99
-msgid "Show Date Filter"
-msgstr ""
-
-#: admin/settings-init.php:87
-msgid "Show Dimensions"
-msgstr ""
-
-#: admin/settings-init.php:95
-msgid "Show Discount"
-msgstr ""
-
-#: includes/blocks_widget_create.php:790
-msgid "Show Filters Word on Mobile"
-msgstr ""
-
-#: admin/settings-init.php:115
-msgid "Show Loader"
-msgstr ""
-
-#: admin/form_style_tab.php:449
-msgid "Show number of products"
-msgstr ""
-
-#: admin/settings-init.php:59
-msgid "Show Price Range"
-msgstr ""
-
-#: admin/settings-init.php:63
-msgid "Show Rating"
-msgstr ""
-
-#: admin/settings-init.php:83
-msgid "Show Sale Status"
-msgstr ""
-
-#: admin/settings-init.php:67
-msgid "Show Search"
-msgstr ""
-
-#: admin/settings-init.php:91
-msgid "Show SKU"
-msgstr ""
-
-#: admin/settings-init.php:79
-msgid "Show Stock Status"
-msgstr ""
-
-#: admin/settings-init.php:55
-msgid "Show Tags"
-msgstr ""
-
-#: admin/form_style_tab.php:445
-msgid "Show/Hide Number of Products:"
-msgstr ""
-
-#: admin/settings-init.php:209
-msgid "Sidebar Top (Mobile only)"
-msgstr ""
-
-#: includes/blocks_widget_create.php:596
-msgid "Single Filter"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1721
-msgid "Single Filter Styles"
-msgstr ""
-
-#: admin/form_style_tab.php:435
-msgid "Single Selection:"
-msgstr ""
-
-#: includes/widget_design_template.php:750
-msgid "SKU"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1574
-msgid "Slider"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1586
-msgid "Slider Background"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1599
-msgid "Slider Border Radius"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1063
-msgid "space-between"
-msgstr ""
-
-#: includes/blocks_widget_create.php:2020
-msgid "Sticky"
-msgstr ""
-
-#: admin/admin-page.php:1119
-msgid ""
-"Still facing issues? Reach out to Plugincy Support as we’re always here to "
-"help."
-msgstr ""
-
-#: includes/widget_design_template.php:586
-msgid "Stock Status"
-msgstr ""
-
-#: includes/blocks_widget_create.php:761
-msgid "Style 1"
-msgstr ""
-
-#: includes/blocks_widget_create.php:762
-msgid "Style 2"
-msgstr ""
-
-#: includes/blocks_widget_create.php:763
-msgid "Style 3"
-msgstr ""
-
-#: includes/blocks_widget_create.php:764
-msgid "Style 4"
-msgstr ""
-
-#: includes/blocks_widget_create.php:515 includes/blocks_widget_create.php:676
-msgid "Tag"
-msgstr ""
-
-#: admin/form_style_tab.php:48
-msgid "Tag Options"
-msgstr ""
-
-#: admin/page-seo-permalinks.php:140 admin/page-seo-permalinks.php:143
-#: includes/widget_design_template.php:471
-msgid "Tags"
-msgstr ""
-
-#: admin/admin-page.php:28
-msgid ""
-"Take your WooCommerce store to the next level with advanced filtering "
-"capabilities and premium features."
-msgstr ""
-
-#: admin/admin-page.php:1115
-msgid "Temporarily deactivate other filter plugins to check for conflicts."
-msgstr ""
-
-#: includes/blocks_widget_create.php:1051
-msgid "Text Align"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1028
-#: includes/blocks_widget_create.php:1136
-#: includes/blocks_widget_create.php:1218
-#: includes/blocks_widget_create.php:1413
-#: includes/blocks_widget_create.php:1512
-#: includes/blocks_widget_create.php:1784
-#: includes/blocks_widget_create.php:1894
-msgid "Text Color"
-msgstr ""
-
-#: admin/admin-notice.php:67
-msgid ""
-"The following slugs are duplicated across categories, tags, or attributes:"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1689
-msgid "Thumb Background"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1667
-msgid "Thumb Size"
-msgstr ""
-
-#: admin/settings-init.php:338
-msgid ""
-"To access more SEO and permalinks settings, please change the \"Use URL-"
-"Based Filter\" option from \"ajax\" to another method."
-msgstr ""
-
-#: includes/blocks_widget_create.php:1703
-msgid "Tooltip Background"
-msgstr ""
-
-#: includes/blocks_widget_create.php:2035
-msgid "Top"
-msgstr ""
-
-#: admin/admin-page.php:552
-msgid ""
-"Transform your store with lightning-fast, user-friendly product filtering"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1020
-#: includes/blocks_widget_create.php:1128
-#: includes/blocks_widget_create.php:1403
-#: includes/blocks_widget_create.php:1776
-#: includes/blocks_widget_create.php:1886
-msgid "Typography"
-msgstr ""
-
-#: admin/settings-init.php:111
-msgid "Update filter options"
-msgstr ""
-
-#: admin/admin-page.php:27
-msgid "Upgrade to Dynamic AJAX Product Filters Pro"
-msgstr ""
-
-#: includes/blocks_widget_create.php:696
-msgid "Use Attribute terms slugs, comma separated."
-msgstr ""
-
-#: admin/settings-init.php:286
+#: admin/page-seo-permalinks.php:150
+#: admin/settings-init.php:405
 msgid "Use Attribute Type in Permalinks"
 msgstr ""
 
-#: includes/blocks_widget_create.php:670
-msgid "Use Category slugs, comma separated."
+#: admin/page-seo-permalinks.php:165
+msgid "Enter SEO Title"
 msgstr ""
 
-#: admin/admin-page.php:999
-msgid "Use shortcode to show filter:"
+#: admin/page-seo-permalinks.php:166
+msgid "Set a custom SEO title for your permalinks."
 msgstr ""
 
-#: includes/blocks_widget_create.php:679
-msgid "Use Tag slugs, comma separated."
+#: admin/page-seo-permalinks.php:178
+msgid "Enter SEO Description"
+msgstr ""
+
+#: admin/page-seo-permalinks.php:179
+msgid "Set a custom SEO description for your permalinks."
+msgstr ""
+
+#: admin/page-seo-permalinks.php:189
+msgid "Enter SEO Keywords"
+msgstr ""
+
+#: admin/page-seo-permalinks.php:190
+msgid "Set custom SEO keywords for your permalinks."
+msgstr ""
+
+#: admin/settings-init.php:82
+msgid "Show Categories"
+msgstr ""
+
+#: admin/settings-init.php:83
+msgid "Enable this option to show categories in the filter."
+msgstr ""
+
+#: admin/settings-init.php:86
+msgid "Show Attributes"
+msgstr ""
+
+#: admin/settings-init.php:87
+msgid "Enable this option to show attributes in the filter."
+msgstr ""
+
+#: admin/settings-init.php:90
+msgid "Show Tags"
+msgstr ""
+
+#: admin/settings-init.php:91
+msgid "Enable this option to show tags in the filter."
+msgstr ""
+
+#: admin/settings-init.php:94
+msgid "Show Custom Taxonomies"
+msgstr ""
+
+#: admin/settings-init.php:95
+msgid "Enable this option to show selected custom product taxonomies in the filter."
+msgstr ""
+
+#: admin/settings-init.php:99
+msgid "Show Price Range"
+msgstr ""
+
+#: admin/settings-init.php:100
+msgid "Enable this option to show price range filter."
+msgstr ""
+
+#: admin/settings-init.php:103
+msgid "Show Rating"
+msgstr ""
+
+#: admin/settings-init.php:104
+msgid "Enable this option to show product rating filter."
 msgstr ""
 
 #: admin/settings-init.php:107
+msgid "Show Search"
+msgstr ""
+
+#: admin/settings-init.php:108
+msgid "Enable this option to show search box for products."
+msgstr ""
+
+#: admin/settings-init.php:111
+msgid "Show Brand"
+msgstr ""
+
+#: admin/settings-init.php:112
+msgid "Enable this option to show brand filter."
+msgstr ""
+
+#: admin/settings-init.php:115
+msgid "Show Authors"
+msgstr ""
+
+#: admin/settings-init.php:116
+msgid "Enable this option to show authors filter."
+msgstr ""
+
+#: admin/settings-init.php:119
+msgid "Show Stock Status"
+msgstr ""
+
+#: admin/settings-init.php:120
+msgid "Enable this option to show status filter."
+msgstr ""
+
+#: admin/settings-init.php:123
+msgid "Show Sale Status"
+msgstr ""
+
+#: admin/settings-init.php:124
+msgid "Enable this option to show on sale filter."
+msgstr ""
+
+#: admin/settings-init.php:127
+msgid "Show Featured Products"
+msgstr ""
+
+#: admin/settings-init.php:128
+msgid "Enable this option to show featured product filter."
+msgstr ""
+
+#: admin/settings-init.php:132
+msgid "Show Dimensions"
+msgstr ""
+
+#: admin/settings-init.php:133
+msgid "Enable this option to show dimensions filter."
+msgstr ""
+
+#: admin/settings-init.php:136
+msgid "Show SKU"
+msgstr ""
+
+#: admin/settings-init.php:137
+msgid "Enable this option to show sku filter."
+msgstr ""
+
+#: admin/settings-init.php:140
+msgid "Show Discount"
+msgstr ""
+
+#: admin/settings-init.php:141
+msgid "Enable this option to show discount filter."
+msgstr ""
+
+#: admin/settings-init.php:144
+msgid "Show Date Filter"
+msgstr ""
+
+#: admin/settings-init.php:145
+msgid "Enable this option to show date filter."
+msgstr ""
+
+#: admin/settings-init.php:148
+msgid "Show Custom Fields Filter"
+msgstr ""
+
+#: admin/settings-init.php:149
+msgid "Enable this option to show custom fields filter."
+msgstr ""
+
+#: admin/settings-init.php:153
 msgid "Use URL-Based Filter"
 msgstr ""
 
-#: admin/admin-page.php:555
-msgid "Version"
+#: admin/settings-init.php:154
+msgid "Choose Filter Method"
 msgstr ""
 
-#: includes/blocks_widget_create.php:2047
-msgid "Vertical Offset"
+#: admin/settings-init.php:157
+msgid "Update filter options"
 msgstr ""
 
-#: includes/blocks_widget_create.php:2032
-msgid "Vertical Orientation"
+#: admin/settings-init.php:158
+msgid "Enable this option to dynamically update filter options."
 msgstr ""
 
-#: admin/admin-page.php:122 admin/admin-page.php:595
-msgid "View Demo"
+#: admin/settings-init.php:161
+msgid "Show Loader"
 msgstr ""
 
-#: admin/admin-page.php:1111
-msgid "View docs"
+#: admin/settings-init.php:162
+msgid "Enable this option to show a loading indicator during AJAX requests."
 msgstr ""
 
-#: admin/admin-page.php:126 admin/admin-page.php:600
-msgid "View Documentation"
+#: admin/settings-init.php:203
+msgid "Customize the appearance and behavior of your filter components with our comprehensive styling options"
 msgstr ""
 
-#: dynamic-ajax-product-filters-for-woocommerce.php:725
-msgid "View documentation"
-msgstr ""
-
-#: includes/blocks_widget_create.php:730 includes/blocks_widget_create.php:979
-#: includes/blocks_widget_create.php:1830
-#: includes/blocks_widget_create.php:1951
-msgid "Visible"
-msgstr ""
-
-#: admin/advance_settings.php:49
-msgid ""
-"We collect non-sensitive technical details from your website, like the PHP "
-"version and features usage, to help us troubleshoot issues faster, make "
-"informed development decisions, and build features that truly benefit you."
-msgstr ""
-
-#: includes/blocks_widget_create.php:1105
-msgid "Widget Items Styles"
-msgstr ""
-
-#: includes/blocks_widget_create.php:998
-msgid "Widget Title Styles"
-msgstr ""
-
-#: admin/form-manage.php:179
-msgid "With Ajax"
-msgstr ""
-
-#: admin/form-manage.php:178
-msgid "With Permalinks (e.g., brand/size/color)"
-msgstr ""
-
-#: admin/form-manage.php:177
-msgid "With Query String (e.g., ?filters)"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1848
-#: includes/blocks_widget_create.php:1999
-msgid "Wrap"
-msgstr ""
-
-#: includes/blocks_widget_create.php:1849
-#: includes/blocks_widget_create.php:2000
-msgid "Wrap Reverse"
-msgstr ""
-
-#: admin/settings-init.php:177
+#: admin/settings-init.php:253
 msgid "You can handle advanced settings for your product filters here."
 msgstr ""
 
-#: admin/license-page.php:385
-msgid "You have a valid license but the Pro plugin is not active."
+#: admin/settings-init.php:276
+msgid "Sorting Selector"
 msgstr ""
 
-#: admin/license-page.php:363
-msgid "Your license is active and the Pro plugin is running."
+#: admin/settings-init.php:283
+msgid "Result Count Selector"
 msgstr ""
 
-#: admin/license-page.php:375
-msgid "Your license is currently active."
+#: admin/settings-init.php:291
+msgid "Product Shortcode Selector"
 msgstr ""
 
-#: includes/blocks_widget_create.php:2112
+#: admin/settings-init.php:300
+msgid "Text Manage"
+msgstr ""
+
+#: admin/settings-init.php:306
+msgid "Wait Cursor on Filtering"
+msgstr ""
+
+#: admin/settings-init.php:307
+msgid "Use Overlay"
+msgstr ""
+
+#: admin/settings-init.php:308
+msgid "Smart Auto Scroll"
+msgstr ""
+
+#: admin/settings-init.php:309
+msgid "Pagination via AJAX"
+msgstr ""
+
+#: admin/settings-init.php:310
+msgid "Product Sorting via AJAX"
+msgstr ""
+
+#: admin/settings-init.php:311
+msgid "Browser History Step Navigation"
+msgstr ""
+
+#: admin/settings-init.php:312
+msgid "Remove out of stock product"
+msgstr ""
+
+#: admin/settings-init.php:313
+msgid "Exclude Products From Results"
+msgstr ""
+
+#: admin/settings-init.php:314
+msgid "Contribute to Plugincy"
+msgstr ""
+
+#: admin/settings-init.php:315
+msgid "Sidebar Top (Mobile only)"
+msgstr ""
+
+#: admin/settings-init.php:316
+msgid "Mobile Breakpoint"
+msgstr ""
+
+#: admin/settings-init.php:317
+msgid "Mobile Filter Style"
+msgstr ""
+
+#: admin/settings-init.php:318
+msgid "Make Default Options Selected"
+msgstr ""
+
+#: admin/settings-init.php:319
+msgid "Delete all plugin data on uninstall"
+msgstr ""
+
+#: admin/settings-init.php:398
+msgid "Configure SEO options for your product filters to improve search engine visibility and customize permalinks structure."
+msgstr ""
+
+#: admin/settings-init.php:406
+msgid "Filters Word in Permalinks"
+msgstr ""
+
+#: admin/settings-init.php:407
+msgid "Permalinks Prefix"
+msgstr ""
+
+#: admin/settings-init.php:412
+msgid "SEO Setup"
+msgstr ""
+
+#: admin/settings-init.php:419
+msgid "Enable SEO"
+msgstr ""
+
+#: admin/settings-init.php:421
+msgid "Make filter link indexable for best SEO"
+msgstr ""
+
+#: admin/settings-init.php:426
+msgid "SEO Title"
+msgstr ""
+
+#: admin/settings-init.php:435
+msgid "SEO Description"
+msgstr ""
+
+#: admin/settings-init.php:445
+msgid "SEO Keywords"
+msgstr ""
+
+#: admin/settings-init.php:457
+msgid "To access more SEO and permalinks settings, please change the \"Use URL-Based Filter\" option from \"ajax\" to another method."
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2410
+msgid "Checkbox"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2411
+msgid "Radio Check"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2412
+msgid "Radio"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2413
+msgid "Square"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2414
+msgid "Checkbox Hide"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2418
+msgid "Color Without Border"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2419
+msgid "Color Circle"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2420
+msgid "Color With Value"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2421
+msgid "Color Swatch Label"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2424
+msgid "Image"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2425
+msgid "Image Without Border"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2426
+msgid "Image With Value"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2429
+msgid "Select"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2430
+msgid "Select 2"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2431
+msgid "Chip Dropdown"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2432
+msgid "Modern Dropdown"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2433
+msgid "Checkbox Dropdown"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2437
+msgid "Icon Card"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2438
+msgid "Icon List"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2439
+msgid "Icon Chip"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2440
+msgid "Icon Badge"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2441
+msgid "Icon Only"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2444
+msgid "Chips"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2445
+msgid "Button Chips"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2446
+msgid "Button Checkbox"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2449
+msgid "Stepper"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2450
+msgid "Boxed Stepper"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2451
+msgid "Compact Stepper"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2452
+msgid "Pill Stepper"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2456
+#: includes/blocks_widget_create.php:1803
+msgid "Slider"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2457
+msgid "Slider 2"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2458
+msgid "Chart Slider"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2459
+msgid "Range Button"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2460
+msgid "Range Card"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2461
+msgid "Input Price Range"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2464
+msgid "Rating Star"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2465
+msgid "Rating Text"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2466
+msgid "Dynamic Rating"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2467
+msgid "Rating Slider"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2470
+msgid "Search with Button"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2471
+msgid "Search with Icon"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2474
+msgid "Dimension Input"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2475
+msgid "Dimension Range"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2476
+msgid "Compact Range Card"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2479
+msgid "Discount Slider"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2482
+msgid "Input"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2483
+msgid "Search Button"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2484
+msgid "Icon Search"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2487
+msgid "Modern Calendar"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2488
+msgid "Classic Select"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2489
+msgid "Quick Picks"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2490
+msgid "Dual Calendar"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2491
+msgid "Stacked List"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2543
+msgid "Filter Plugin"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2543
+msgid "requires WooCommerce to be installed and activated."
+msgstr ""
+
+#. translators: 1: first shown product number, 2: last shown product number, 3: total number of products.
+#: dynamic-ajax-product-filters-for-woocommerce.php:2873
+#, php-format
+msgid "Showing %1$s&ndash;%2$s of %3$s results"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:2874
+msgid "Searched"
+msgstr ""
+
+#. translators: %s: the active filter, e.g. "Category: Clothing".
+#: dynamic-ajax-product-filters-for-woocommerce.php:2876
+#, php-format
+msgid "Remove filter: %s"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3009
+msgid "The products could not be updated. Please try again."
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3089
+msgid "Copied!"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3090
+msgid "Failed to copy. Please select and copy manually."
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3095
+msgid "Select or Upload an Image"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3096
+msgid "Use this Image"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3118
+msgid "Settings"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3119
+#: dynamic-ajax-product-filters-for-woocommerce.php:5073
+msgid "Support"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3120
+msgid "Documentation"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3188
+msgid "Product Filter"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3198
+msgid "Checking..."
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3235
+msgid "Filter is not added"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3239
+msgid "Products are not found. Add product or"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3239
+#: dynamic-ajax-product-filters-for-woocommerce.php:3292
+msgid "change selector"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3272
+msgid "Product Selector Not Found"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3274
+msgid "The product selector does not match any element on this page."
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3275
+#: dynamic-ajax-product-filters-for-woocommerce.php:5072
+msgid "View documentation"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3286
+msgid "Dismiss"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3292
+msgid "Pagination is not found"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3296
+msgid "Filter working fine"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3382
+msgid "No product attributes found"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3543
+msgid "Data sharing is disabled."
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3549
+msgid "You are not allowed to deactivate plugins."
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3995
+msgid "WooCommerce Archive Content"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:3997
+msgid "Content displayed after WooCommerce archive titles and before products"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:4173
+msgid "You do not have permission to manage templates."
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:4179
+msgid "Invalid template ID."
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:4185
+msgid "Invalid template selected."
+msgstr ""
+
+#. translators: %s: Template name.
+#: dynamic-ajax-product-filters-for-woocommerce.php:4211
+#, php-format
+msgid "%s activated successfully!"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:4215
+msgid "Failed to save template settings."
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:4245
+msgid "Display content after WooCommerce archive titles"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:4287
+msgid "Mobile style"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:4334
+msgid "Dynamic Ajax Single Filter"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:4336
+msgid "Display a single filter for WooCommerce products"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:4370
+msgid "Selector Name:"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:4375
+msgid "Enter the selector name for the single filter shortcode."
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:4409
+msgid "Dynamic Ajax Selected Filter"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:4411
+msgid "Display a selected filter for WooCommerce products"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:5072
+msgid "Docs"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:5074
+msgid "Visit community forums"
+msgstr ""
+
+#: dynamic-ajax-product-filters-for-woocommerce.php:5074
+msgid "Community support"
+msgstr ""
+
+#: includes/analytics.php:251
+msgid "Quick Feedback"
+msgstr ""
+
+#: includes/analytics.php:253
+#: includes/get_review.php:40
+msgid "Close"
+msgstr ""
+
+#. translators: %s: plugin name.
+#: includes/analytics.php:260
+#, php-format
+msgid "If you have a moment, please share why you are deactivating %s:"
+msgstr ""
+
+#: includes/analytics.php:267
+msgid "It's a temporary deactivation."
+msgstr ""
+
+#: includes/analytics.php:272
+msgid "The plugin isn't working properly."
+msgstr ""
+
+#: includes/analytics.php:277
+msgid "I found a better alternative plugin."
+msgstr ""
+
+#: includes/analytics.php:282
+msgid "It's missing a specific feature."
+msgstr ""
+
+#: includes/analytics.php:287
+msgid "Other"
+msgstr ""
+
+#: includes/analytics.php:291
+msgid "Please tell us more..."
+msgstr ""
+
+#: includes/analytics.php:291
+msgid "Other reason"
+msgstr ""
+
+#: includes/analytics.php:294
+msgid "Submit & Deactivate"
+msgstr ""
+
+#: includes/analytics.php:616
+msgid "Deactivating..."
+msgstr ""
+
+#: includes/blocks_widget_create.php:665
+msgid "Search Attributes"
+msgstr ""
+
+#: includes/blocks_widget_create.php:725
+msgid "Filter Options"
+msgstr ""
+
+#: includes/blocks_widget_create.php:732
+msgid "Select Filter Type"
+msgstr ""
+
+#: includes/blocks_widget_create.php:735
+msgid "All Filters"
+msgstr ""
+
+#: includes/blocks_widget_create.php:736
+msgid "Single Filter"
+msgstr ""
+
+#: includes/blocks_widget_create.php:737
+msgid "Selected Filters"
+msgstr ""
+
+#: includes/blocks_widget_create.php:776
+msgid "Redirect filter actions to the shop page when this widget is used on a page without products."
+msgstr ""
+
+#: includes/blocks_widget_create.php:787
+msgid "Select Filter Layout"
+msgstr ""
+
+#: includes/blocks_widget_create.php:790
+#: includes/filter-template.php:488
+msgid "Sidebar Layout"
+msgstr ""
+
+#: includes/blocks_widget_create.php:791
+#: includes/filter-template.php:491
+msgid "Top View Layout"
+msgstr ""
+
+#: includes/blocks_widget_create.php:792
+msgid "Top View Wrap Layout (Pro)"
+msgstr ""
+
+#: includes/blocks_widget_create.php:793
+msgid "Popup Layout (Pro)"
+msgstr ""
+
+#: includes/blocks_widget_create.php:794
+msgid "Popup Horizontal Wrap Layout (Pro)"
+msgstr ""
+
+#: includes/blocks_widget_create.php:795
+msgid "Drawer Layout (Pro)"
+msgstr ""
+
+#: includes/blocks_widget_create.php:850
+msgid "attribute id"
+msgstr ""
+
+#: includes/blocks_widget_create.php:938
+msgid "Manage order & show/hide"
+msgstr ""
+
+#: includes/blocks_widget_create.php:944
+msgid "Element Type"
+msgstr ""
+
+#: includes/blocks_widget_create.php:980
+msgid "Choose style"
+msgstr ""
+
+#: includes/blocks_widget_create.php:1000
+#: includes/blocks_widget_create.php:1012
+msgid "Filters Word (Mobile)"
+msgstr ""
+
+#: includes/blocks_widget_create.php:1032
+msgid "Form Styles"
+msgstr ""
+
+#: includes/blocks_widget_create.php:1090
+#: includes/blocks_widget_create.php:1190
+msgid "Box Shadow"
+msgstr ""
+
+#: includes/blocks_widget_create.php:1098
+msgid "Form Height"
+msgstr ""
+
+#: includes/blocks_widget_create.php:1132
+msgid "Container Styles"
+msgstr ""
+
+#: includes/blocks_widget_create.php:1220
+msgid "Widget Title Styles"
+msgstr ""
+
+#: includes/blocks_widget_create.php:1285
+msgid "space-between"
+msgstr ""
+
+#: includes/blocks_widget_create.php:1334
+msgid "Widget Items Styles"
+msgstr ""
+
+#: includes/blocks_widget_create.php:1815
+msgid "Slider Background"
+msgstr ""
+
+#: includes/blocks_widget_create.php:1828
+msgid "Slider Border Radius"
+msgstr ""
+
+#: includes/blocks_widget_create.php:1849
+msgid "progress Background"
+msgstr ""
+
+#: includes/blocks_widget_create.php:1862
+msgid "plugrogress Border Radius"
+msgstr ""
+
+#: includes/blocks_widget_create.php:1948
+msgid "Single Filter Styles"
+msgstr ""
+
+#: includes/blocks_widget_create.php:1991
+msgid "Inactive Hover Color"
+msgstr ""
+
+#: includes/blocks_widget_create.php:2091
+msgid "Selected Filter Styles"
+msgstr ""
+
+#: includes/blocks_widget_create.php:2241
+msgid "Position"
+msgstr ""
+
+#: includes/blocks_widget_create.php:2245
+msgid "Absolute"
+msgstr ""
+
+#: includes/blocks_widget_create.php:2246
+msgid "Fixed"
+msgstr ""
+
+#: includes/blocks_widget_create.php:2247
+msgid "Sticky"
+msgstr ""
+
+#: includes/blocks_widget_create.php:2259
+msgid "Vertical Orientation"
+msgstr ""
+
+#: includes/blocks_widget_create.php:2274
+msgid "Vertical Offset"
+msgstr ""
+
+#: includes/blocks_widget_create.php:2299
+msgid "Horizontal Orientation"
+msgstr ""
+
+#: includes/blocks_widget_create.php:2314
+msgid "Horizontal Offset"
+msgstr ""
+
+#: includes/blocks_widget_create.php:2339
 msgid "Z-Index"
 msgstr ""
 
-#: includes/widget_design_template.php
-msgid "Reset"
+#. translators: %s: dimension unit set in WooCommerce, e.g. cm or in.
+#: includes/common-functions.php:305
+#, php-format
+msgid "Length (%s):"
 msgstr ""
 
-#: includes/widget_design_template.php
+#. translators: %s: dimension unit set in WooCommerce, e.g. cm or in.
+#: includes/common-functions.php:308
+#, php-format
+msgid "Width (%s):"
+msgstr ""
+
+#. translators: %s: dimension unit set in WooCommerce, e.g. cm or in.
+#: includes/common-functions.php:311
+#, php-format
+msgid "Height (%s):"
+msgstr ""
+
+#. translators: %s: weight unit set in WooCommerce, e.g. kg or lbs.
+#: includes/common-functions.php:314
+#, php-format
+msgid "Weight (%s):"
+msgstr ""
+
+#: includes/filter-template.php:467
+msgid "Display & Layout"
+msgstr ""
+
+#: includes/filter-template.php:470
+msgid "Product Query"
+msgstr ""
+
+#: includes/filter-template.php:473
+msgid "Theme Selectors"
+msgstr ""
+
+#: includes/filter-template.php:476
+msgid "URL & Redirect"
+msgstr ""
+
+#: includes/filter-template.php:482
+msgid "Layout"
+msgstr ""
+
+#: includes/filter-template.php:483
+msgid "Choose how the full filter form should be displayed."
+msgstr ""
+
+#: includes/filter-template.php:494
+msgid "Top View Wrap Layout"
+msgstr ""
+
+#: includes/filter-template.php:499
+msgid "Popup Layout"
+msgstr ""
+
+#: includes/filter-template.php:504
+msgid "Popup Horizontal Wrap Layout"
+msgstr ""
+
+#: includes/filter-template.php:509
+msgid "Drawer Layout"
+msgstr ""
+
+#: includes/filter-template.php:517
+msgid "Collapsable Filters"
+msgstr ""
+
+#: includes/filter-template.php:518
+msgid "Collapse the shortcode filters into a toggle button on desktop layouts."
+msgstr ""
+
+#: includes/filter-template.php:530
+msgid "Drawer Side"
+msgstr ""
+
+#: includes/filter-template.php:531
+msgid "Choose which side the drawer opens from when using the drawer layout."
+msgstr ""
+
+#: includes/filter-template.php:544
+msgid "Use category slugs, comma separated."
+msgstr ""
+
+#: includes/filter-template.php:551
+msgid "Category Operator"
+msgstr ""
+
+#: includes/filter-template.php:552
+msgid "Choose how multiple category values should match."
+msgstr ""
+
+#: includes/filter-template.php:558
+#: includes/filter-template.php:580
+#: includes/filter-template.php:610
+#: includes/filter-template.php:624
+msgid "Use default (IN)"
+msgstr ""
+
+#: includes/filter-template.php:559
+#: includes/filter-template.php:581
+#: includes/filter-template.php:611
+#: includes/filter-template.php:625
+msgid "IN"
+msgstr ""
+
+#: includes/filter-template.php:566
+msgid "Use tag slugs, comma separated."
+msgstr ""
+
+#: includes/filter-template.php:573
+msgid "Tag Operator"
+msgstr ""
+
+#: includes/filter-template.php:574
+msgid "Choose how multiple tag values should match."
+msgstr ""
+
+#: includes/filter-template.php:588
+msgid "Use a product attribute slug."
+msgstr ""
+
+#: includes/filter-template.php:596
+msgid "Use attribute term slugs, comma separated."
+msgstr ""
+
+#: includes/filter-template.php:603
+msgid "Attribute Terms Operator"
+msgstr ""
+
+#: includes/filter-template.php:604
+msgid "Choose how multiple attribute term values should match."
+msgstr ""
+
+#: includes/filter-template.php:617
+msgid "Brand Operator"
+msgstr ""
+
+#: includes/filter-template.php:618
+msgid "Choose how multiple brand values should match."
+msgstr ""
+
+#: includes/filter-template.php:632
+msgid "Enter the CSS selector for the product container. Default is .products."
+msgstr ""
+
+#: includes/filter-template.php:647
+msgid "Mobile Responsive"
+msgstr ""
+
+#: includes/filter-template.php:648
+msgid "Choose the mobile filter style. Without this attribute the filter uses the Mobile Filter Style setting (Advanced settings)."
+msgstr ""
+
+#: includes/filter-template.php:655
+msgid "Products Per Page"
+msgstr ""
+
+#: includes/filter-template.php:656
+msgid "Set the maximum number of products per page."
+msgstr ""
+
+#: includes/filter-template.php:663
+msgid "URL Filter Mode"
+msgstr ""
+
+#: includes/filter-template.php:664
+msgid "Override the URL filter mode for this shortcode only."
+msgstr ""
+
+#: includes/filter-template.php:670
+#: includes/filter-template.php:685
+msgid "Use current setting"
+msgstr ""
+
+#: includes/filter-template.php:671
+msgid "AJAX"
+msgstr ""
+
+#: includes/filter-template.php:672
+msgid "Query String"
+msgstr ""
+
+#: includes/filter-template.php:673
+msgid "Permalinks"
+msgstr ""
+
+#: includes/filter-template.php:678
+msgid "Attribute Type In Permalinks"
+msgstr ""
+
+#: includes/filter-template.php:679
+msgid "Override whether attribute types should be included in permalinks for this shortcode."
+msgstr ""
+
+#: includes/filter-template.php:692
+msgid "Redirect When Products Missing"
+msgstr ""
+
+#: includes/filter-template.php:693
+msgid "Redirect filter actions to the shop page when this shortcode is used on a page without products."
+msgstr ""
+
+#: includes/filter-template.php:705
+msgid "Redirect To"
+msgstr ""
+
+#: includes/filter-template.php:706
+msgid "Leave empty to use the WooCommerce shop page automatically."
+msgstr ""
+
+#. translators: %s: Product attribute slug.
+#: includes/filter-template.php:759
+#, php-format
+msgid "Attribute slug: %s"
+msgstr ""
+
+#: includes/filter-template.php:780
+msgid "Search and choose which WooCommerce product attribute this single filter shortcode should render."
+msgstr ""
+
+#: includes/filter-template.php:783
+msgid "No WooCommerce attributes found yet."
+msgstr ""
+
+#: includes/filter-template.php:784
+msgid "Search attributes..."
+msgstr ""
+
+#: includes/filter-template.php:3305
+msgid "Previous"
+msgstr ""
+
+#: includes/filter-template.php:3308
+msgid "Next"
+msgstr ""
+
+#: includes/filter-template.php:3492
+msgid "Minimum price"
+msgstr ""
+
+#: includes/filter-template.php:3493
+msgid "Maximum price"
+msgstr ""
+
+#: includes/filter-template.php:3594
+#: includes/widget_design_template.php:1150
+msgid "Min"
+msgstr ""
+
+#: includes/filter-template.php:3595
+#: includes/widget_design_template.php:1151
+msgid "Max"
+msgstr ""
+
+#: includes/filter-template.php:3659
+msgid "Stars & Up"
+msgstr ""
+
+#: includes/filter-template.php:3660
+msgid "Star & Up"
+msgstr ""
+
+#: includes/filter-template.php:3661
+msgid "Star"
+msgstr ""
+
+#. translators: %d: number of stars
+#: includes/filter-template.php:3676
+#, php-format
+msgid "%d star"
+msgid_plural "%d stars"
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %s: parent term name.
+#: includes/filter-template.php:3792
+#, php-format
+msgid "Show subcategories of %s"
+msgstr ""
+
+#: includes/filter-template.php:3847
+msgid "Please provide an attribute slug."
+msgstr ""
+
+#: includes/get_review.php:41
+msgid "We Value Your Feedback!"
+msgstr ""
+
+#. translators: %s: plugin name.
+#: includes/get_review.php:44
+#: includes/get_review.php:213
+#, php-format
+msgid "If you enjoy using %s, please take a moment to leave us a review."
+msgstr ""
+
+#: includes/get_review.php:46
+#: includes/get_review.php:215
+msgid "Leave a Review"
+msgstr ""
+
+#: includes/get_review.php:48
+#: includes/get_review.php:217
+msgid "Already Done"
+msgstr ""
+
+#: includes/widget_design_template.php:18
+msgid "Type to search..."
+msgstr ""
+
+#: includes/widget_design_template.php:43
+msgid "Show or hide options"
+msgstr ""
+
+#: includes/widget_design_template.php:333
+msgid "Choose style from product filters->form style -> rating"
+msgstr ""
+
+#: includes/widget_design_template.php:355
+msgid "Choose style from product filters->form style -> price"
+msgstr ""
+
+#: includes/widget_design_template.php:436
+#: includes/widget_design_template.php:548
+#: includes/widget_design_template.php:595
+#: includes/widget_design_template.php:695
+#: includes/widget_design_template.php:760
+#: includes/widget_design_template.php:832
+#: includes/widget_design_template.php:896
+#: includes/widget_design_template.php:958
+#: includes/widget_design_template.php:1027
+msgid "Any"
+msgstr ""
+
+#: includes/widget_design_template.php:970
+msgid "On Backorder"
+msgstr ""
+
+#: includes/widget_design_template.php:1036
+msgid "Not on Sale"
+msgstr ""
+
+#. translators: %s: dimension name.
+#: includes/widget_design_template.php:1157
+#, php-format
+msgid "Minimum %s"
+msgstr ""
+
+#. translators: %s: dimension name.
+#: includes/widget_design_template.php:1160
+#, php-format
+msgid "Maximum %s"
+msgstr ""
+
+#: includes/widget_design_template.php:1181
+msgid "Enter SKU..."
+msgstr ""
+
+#: includes/widget_design_template.php:1213
+msgid "Min. % off"
+msgstr ""
+
+#: includes/widget_design_template.php:1220
+msgid "Minimum Discount (%)"
+msgstr ""
+
+#: includes/widget_design_template.php:1234
+msgid "Minimum discount percentage"
+msgstr ""
+
+#: includes/widget_design_template.php:1326
+msgid "Apply Filters"
+msgstr ""
+
+#: includes/widget_design_template.php:1331
 msgid "Reset Filters"
-msgstr ""
-
-#: includes/filter-template.php
-msgid "Showing (All)"
-msgstr ""
-
-#: includes/widget_design_template.php
-msgid "Filter"
-msgstr ""
-
-#: admin/form_style_tab.php
-msgid "Desktop Filter Heading:"
-msgstr ""
-
-#: admin/form_style_tab.php
-msgid "Show a heading beside the top buttons on desktop"
-msgstr ""
-
-#: admin/form_style_tab.php
-msgid "Desktop Filter Heading Text:"
-msgstr ""
-
-#: admin/form_style_tab.php
-msgid "Mobile Drawer Title:"
-msgstr ""
-
-#: admin/form_style_tab.php
-msgid "Leave empty to show the dynamic product result count."
 msgstr ""

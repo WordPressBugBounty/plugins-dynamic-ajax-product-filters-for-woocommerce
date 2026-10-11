@@ -17,8 +17,10 @@ form#product-filter .items.color_value label {
   margin: 0;
   border: 1px solid #ccc;
 }
-#product-filter :focus:focus-visible {
-  outline: none !important;
+/* Keyboard focus must stay visible (WCAG 2.4.7); components with their own focus ring override this default. */
+#product-filter :focus-visible {
+  outline: 2px solid var(--dapfforwc-template-primary, #432fb8);
+  outline-offset: 2px;
 }
 #product-filter .range-input,
 #product-filter .plugincy_slider {
@@ -50,13 +52,13 @@ form#product-filter .items.color_value label {
   padding: 8px;
   margin-bottom: 10px;
 }
-div#loader {
+.dapfforwc-loader-host div#loader {
   position: fixed;
   top: 40%;
   left: 50%;
   z-index: 999999999999999;
 }
-div#roverlay {
+.dapfforwc-loader-host div#roverlay {
   position: fixed !important;
   width: 100vw;
   height: 200vh;
@@ -76,9 +78,6 @@ div#roverlay {
 .rfilterselected li label {
   margin: 0 !important;
   margin-right: 5px !important;
-}
-.rfilterbuttons li label,
-.rfilterselected li label {
   font-weight: 400;
 }
 .rfilterbuttons ul,
@@ -91,10 +90,21 @@ div#roverlay {
 .rfilterselected ul {
   flex-wrap: wrap;
 }
+/* Visually hidden but still focusable and announced: the label or star is the visible control. */
 #product-filter .dynamic-rating input,
 .rfilterbuttons input,
 .rfilterselected input {
-  display: none !important;
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  opacity: 0 !important;
 }
 .rfilterbuttons ul li.checked,
 .rfilterselected ul li.checked {
@@ -102,7 +112,7 @@ div#roverlay {
   background: 0 0;
 }
 #product-filter .plugincy-filter-group .plugincy_title {
-  text-align: left;
+  text-align: start;
   display: flex;
   justify-content: space-between;
   font-size: 16px;
@@ -158,7 +168,45 @@ form.rfilterbuttons * {
 #product-filter .items.image_no_border input:not(.search-terms) {
   position: absolute !important;
   top: 0;
-  display: none !important;
+}
+/* Unchecked inputs of swatch, button and image layouts stay keyboard and screen-reader reachable (checked ones are drawn as the tick). */
+#product-filter .items.button_check input:not(.search-terms):not(:checked),
+#product-filter .items.plugincy_color input:not(.search-terms):not(:checked),
+#product-filter .items.color_circle input:not(.search-terms):not(:checked),
+#product-filter .items.color_no_border input:not(.search-terms):not(:checked),
+#product-filter .items.color_value input:not(.search-terms):not(:checked),
+#product-filter .items.image input:not(.search-terms):not(:checked),
+#product-filter .items.image_no_border input:not(.search-terms):not(:checked),
+#product-filter .items.image_value input:not(.search-terms):not(:checked),
+#product-filter .items.color_swatch_label input:not(.search-terms),
+#product-filter .items.checkbox_hide input:not(.search-terms) {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  opacity: 0 !important;
+}
+#product-filter .items.button_check label:has(input:focus-visible),
+#product-filter .items.plugincy_color label:has(input:focus-visible),
+#product-filter .items.color_circle label:has(input:focus-visible),
+#product-filter .items.color_no_border label:has(input:focus-visible),
+#product-filter .items.color_value label:has(input:focus-visible),
+#product-filter .items.color_swatch_label label:has(input:focus-visible),
+#product-filter .items.image label:has(input:focus-visible),
+#product-filter .items.image_no_border label:has(input:focus-visible),
+#product-filter .items.image_value label:has(input:focus-visible),
+#product-filter .items.checkbox_hide label:has(input:focus-visible),
+#product-filter .dynamic-rating input:focus-visible + label,
+.rfilterbuttons li:has(input:focus-visible),
+.rfilterselected li:has(input:focus-visible) {
+  outline: 2px solid var(--dapfforwc-template-primary, #432fb8);
+  outline-offset: 2px;
 }
 #product-filter .items.color_circle input:not(.search-terms) {
   position: absolute !important;
@@ -167,7 +215,6 @@ form.rfilterbuttons * {
 }
 #product-filter .items.color_value input:not(.search-terms) {
   position: absolute !important;
-  display: none !important;
 }
 
 #product-filter .items.color_circle .color-box,
@@ -258,6 +305,8 @@ form.rfilterbuttons * {
   appearance: checkbox;
   -webkit-appearance: checkbox;
   opacity: 1 !important;
+  width: 14px;
+  height: 14px;
 }
 #product-filter .filter-radio,
 #product-filter .filter-radio-check {
@@ -307,9 +356,6 @@ form.rfilterbuttons * {
 #product-filter input[type="checkbox"].filter-checkbox,
 #product-filter input[type="checkbox"].filter-square-check {
   -webkit-appearance: checkbox !important;
-}
-#product-filter .items.checkbox_hide input:not(.search-terms) {
-  display: none !important;
 }
 #product-filter .filter-radio-check:hover,
 #product-filter .filter-radio:hover,
@@ -361,7 +407,6 @@ form.rfilterbuttons * {
 #product-filter .price-input .field input {
   width: 100%;
   height: 100%;
-  outline: 0;
   border-radius: 5px;
   text-align: center;
   border: 1px solid #999;
@@ -413,11 +458,9 @@ form.rfilterbuttons * {
   padding: 0;
   background-color: transparent !important;
 }
-#product-filter input[type="range"]::-webkit-slider-track {
-  background: transparent;
-}
 #product-filter input[type="range"]::-moz-range-track {
   background: transparent;
+  box-shadow: none;
 }
 #product-filter input[type="range"]::-webkit-slider-thumb {
   height: 17px;
@@ -486,7 +529,7 @@ form.rfilterbuttons * {
   color: #fece31;
 }
 #product-filter .child-categories {
-  margin-left: 25px;
+  margin-inline-start: 25px;
 }
 #product-filter .dapfforwcpro-hierarchy-node {
   min-width: 0;
@@ -527,7 +570,10 @@ form.rfilterbuttons * {
 #product-filter .search-field {
   padding: 0 9px;
   border: 1px solid #ccc;
-  border-radius: 4px 0 0 4px;
+  border-start-start-radius: 4px;
+  border-end-start-radius: 4px;
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
   width: 75%;
   height: 40px;
   font-size: 12px;
@@ -537,7 +583,10 @@ form.rfilterbuttons * {
   padding: 0 6px;
   border: none;
   color: #fff;
-  border-radius: 0 4px 4px 0;
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+  border-start-end-radius: 4px;
+  border-end-end-radius: 4px;
   cursor: pointer;
   flex-grow: 1;
   font-size: 12px;
@@ -563,9 +612,7 @@ form.rfilterbuttons * {
 
 span#dapfforwc_issue_count {
   background: #ff0000;
-  max-width: min-content;
   width: max-content;
-  display: inline-block;
   border-radius: 100%;
   line-height: 8px;
   font-size: 12px;
@@ -592,7 +639,9 @@ span#dapfforwc_issue_count {
   padding: 2px;
   text-align: center;
 }
-#product-filter .items .image-option:hover span.image-title {
+/* Keyboard focus reveals the title like hover does. */
+#product-filter .items .image-option:hover span.image-title,
+#product-filter .items .image-option:focus-within span.image-title {
   opacity: 1;
   transition: all 0.3s ease-in-out;
 }
@@ -636,7 +685,6 @@ form#product-filter .checkbox input[type="radio"] {
   height: 14px;
   border: 1px solid #767676;
   border-radius: 3px; /* Square corners like checkbox */
-  outline: none;
   position: relative;
   cursor: pointer;
   vertical-align: middle;
@@ -699,7 +747,7 @@ form#product-filter .items.color_circle label:hover .value {
   font-size: 11px !important;
   width: max-content;
 }
-.items.plugincy_color label:hover .value:before,
+form#product-filter .items.plugincy_color label:hover .value:before,
 form#product-filter .items.color_no_border label:hover .value:before,
 form#product-filter .items.color_circle label:hover .value:before {
   content: "";
@@ -748,10 +796,8 @@ form#product-filter
   background: transparent;
 }
 
-#product-filter input[type="range"]::-moz-range-track {
-  box-shadow: none;
-}
-p.woocommerce-info {
+/* The plugin's own "no products" notice spans the whole product grid (WooCommerce notices elsewhere are left alone). */
+.dapfforwc-no-products-found {
   width: 100%;
   grid-column: 1 / -1;
 }
@@ -761,10 +807,6 @@ p.woocommerce-info {
 #product-filter .plugincy-filter-group.rating {
   overflow: hidden;
   min-height: max-content;
-}
-#product-filter input[type="checkbox"] {
-  width: 14px;
-  height: 14px;
 }
 form#product-filter .stars {
   display: none !important;
@@ -786,8 +828,8 @@ form#product-filter [type="checkbox"],
 form#product-filter [type="radio"] {
   padding: 0;
 }
-.plugincy-next-button,
-.plugincy-prev-button {
+.plugincy_filter_wrapper .plugincy-next-button,
+.plugincy_filter_wrapper .plugincy-prev-button {
   display: none !important;
 }
 form#product-filter .discount-input-group input {
@@ -795,14 +837,14 @@ form#product-filter .discount-input-group input {
   min-width: 100%;
 }
 
-#roverlay,
-#loader {
+.dapfforwc-loader-host #roverlay,
+.dapfforwc-loader-host #loader {
   opacity: 0 !important;
   visibility: hidden !important;
   transition: opacity 0.15s linear;
 }
-#roverlay.is-visible,
-#loader.is-visible {
+.dapfforwc-loader-host #roverlay.is-visible,
+.dapfforwc-loader-host #loader.is-visible {
   opacity: 1 !important;
   visibility: visible !important;
   display: block !important;
@@ -815,7 +857,8 @@ form#product-filter .discount-input-group input {
   background: #fff;
 }
 
-.select2-container {
+#product-filter .select2-container,
+.select2-dropdown.dapfforwc-select2-dropdown {
   z-index: 9999999999;
 }
 .dapfforwc-apply-reset-container {

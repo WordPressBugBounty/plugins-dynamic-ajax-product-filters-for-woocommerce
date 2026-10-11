@@ -4,7 +4,7 @@
  * Plugin Name: Dynamic AJAX Product Filters for WooCommerce
  * Plugin URI:  https://plugincy.com/
  * Description: A WooCommerce plugin to filter products by attributes, categories, and tags using AJAX for seamless user experience.
- * Version:     1.6.4
+ * Version:     1.6.6
  * Author:      Plugincy
  * Author URI:  https://plugincy.com
  * License:     GPL-2.0-or-later
@@ -12,6 +12,7 @@
  * Text Domain: dynamic-ajax-product-filters-for-woocommerce
  * Domain Path: /languages
  * Requires Plugins: woocommerce
+ * WC tested up to: 11.1
  */
 
 if (!defined('ABSPATH')) {
@@ -23,7 +24,7 @@ if (!defined('DAY_IN_SECONDS')) {
     define('DAY_IN_SECONDS', 86400);
 }
 
-define('DAPFFORWC_VERSION', '1.6.4');
+define('DAPFFORWC_VERSION', '1.6.6');
 
 define('DAPFFORWC_ENABLE_THIRD_PARTY_HOOKS', true);
 
@@ -34,6 +35,64 @@ if (!defined('DAPFFORWC_FRONTEND_STYLE_HANDLE')) {
 if (!defined('DAPFFORWC_PLUGIN_BASE_NAME')) {
     define('DAPFFORWC_PLUGIN_BASE_NAME', plugin_basename(__FILE__));
 }
+
+if (!function_exists('dapfforwc_is_pro_plugin_active')) {
+    /**
+     * True when the Pro plugin is active on this site (site-active, or network-active on multisite).
+     *
+     * Runs while plugins load, so it only reads the autoloaded active_plugins option and the network's
+     * active_sitewide_plugins option (no wp-admin include). Pro counts only when its main file exists, so a deleted
+     * Pro folder that WordPress still lists as active does not switch the free plugin off. A Pro build that already
+     * loaded (it defines DAPFFORWCPRO_PLUGIN_BASE_NAME first thing, also from a renamed folder) counts as well.
+     *
+     * @return bool
+     */
+    function dapfforwc_is_pro_plugin_active()
+    {
+        if (defined('DAPFFORWCPRO_PLUGIN_BASE_NAME')) {
+            return true;
+        }
+
+        $pro_plugin = 'dynamic-ajax-product-filters-for-woocommerce-pro/dynamic-ajax-product-filters-for-woocommerce-pro.php';
+        $active = in_array($pro_plugin, (array) get_option('active_plugins', array()), true);
+        if (!$active && is_multisite()) {
+            $network_plugins = (array) get_site_option('active_sitewide_plugins', array());
+            $active = isset($network_plugins[$pro_plugin]);
+        }
+
+        return $active && file_exists(WP_PLUGIN_DIR . '/' . $pro_plugin);
+    }
+}
+
+// Pro active on this site: the free plugin registers nothing, so the two never run side by side (for example a
+// network-active free plugin on a site where Pro runs). On a single site Pro then deactivates the free plugin and shows
+// its notice; it finds the free plugin by DAPFFORWC_PLUGIN_BASE_NAME above. Once Pro is deactivated, the free plugin
+// runs in full again from the next request.
+if (dapfforwc_is_pro_plugin_active()) {
+    return;
+}
+
+if (!function_exists('dapfforwc_register_languages_path')) {
+    // WordPress loads translations on demand only from wp-content/languages unless the plugin's own folder is registered;
+    // the Domain Path header alone is not used. Register /languages so the bundled es_ES/fr_FR files apply without
+    // load_plugin_textdomain() (flagged by Plugin Check). Language packs in wp-content/languages are checked first.
+    function dapfforwc_register_languages_path()
+    {
+        $domain = 'dynamic-ajax-product-filters-for-woocommerce';
+        $path = WP_PLUGIN_DIR . '/' . dirname(DAPFFORWC_PLUGIN_BASE_NAME) . '/languages';
+        if (isset($GLOBALS['wp_textdomain_registry']) && method_exists($GLOBALS['wp_textdomain_registry'], 'set_custom_path')) {
+            $GLOBALS['wp_textdomain_registry']->set_custom_path($domain, $path);
+            return;
+        }
+        // WordPress before 6.1: load the language pack first (it takes precedence), then the bundled file.
+        add_action('init', function () use ($domain, $path) {
+            $locale = apply_filters('plugin_locale', determine_locale(), $domain);
+            load_textdomain($domain, WP_LANG_DIR . '/plugins/' . $domain . '-' . $locale . '.mo');
+            load_textdomain($domain, $path . '/' . $domain . '-' . $locale . '.mo');
+        }, 0);
+    }
+}
+dapfforwc_register_languages_path();
 
 if (!defined('DAPFFORWC_FILTER_CACHE_BATCH_HOOK')) {
     define('DAPFFORWC_FILTER_CACHE_BATCH_HOOK', 'dapfforwc_process_filter_cache_batch');
@@ -49,6 +108,12 @@ if (!defined('DAPFFORWC_FILTER_CACHE_BUILD_STATE_OPTION')) {
 
 if (!defined('DAPFFORWC_FILTER_CACHE_BUILD_DATA_OPTION')) {
     define('DAPFFORWC_FILTER_CACHE_BUILD_DATA_OPTION', 'dapfforwc_filter_cache_build_data');
+}
+
+if (!defined('DAPFFORWC_FILTER_CACHE_DATA_KEY')) {
+    // Transient of the full filter dataset. Bump the version when the cached data format changes (author slugs
+    // became user_nicename, on-sale flags come from WooCommerce), so older data is never read or extended.
+    define('DAPFFORWC_FILTER_CACHE_DATA_KEY', 'dapfforwc_attributes_cache_v3');
 }
 
 if (!defined('DAPFFORWC_PRODUCT_DETAILS_CACHE_BATCH_HOOK')) {
@@ -122,8 +187,11 @@ $dapfforwc_options = get_option('dapfforwc_options') ?: [
     'pagination_selector' => '.woocommerce-pagination',
     'filters_word_in_permalinks' => 'filters',
 ];
-$dapfforwc_advance_settings = get_option('dapfforwc_advance_options') ?: [];
-$dapfforwc_seo_permalinks_options = get_option('dapfforwc_seo_permalinks_options') ?: [];
+// A non-array option (corrupt import or migration) must not reach the array writes below.
+$dapfforwc_advance_settings = get_option('dapfforwc_advance_options');
+$dapfforwc_advance_settings = is_array($dapfforwc_advance_settings) ? $dapfforwc_advance_settings : [];
+$dapfforwc_seo_permalinks_options = get_option('dapfforwc_seo_permalinks_options');
+$dapfforwc_seo_permalinks_options = is_array($dapfforwc_seo_permalinks_options) ? $dapfforwc_seo_permalinks_options : [];
 
 
 
@@ -535,6 +603,8 @@ if (!function_exists('dapfforwc_schedule_filter_cache_rebuild')) {
 
         $state = [
             'build_id' => $build_id,
+            // Data format of the batched build data, see dapfforwc_process_filter_cache_batch().
+            'cache_key' => DAPFFORWC_FILTER_CACHE_DATA_KEY,
             'status' => 'queued',
             'reason' => sanitize_key($reason),
             'last_id' => 0,
@@ -833,13 +903,7 @@ if (!function_exists('dapfforwc_get_seo_permalink_default_options')) {
                 'attribute' => !empty($attributes) ? array_reduce($attributes, function ($carry, $attr) {
                     $carry[$attr->attribute_name] = $attr->attribute_name;
                     return $carry;
-                }, []) : [
-                    'color' => 'color',
-                    'size' => 'size',
-                    'brand' => 'brand',
-                    'material' => 'material',
-                    'style' => 'style',
-                ],
+                }, []) : [], // Only the store's real attributes: invented placeholders (color, size, brand...) were saved as prefixes, and 'brand' collided with the brand filter prefix.
                 'custom' => [],
                 'price' => 'price',
                 'rating' => 'rating',
@@ -908,7 +972,8 @@ if (!function_exists('dapfforwc_check_seo_settings')) {
     }
 }
 
-$dapfforwc_styleoptions = get_option('dapfforwc_style_options') ?: [];
+$dapfforwc_styleoptions = get_option('dapfforwc_style_options');
+$dapfforwc_styleoptions = is_array($dapfforwc_styleoptions) ? $dapfforwc_styleoptions : [];
 
 $dapfforwc_use_url_filter = isset($dapfforwc_options['use_url_filter']) ? $dapfforwc_options['use_url_filter'] : false;
 $dapfforwc_auto_detect_pages_filters = isset($dapfforwc_options['pages_filter_auto']) ? $dapfforwc_options['pages_filter_auto'] : '';
@@ -941,6 +1006,73 @@ if (!function_exists('dapfforwc_get_mobile_breakpoint')) {
     }
 }
 
+if (!function_exists('dapfforwc_get_mobile_responsive_styles')) {
+    /**
+     * Mobile filter styles (mobile_responsive values) with their admin labels.
+     *
+     * @return array
+     */
+    function dapfforwc_get_mobile_responsive_styles()
+    {
+        return array(
+            'style_1' => esc_html__('Style 1 (Horizontal bar)', 'dynamic-ajax-product-filters-for-woocommerce'),
+            'style_2' => esc_html__('Style 2 (Keep in place: use the theme\'s own mobile filter panel)', 'dynamic-ajax-product-filters-for-woocommerce'),
+            'style_3' => esc_html__('Style 3 (Popup)', 'dynamic-ajax-product-filters-for-woocommerce'),
+            'style_4' => esc_html__('Style 4 (Drawer)', 'dynamic-ajax-product-filters-for-woocommerce'),
+        );
+    }
+}
+
+if (!function_exists('dapfforwc_is_mobile_responsive_style')) {
+    function dapfforwc_is_mobile_responsive_style($style)
+    {
+        return is_string($style) && in_array($style, array('style_1', 'style_2', 'style_3', 'style_4'), true);
+    }
+}
+
+if (!function_exists('dapfforwc_get_global_mobile_responsive_style')) {
+    /**
+     * The "Mobile Filter Style" setting (mobile_responsive_default, shared with Pro), or '' when it is not set.
+     *
+     * @return string
+     */
+    function dapfforwc_get_global_mobile_responsive_style()
+    {
+        global $dapfforwc_advance_settings;
+
+        $style = isset($dapfforwc_advance_settings['mobile_responsive_default']) && is_scalar($dapfforwc_advance_settings['mobile_responsive_default'])
+            ? sanitize_key((string) $dapfforwc_advance_settings['mobile_responsive_default'])
+            : '';
+
+        return dapfforwc_is_mobile_responsive_style($style) ? $style : '';
+    }
+}
+
+if (!function_exists('dapfforwc_resolve_mobile_responsive_style')) {
+    /**
+     * Mobile style of one filter: its own value, else the global setting, else the placement's built-in default.
+     * An empty value, "global" or an unknown value means "use the global setting".
+     *
+     * @param mixed  $explicit        Value set on the shortcode, widget, block or Elementor widget.
+     * @param string $builtin_default Default of that placement before the global setting existed.
+     * @return string
+     */
+    function dapfforwc_resolve_mobile_responsive_style($explicit, $builtin_default = 'style_4')
+    {
+        $explicit = is_scalar($explicit) ? sanitize_key((string) $explicit) : '';
+        if (dapfforwc_is_mobile_responsive_style($explicit)) {
+            return $explicit;
+        }
+
+        $global = dapfforwc_get_global_mobile_responsive_style();
+        if ($global !== '') {
+            return $global;
+        }
+
+        return dapfforwc_is_mobile_responsive_style($builtin_default) ? $builtin_default : 'style_4';
+    }
+}
+
 $dapfforwc_allowed_tags = array(
     'a' => array(
         'href' => array(),
@@ -970,6 +1102,10 @@ $dapfforwc_allowed_tags = array(
         'class' => array(),
         'id' => array(), // Allow id for divs
         'style' => array(),
+        'data-dimension' => array(),
+        'role' => array(),
+        'tabindex' => array(),
+        'aria-label' => array(),
     ),
     'img' => array(
         'src' => array(),
@@ -980,6 +1116,10 @@ $dapfforwc_allowed_tags = array(
         'style' => array(),
         'id' => array(),
         'data-src' => array(),
+        'srcset' => array(),
+        'sizes' => array(),
+        'loading' => array(),
+        'decoding' => array(),
     ),
     'h1' => array(
         'class' => array(),
@@ -1016,6 +1156,10 @@ $dapfforwc_allowed_tags = array(
         'style' => array(),
         'id' => array(),
         'title' => array(),
+        'role' => array(),
+        'tabindex' => array(),
+        'aria-expanded' => array(),
+        'aria-label' => array(),
 
     ),
     'p' => array(
@@ -1068,13 +1212,6 @@ $dapfforwc_allowed_tags = array(
         'style' => array(),
         'id' => array(),
     ), // Allow ordered lists
-    'script' => array(
-        'type' => array(),
-        'src' => array(),
-        'async' => array(),
-        'defer' => array(),
-        'charset' => array(),
-    ), // Be cautious with scripts
 
     // Style and Meta Tags
     'style' => array(
@@ -1082,42 +1219,9 @@ $dapfforwc_allowed_tags = array(
         'media' => array(),
         'scoped' => array(),
     ),
-    'link' => array(
-        'rel' => array(),
-        'href' => array(),
-        'type' => array(),
-        'media' => array(),
-        'sizes' => array(),
-        'hreflang' => array(),
-        'crossorigin' => array(),
-    ),
-    'meta' => array(
-        'name' => array(),
-        'content' => array(),
-        'http-equiv' => array(),
-        'charset' => array(),
-        'property' => array(), // For Open Graph
-    ),
     'title' => array(),
-    'base' => array(
-        'href' => array(),
-        'target' => array(),
-    ),
 
     // Document Structure
-    'html' => array(
-        'lang' => array(),
-        'dir' => array(),
-        'class' => array(),
-        'style' => array(),
-    ),
-    'head' => array(),
-    'body' => array(
-        'class' => array(),
-        'id' => array(),
-        'style' => array(),
-        'onload' => array(),
-    ),
     'header' => array(
         'class' => array(),
         'id' => array(),
@@ -1203,9 +1307,6 @@ $dapfforwc_allowed_tags = array(
         'autocomplete' => array(),
         'autofocus' => array(),
         'form' => array(),
-        'formaction' => array(),
-        'formmethod' => array(),
-        'formtarget' => array(),
         'formnovalidate' => array(),
         'accept' => array(),
         'alt' => array(),
@@ -1213,6 +1314,9 @@ $dapfforwc_allowed_tags = array(
         'width' => array(),
         'height' => array(),
         'title' => array(),
+        'data-default' => array(),
+        'data-search-type' => array(),
+        'aria-label' => array(),
     ),
     'textarea' => array(
         'name' => array(),
@@ -1250,6 +1354,9 @@ $dapfforwc_allowed_tags = array(
         'style' => array(),
         'disabled' => array(),
         'label' => array(),
+        'class' => array(),
+        'title' => array(),
+        'data-count' => array(),
     ),
     'optgroup' => array(
         'label' => array(),
@@ -1265,9 +1372,6 @@ $dapfforwc_allowed_tags = array(
         'class' => array(),
         'disabled' => array(),
         'form' => array(),
-        'formaction' => array(),
-        'formmethod' => array(),
-        'formtarget' => array(),
         'formnovalidate' => array(),
         'autofocus' => array(),
     ),
@@ -1304,7 +1408,7 @@ $dapfforwc_allowed_tags = array(
         'id' => array(),
         'class' => array(),
     ),
-    'plugrogress' => array(
+    'progress' => array(
         'value' => array(),
         'max' => array(),
         'style' => array(),
@@ -1366,45 +1470,6 @@ $dapfforwc_allowed_tags = array(
         'srclang' => array(),
         'label' => array(),
         'default' => array(),
-    ),
-    'embed' => array(
-        'src' => array(),
-        'type' => array(),
-        'width' => array(),
-        'height' => array(),
-        'style' => array(),
-        'id' => array(),
-        'class' => array(),
-    ),
-    'object' => array(
-        'data' => array(),
-        'type' => array(),
-        'style' => array(),
-        'name' => array(),
-        'width' => array(),
-        'height' => array(),
-        'form' => array(),
-        'id' => array(),
-        'class' => array(),
-    ),
-    'param' => array(
-        'name' => array(),
-        'value' => array(),
-        'style' => array(),
-    ),
-    'iframe' => array(
-        'src' => array(),
-        'srcdoc' => array(),
-        'name' => array(),
-        'width' => array(),
-        'style' => array(),
-        'height' => array(),
-        'sandbox' => array(),
-        'allow' => array(),
-        'allowfullscreen' => array(),
-        'loading' => array(),
-        'id' => array(),
-        'class' => array(),
     ),
 
     // Interactive Elements
@@ -1665,7 +1730,11 @@ $dapfforwc_allowed_tags = array(
         'class' => array(),
         'id' => array(),
         'style' => array(),
+        'preserveaspectratio' => array(), // lowercase
         'preserveAspectRatio' => array(),
+        'role' => array(),
+        'aria-label' => array(),
+        'aria-hidden' => array(),
         'version' => array(),
         'x' => array(),
         'y' => array(),
@@ -1685,6 +1754,8 @@ $dapfforwc_allowed_tags = array(
         'class' => array(),
         'id' => array(),
         'fill' => array(),
+        'fill-rule' => array(),
+        'clip-rule' => array(),
         'stroke' => array(),
         'stroke-width' => array(),
         'stroke-dasharray' => array(),
@@ -1722,6 +1793,7 @@ $dapfforwc_allowed_tags = array(
         'style' => array(),
     ),
     'rect' => array(
+        'filter' => array(),
         'x' => array(),
         'y' => array(),
         'width' => array(),
@@ -1965,6 +2037,14 @@ $dapfforwc_allowed_tags = array(
         'flood-color' => array(),
         'flood-opacity' => array(),
     ),
+    // kses matches tag and attribute names in lower case; the HTML parser restores the SVG casing.
+    'fedropshadow' => array(
+        'dx' => array(),
+        'dy' => array(),
+        'stddeviation' => array(),
+        'flood-color' => array(),
+        'flood-opacity' => array(),
+    ),
     'image' => array(
         'x' => array(),
         'y' => array(),
@@ -1980,11 +2060,20 @@ $dapfforwc_allowed_tags = array(
         'transform' => array(),
     ),
 );
+// kses compares lowercased tag and attribute names, so camelCase SVG keys (clipPath, viewBox, stdDeviation...) only match once lowercased.
+$dapfforwc_allowed_tags = wp_kses_array_lc($dapfforwc_allowed_tags);
 
 
-// Allow extensive CSS properties for WordPress
-add_filter('safe_style_css', function ($styles) {
-    return array_merge($styles, array(
+/**
+ * Extra CSS properties the plugin's own markup needs to keep through kses.
+ * Only added around the plugin's kses calls (dapfforwc_kses()), never site-wide.
+ *
+ * @param array $styles Allowed CSS properties.
+ * @return array
+ */
+function dapfforwc_extend_safe_style_css($styles)
+{
+    return array_values(array_unique(array_merge((array) $styles, array(
         // Layout & Positioning
         'display',
         'visibility',
@@ -2275,7 +2364,6 @@ add_filter('safe_style_css', function ($styles) {
         'tab-size',
         'column-count',
         'column-width',
-        'column-gap',
         'column-rule',
         'column-rule-color',
         'column-rule-style',
@@ -2289,97 +2377,135 @@ add_filter('safe_style_css', function ($styles) {
         'stop-opacity',
         'fill'
 
-    ));
+    ))));
+}
+
+/**
+ * wp_kses() with the plugin's extended CSS property list, scoped to this call only.
+ *
+ * @param string       $content      Markup to filter.
+ * @param array|string $allowed_html Allowed tags, or a kses context such as 'post'.
+ * @return string
+ */
+function dapfforwc_kses($content, $allowed_html)
+{
+    $added = !has_filter('safe_style_css', 'dapfforwc_extend_safe_style_css');
+    if ($added) {
+        add_filter('safe_style_css', 'dapfforwc_extend_safe_style_css');
+    }
+    $filtered = wp_kses((string) $content, $allowed_html);
+    if ($added) {
+        remove_filter('safe_style_css', 'dapfforwc_extend_safe_style_css');
+    }
+    return $filtered;
+}
+
+
+// Define sub-options (type => [sub-option key => label]). Built on init so the labels can be translated.
+if (!function_exists('dapfforwc_get_sub_options')) {
+    function dapfforwc_get_sub_options()
+    {
+        return [
+            'checkbox' => [
+                'checkbox' => __('Checkbox', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'radio_check' => __('Radio Check', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'radio' => __('Radio', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'square' => __('Square', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'checkbox_hide' => __('Checkbox Hide', 'dynamic-ajax-product-filters-for-woocommerce'),
+            ],
+            'plugincy_color' => [
+                'plugincy_color' => __('Color', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'color_no_border' => __('Color Without Border', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'color_circle' => __('Color Circle', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'color_value' => __('Color With Value', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'color_swatch_label' => __('Color Swatch Label', 'dynamic-ajax-product-filters-for-woocommerce'),
+            ],
+            'image' => [
+                'image' => __('Image', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'image_no_border' => __('Image Without Border', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'image_value' => __('Image With Value', 'dynamic-ajax-product-filters-for-woocommerce'),
+            ],
+            'dropdown' => [
+                'select' => __('Select', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'pluginy_select2' => __('Select 2', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'chip_dropdown' => __('Chip Dropdown', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'modern_dropdown' => __('Modern Dropdown', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'checkbox_dropdown' => __('Checkbox Dropdown', 'dynamic-ajax-product-filters-for-woocommerce'),
+                // 'select2_classic' => 'Select 2 Classic',
+            ],
+            'icon' => [
+                'icon_card' => __('Icon Card', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'icon_list' => __('Icon List', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'icon_chip' => __('Icon Chip', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'icon_badge' => __('Icon Badge', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'icon_only' => __('Icon Only', 'dynamic-ajax-product-filters-for-woocommerce'),
+            ],
+            'chips' => [
+                'chips' => __('Chips', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'button_chips' => __('Button Chips', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'button_check' => __('Button Checkbox', 'dynamic-ajax-product-filters-for-woocommerce'),
+            ],
+            'stepper' => [
+                'stepper' => __('Stepper', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'boxed-stepper' => __('Boxed Stepper', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'compact-stepper' => __('Compact Stepper', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'pill-stepper' => __('Pill Stepper', 'dynamic-ajax-product-filters-for-woocommerce'),
+            ],
+            'price' => [
+                'price' => __('Price', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'slider' => __('Slider', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'slider2' => __('Slider 2', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'chart-slider' => __('Chart Slider', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'price-range-button' => __('Range Button', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'price-range-card' => __('Range Card', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'input-price-range' => __('Input Price Range', 'dynamic-ajax-product-filters-for-woocommerce'),
+            ],
+            'rating' => [
+                'rating' => __('Rating Star', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'rating-text' => __('Rating Text', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'dynamic-rating' => __('Dynamic Rating', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'rating-slider' => __('Rating Slider', 'dynamic-ajax-product-filters-for-woocommerce'),
+            ],
+            "plugincy_search" => [
+                "plugincy_search" => __('Search with Button', 'dynamic-ajax-product-filters-for-woocommerce'),
+                "icon_search" => __('Search with Icon', 'dynamic-ajax-product-filters-for-woocommerce')
+            ],
+            "dimension_input" => [
+                "dimension_input" => __('Dimension Input', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'dimension_range' => __('Dimension Range', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'dimensions-compact-range-card' => __('Compact Range Card', 'dynamic-ajax-product-filters-for-woocommerce'),
+            ],
+            "discount_slider" => [
+                "discount_slider" => __('Discount Slider', 'dynamic-ajax-product-filters-for-woocommerce'),
+            ],
+            "simple_input" => [
+                "simple_input" => __('Input', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'sku_search_button' => __('Search Button', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'sku_icon_search' => __('Icon Search', 'dynamic-ajax-product-filters-for-woocommerce'),
+            ],
+            'date_range' => [
+                'date-modern-calendar' => __('Modern Calendar', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'date-classic-select' => __('Classic Select', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'date-quick-picks' => __('Quick Picks', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'date-dual-calendar' => __('Dual Calendar', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'date-stacked-list' => __('Stacked List', 'dynamic-ajax-product-filters-for-woocommerce'),
+            ],
+        ];
+    }
+}
+$dapfforwc_sub_options = [];
+add_action('init', function () {
+    global $dapfforwc_sub_options;
+    $dapfforwc_sub_options = dapfforwc_get_sub_options();
+}, 1);
+
+// Tell WooCommerce the plugin works with HPOS order storage and the block cart/checkout; it never reads or writes orders.
+add_action('before_woocommerce_init', function () {
+    if (class_exists('\Automattic\WooCommerce\Utilities\FeaturesUtil')) {
+        \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('custom_order_tables', __FILE__, true);
+        \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('cart_checkout_blocks', __FILE__, true);
+    }
 });
-
-
-// Define sub-options
-$dapfforwc_sub_options = [
-    'checkbox' => [
-        'checkbox' => 'Checkbox',
-        'radio_check' => 'Radio Check',
-        'radio' => 'Radio',
-        'square' => 'Square',
-        'checkbox_hide' => 'Checkbox Hide',
-    ],
-    'plugincy_color' => [
-        'plugincy_color' => 'Color',
-        'color_no_border' => 'Color Without Border',
-        'color_circle' => 'Color Circle',
-        'color_value' => 'Color With Value',
-        'color_swatch_label' => 'Color Swatch Label',
-    ],
-    'image' => [
-        'image' => 'Image',
-        'image_no_border' => 'Image Without Border',
-        'image_value' => 'Image With Value',
-    ],
-    'dropdown' => [
-        'select' => 'Select',
-        'pluginy_select2' => 'Select 2',
-        'chip_dropdown' => 'Chip Dropdown',
-        'modern_dropdown' => 'Modern Dropdown',
-        'checkbox_dropdown' => 'Checkbox Dropdown',
-        // 'select2_classic' => 'Select 2 Classic',
-    ],
-    'icon' => [
-        'icon_card' => 'Icon Card',
-        'icon_list' => 'Icon List',
-        'icon_chip' => 'Icon Chip',
-        'icon_badge' => 'Icon Badge',
-        'icon_only' => 'Icon Only',
-    ],
-    'chips' => [
-        'chips' => 'Chips',
-        'button_chips' => 'Button Chips',
-        'button_check' => 'Button Checkbox',
-    ],
-    'stepper' => [
-        'stepper' => 'Stepper',
-        'boxed-stepper' => 'Boxed Stepper',
-        'compact-stepper' => 'Compact Stepper',
-        'pill-stepper' => 'Pill Stepper',
-    ],
-    'price' => [
-        'price' => 'Price',
-        'slider' => 'Slider',
-        'slider2' => 'Slider2',
-        'chart-slider' => 'Chart Slider',
-        'price-range-button' => 'Range Button',
-        'price-range-card' => 'Range Card',
-        'input-price-range' => 'input price range',
-    ],
-    'rating' => [
-        'rating' => 'Rating Star',
-        'rating-text' => 'Rating Text',
-        'dynamic-rating' => 'Dynamic Rating',
-        'rating-slider' => 'Rating Slider',
-    ],
-    "plugincy_search" => [
-        "plugincy_search" => 'Search with Button',
-        "icon_search" => 'Search with Icon'
-    ],
-    "dimension_input" => [
-        "dimension_input" => 'Dimension Input',
-        'dimension_range' => 'Dimension Range',
-        'dimensions-compact-range-card' => 'Compact Range Card',
-    ],
-    "discount_slider" => [
-        "discount_slider" => 'Discount Slider',
-    ],
-    "simple_input" => [
-        "simple_input" => 'Input',
-        'sku_search_button' => 'Search Button',
-        'sku_icon_search' => 'Icon Search',
-    ],
-    'date_range' => [
-        'date-modern-calendar' => 'Modern Calendar',
-        'date-classic-select' => 'Classic Select',
-        'date-quick-picks' => 'Quick Picks',
-        'date-dual-calendar' => 'Dual Calendar',
-        'date-stacked-list' => 'Stacked List',
-    ],
-];
 
 // Check if WooCommerce is active
 add_action('plugins_loaded', 'dapfforwc_check_woocommerce');
@@ -2400,6 +2526,7 @@ function dapfforwc_check_woocommerce()
         require_once plugin_dir_path(__FILE__) . 'admin/elementor-category.php';
 
 
+        add_action('init', 'dapfforwc_register_frontend_scripts');
         add_action('wp_enqueue_scripts', 'dapfforwc_enqueue_scripts');
         add_action('admin_enqueue_scripts', 'dapfforwc_admin_scripts');
         require_once plugin_dir_path(__FILE__) . 'includes/class-filter-functions.php';
@@ -2424,9 +2551,96 @@ function dapfforwc_missing_woocommerce_notice()
     echo '<div class="notice notice-error"><p><strong>' . esc_html__('Filter Plugin', 'dynamic-ajax-product-filters-for-woocommerce') . '</strong> ' . esc_html__('requires WooCommerce to be installed and activated.', 'dynamic-ajax-product-filters-for-woocommerce') . '</p></div>';
 }
 
-function dapfforwc_get_asset_version()
+if (!function_exists('dapfforwc_get_shop_page_url')) {
+    /**
+     * Raw (JS/JSON-safe) URL of the WooCommerce shop page, or '' when no shop page is set.
+     * get_permalink(get_option(...)) returned the current post's URL when the option was empty.
+     */
+    function dapfforwc_get_shop_page_url()
+    {
+        if (!function_exists('wc_get_page_id') || wc_get_page_id('shop') <= 0) {
+            return '';
+        }
+
+        return esc_url_raw(wc_get_page_permalink('shop'));
+    }
+}
+
+/**
+ * Version string for an asset URL. For a plugin file the modification time is used, so browsers, CDNs and page
+ * caches fetch the new file after every update, even when the plugin version did not change (zip uploads,
+ * deploys, hotfixes). Inline-only handles (no file) and unreadable files use the plugin version.
+ *
+ * @param string $relative_path Asset path relative to the plugin folder, or '' for an inline-only handle.
+ * @return string|false
+ */
+function dapfforwc_get_asset_version($relative_path = '')
 {
+    $relative_path = ltrim((string) $relative_path, '/');
+    if ($relative_path !== '') {
+        $file = plugin_dir_path(__FILE__) . $relative_path;
+        $mtime = file_exists($file) ? filemtime($file) : false;
+        if ($mtime) {
+            return (string) $mtime;
+        }
+    }
+
     return defined('DAPFFORWC_VERSION') ? DAPFFORWC_VERSION : false;
+}
+
+if (!function_exists('dapfforwc_enqueue_asset_with_legacy_handle')) {
+    /**
+     * Enqueue a registered plugin asset through the handle releases up to 1.4.x used for it.
+     *
+     * The admin Select2 files and the block editor script/style were renamed to prefixed handles. Themes and
+     * snippets that call wp_dequeue_style('pluginy-select2-css') and friends, add inline code to those handles or
+     * depend on them keep working: the old handle is registered as an alias without its own file that depends on
+     * the new handle, and only the alias is enqueued. Dequeuing the old handle still removes the plugin file, and
+     * wp_style_is()/wp_script_is() checks on the new handle still see it through the dependency. When another
+     * plugin already registered the old (generic) handle for its own file, the new handle is enqueued directly so
+     * the plugin never loads someone else's file in place of its own.
+     * The front-end select2-js / select2-css handles are deliberately not aliased: claiming those generic names
+     * again is the collision the rename fixed.
+     *
+     * @param string $type   'style' or 'script'.
+     * @param string $handle The current (registered) handle.
+     */
+    function dapfforwc_enqueue_asset_with_legacy_handle($type, $handle)
+    {
+        $legacy_handles = array(
+            'style' => array(
+                'dapfforwc-select2-style' => 'pluginy-select2-css',
+                'dapfforwc-block-editor-style' => 'custom-box-control-styles',
+            ),
+            'script' => array(
+                'dapfforwc-select2' => 'pluginy-select2-js',
+                'dapfforwc-filter-block' => 'dynamic-ajax-filter-block',
+            ),
+        );
+        $legacy = isset($legacy_handles[$type][$handle]) ? $legacy_handles[$type][$handle] : '';
+        $deps = 'style' === $type ? wp_styles() : wp_scripts();
+
+        if ($legacy !== '' && isset($deps->registered[$legacy])) {
+            $registered = $deps->registered[$legacy];
+            // Someone else's asset under the old name: do not hand our place to it.
+            if (false !== $registered->src || !in_array($handle, (array) $registered->deps, true)) {
+                $legacy = '';
+            }
+        } elseif ($legacy !== '') {
+            if ('style' === $type) {
+                wp_register_style($legacy, false, array($handle), dapfforwc_get_asset_version());
+            } else {
+                wp_register_script($legacy, false, array($handle), dapfforwc_get_asset_version(), true);
+            }
+        }
+
+        $target = $legacy !== '' ? $legacy : $handle;
+        if ('style' === $type) {
+            wp_enqueue_style($target);
+        } else {
+            wp_enqueue_script($target);
+        }
+    }
 }
 
 function dapfforwc_get_frontend_style_handle()
@@ -2448,12 +2662,12 @@ function dapfforwc_register_frontend_style()
     if (isset($styles->registered[$handle])) {
         $styles->registered[$handle]->src = $src;
         $styles->registered[$handle]->deps = [];
-        $styles->registered[$handle]->ver = dapfforwc_get_asset_version();
+        $styles->registered[$handle]->ver = dapfforwc_get_asset_version('assets/css/style.min.css');
         $styles->registered[$handle]->args = 'all';
         return;
     }
 
-    wp_register_style($handle, $src, [], dapfforwc_get_asset_version());
+    wp_register_style($handle, $src, [], dapfforwc_get_asset_version('assets/css/style.min.css'));
 }
 
 function dapfforwc_ensure_style_handle($handle)
@@ -2475,6 +2689,10 @@ function dapfforwc_ensure_style_handle($handle)
 
 function dapfforwc_ensure_script_handle($handle)
 {
+    if ($handle === 'urlfilter-ajax') {
+        dapfforwc_register_frontend_scripts();
+    }
+
     if (!wp_script_is($handle, 'registered') && !wp_script_is($handle, 'enqueued') && !wp_script_is($handle, 'done')) {
         wp_register_script($handle, false, ['jquery'], dapfforwc_get_asset_version(), true);
     }
@@ -2577,19 +2795,108 @@ function dapfforwc_add_inline_script($script, $handle = '', $position = 'after')
     wp_add_inline_script($handle, $script, $position);
 }
 
+/**
+ * Opening of an inline "run when jQuery is ready" block, used in place of a direct jQuery(document).ready() opener
+ * (the block still ends with `});`).
+ *
+ * Optimisation plugins can defer jQuery (WP-Optimize "defer all incl. jQuery" without merging), while inline
+ * scripts run while they are printed, so a direct jQuery(...) call threw "jQuery is not defined" and stopped the
+ * rest of the inline block (sidebar-to-top, mobile drawer). The block now runs through jQuery at once when jQuery
+ * is already loaded (unchanged behaviour), and otherwise waits for DOMContentLoaded, by which time deferred
+ * scripts have executed.
+ *
+ * @return string
+ */
+function dapfforwc_inline_jquery_ready_open()
+{
+    return "(function (dapfforwcRun) { if (window.jQuery) { window.jQuery(dapfforwcRun); } else { document.addEventListener('DOMContentLoaded', function () { if (window.jQuery) { window.jQuery(dapfforwcRun); } }); } })(function($) {";
+}
+
+// Register the front-end scripts early: block themes render shortcodes before wp_enqueue_scripts,
+// and wp_add_inline_script() calls made during that render are dropped for an unregistered handle.
+function dapfforwc_register_frontend_scripts()
+{
+    if (is_admin()) {
+        return;
+    }
+
+    if (!wp_script_is('dapfforwc-select2', 'registered')) {
+        wp_register_script('dapfforwc-select2', plugin_dir_url(__FILE__) . 'assets/js/select2.min.js', ['jquery'], dapfforwc_get_asset_version('assets/js/select2.min.js'), true);
+    }
+
+    if (!wp_script_is('urlfilter-ajax', 'registered')) {
+        wp_register_script('urlfilter-ajax', plugin_dir_url(__FILE__) . 'assets/js/filter.min.js', ['jquery'], dapfforwc_get_asset_version('assets/js/filter.min.js'), true);
+        wp_script_add_data('urlfilter-ajax', 'async', true); // Load script asynchronously
+    }
+}
+
+/**
+ * Max-height rules for filter groups, from the "max_height" style option (filter key => pixels).
+ */
+function dapfforwc_build_max_height_css($max_height)
+{
+    $css = '';
+    if (!is_array($max_height)) {
+        return $css;
+    }
+
+    foreach ($max_height as $key => $value) {
+        if (is_numeric($value) && $value > 0) {
+            // The filter groups use "category" / "rating" as their class for these two keys.
+            if ($key === "product-category") {
+                $key = "category";
+            } elseif ($key === "plugincy_rating") {
+                $key = "rating";
+            }
+            // Keys are attribute/taxonomy names: keep only characters that are valid in a class selector.
+            $cssClass = sanitize_html_class(strtolower((string) $key));
+            if ($cssClass === '') {
+                continue;
+            }
+            $value = (float) $value;
+            $css .= ".{$cssClass} .items{\n";
+            $css .= "    max-height: {$value}px;\n";
+            $css .= "    overflow-y: auto;\n";
+            $css .= "    scrollbar-width: thin;\n";
+            $css .= "    transition: max-height 0.3s ease;\n";
+            $css .= "}\n";
+        }
+    }
+
+    return $css;
+}
+
 // Enqueue scripts and styles
+if (!function_exists('dapfforwc_get_frontend_i18n')) {
+    /**
+     * Visitor-facing strings used by filter.min.js (the script keeps English fallbacks for cached pages).
+     */
+    function dapfforwc_get_frontend_i18n()
+    {
+        return [
+            // phpcs:ignore WordPress.WP.I18n.TextDomainMismatch -- Same message (and translation) as WooCommerce's own empty-result notice.
+            'no_products' => __('No products were found matching your selection.', 'woocommerce'),
+            'select2_placeholder' => __('Select Options', 'dynamic-ajax-product-filters-for-woocommerce'),
+            /* translators: 1: first shown product number, 2: last shown product number, 3: total number of products. */
+            'result_count' => __('Showing %1$s&ndash;%2$s of %3$s results', 'dynamic-ajax-product-filters-for-woocommerce'),
+            'searched' => __('Searched', 'dynamic-ajax-product-filters-for-woocommerce'),
+            /* translators: %s: the active filter, e.g. "Category: Clothing". */
+            'remove_filter' => __('Remove filter: %s', 'dynamic-ajax-product-filters-for-woocommerce'),
+        ];
+    }
+}
+
 function dapfforwc_enqueue_scripts()
 {
     global $dapfforwc_use_url_filter, $dapfforwc_options, $dapfforwc_seo_permalinks_options, $dapfforwc_slug, $dapfforwc_styleoptions, $dapfforwc_advance_settings, $dapfforwc_front_page_slug;
 
     $script_handle = 'urlfilter-ajax';
-    $script_path = 'assets/js/filter.min.js';
+    // The normalized breakpoint goes to the script and the inline CSS only; the global settings stay as stored.
     $mobile_breakpoint = dapfforwc_get_mobile_breakpoint();
-    $dapfforwc_advance_settings['mobile_breakpoint'] = $mobile_breakpoint;
 
     wp_enqueue_script('jquery');
-    wp_enqueue_script($script_handle, plugin_dir_url(__FILE__) . $script_path, ['jquery'], DAPFFORWC_VERSION, true);
-    wp_script_add_data($script_handle, 'async', true); // Load script asynchronously
+    dapfforwc_register_frontend_scripts();
+    wp_enqueue_script($script_handle);
 
     $dapfforwc_frontend_options = [
         'use_url_filter' => $dapfforwc_options['use_url_filter'] ?? $dapfforwc_use_url_filter,
@@ -2697,21 +3004,25 @@ function dapfforwc_enqueue_scripts()
         'dapfforwc_advance_settings' => $dapfforwc_frontend_advance_settings,
         'dapfforwc_front_page_slug' => $dapfforwc_front_page_slug,
         'mobile_breakpoint' => $mobile_breakpoint,
+        'i18n' => dapfforwc_get_frontend_i18n(),
     );
     wp_localize_script($script_handle, 'dapfforwc_data', $dapfforwc_localized_data);
 
     wp_localize_script($script_handle, 'dapfforwc_ajax', [
         'ajax_url' => admin_url('admin-ajax.php'),
-        'shopPageUrl' => esc_url(get_permalink(get_option('woocommerce_shop_page_id'))),
+        'shopPageUrl' => dapfforwc_get_shop_page_url(),
         'isProductArchive' =>  is_shop() || is_product_category() || is_product_tag() || is_product(),
         'currencySymbol' => get_woocommerce_currency_symbol(),
-        'isHomePage' => is_front_page()
+        'isHomePage' => is_front_page(),
+        'filterRequestFailedText' => __('The products could not be updated. Please try again.', 'dynamic-ajax-product-filters-for-woocommerce'),
+        // Non-filter query args the filter URLs keep (see dapfforwc_get_kept_query_param_keys()).
+        'keepQueryParams' => dapfforwc_get_kept_query_param_keys(),
     ]);
 
     dapfforwc_register_frontend_style();
     wp_enqueue_style(dapfforwc_get_frontend_style_handle());
-    wp_enqueue_style('select2-css', plugin_dir_url(__FILE__) . 'assets/css/select2.min.css', [], DAPFFORWC_VERSION);
-    wp_enqueue_script('select2-js', plugin_dir_url(__FILE__) . 'assets/js/select2.min.js', ['jquery'], DAPFFORWC_VERSION, true);
+    wp_enqueue_style('dapfforwc-select2-style', plugin_dir_url(__FILE__) . 'assets/css/select2.min.css', [], dapfforwc_get_asset_version('assets/css/select2.min.css'));
+    wp_enqueue_script('dapfforwc-select2');
     $css = '';
     // Generate inline css for sidebartop in mobile
     if (isset($dapfforwc_advance_settings["sidebar_on_top"]) && $dapfforwc_advance_settings["sidebar_on_top"] === "on") {
@@ -2731,28 +3042,11 @@ function dapfforwc_enqueue_scripts()
     }";
     // Generate CSS for max-height
 
-    $max_height = (is_array($dapfforwc_styleoptions) && isset($dapfforwc_styleoptions["max_height"])) ? $dapfforwc_styleoptions["max_height"] : [];
-    foreach ($max_height as $key => $value) {
-        // Sanitize the key to create a valid CSS class name
-        if (is_numeric($value) && $value > 0) {
-            if ($key === "product-category") {
-                $key = "category";
-            } elseif ($key === "plugincy_rating") {
-                $key = "rating";
-            }
-            $cssClass = strtolower($key); // Replace dashes with underscores
-            $css .= ".{$cssClass} .items{\n";
-            $css .= "    max-height: {$value}px;\n"; // Set max-height based on value
-            $css .= "    overflow-y: auto;\n";
-            $css .= "    scrollbar-width: thin;\n";
-            $css .= "    transition: max-height 0.3s ease;\n";
-            $css .= "}\n";
-        }
-    }
+    $css .= dapfforwc_build_max_height_css((is_array($dapfforwc_styleoptions) && isset($dapfforwc_styleoptions["max_height"])) ? $dapfforwc_styleoptions["max_height"] : []);
 
     // Add the generated CSS as inline style
     wp_add_inline_style(dapfforwc_get_frontend_style_handle(), $css);
-    wp_add_inline_script('select2-js', '
+    wp_add_inline_script('dapfforwc-select2', '
         
     ');
 }
@@ -2764,11 +3058,11 @@ function dapfforwc_admin_scripts($hook)
         'dapfforwc-admin-menu-style',
         plugin_dir_url(__FILE__) . 'assets/css/admin-menu.min.css',
         [],
-        DAPFFORWC_VERSION,
+        dapfforwc_get_asset_version('assets/css/admin-menu.min.css'),
         'all'
     );
 
-    wp_enqueue_script('dapfforwc-admin-menu-script', plugin_dir_url(__FILE__) . 'assets/js/admin-menu-script.min.js', [], DAPFFORWC_VERSION, true);
+    wp_enqueue_script('dapfforwc-admin-menu-script', plugin_dir_url(__FILE__) . 'assets/js/admin-menu-script.min.js', [], dapfforwc_get_asset_version('assets/js/admin-menu-script.min.js'), true);
     wp_localize_script('dapfforwc-admin-menu-script', 'dapfforwcAdminAjax', [
         'ajax_url' => admin_url('admin-ajax.php'),
         'review_nonce' => wp_create_nonce('dapfforwc_review_nonce'),
@@ -2780,289 +3074,35 @@ function dapfforwc_admin_scripts($hook)
     if ($hook !== 'toplevel_page_dapfforwc-admin') {
         return; // Load additional styles only on the plugin's admin page
     }
-    global $dapfforwc_sub_options;
     wp_enqueue_style('wp-color-picker');
     wp_enqueue_script('wp-color-picker');
     $dapfforwc_admin_style_version = filemtime(plugin_dir_path(__FILE__) . 'assets/css/admin-style.min.css');
     $dapfforwc_media_uploader_version = filemtime(plugin_dir_path(__FILE__) . 'assets/js/media-uploader.min.js');
     wp_enqueue_style('dapfforwc-admin-style', plugin_dir_url(__FILE__) . 'assets/css/admin-style.min.css', [], $dapfforwc_admin_style_version);
-    wp_enqueue_code_editor(array('type' => 'text/html'));
+    // false when the user turned syntax highlighting off: then the code-editor script is not loaded.
+    $code_editor_settings = wp_enqueue_code_editor(array('type' => 'text/html'));
     wp_enqueue_script('wp-theme-plugin-editor');
     wp_enqueue_style('wp-codemirror');
-    wp_enqueue_script('dapfforwc-admin-script', plugin_dir_url(__FILE__) . 'assets/js/admin-script.min.js', [], DAPFFORWC_VERSION, true);
+    // Registered before admin-script, which calls jQuery(...).select2() and wp.codeEditor when it runs.
+    wp_register_style('dapfforwc-select2-style', plugin_dir_url(__FILE__) . 'assets/css/select2.min.css', [], dapfforwc_get_asset_version('assets/css/select2.min.css'));
+    wp_register_script('dapfforwc-select2', plugin_dir_url(__FILE__) . 'assets/js/select2.min.js', ['jquery'], dapfforwc_get_asset_version('assets/js/select2.min.js'), true);
+    dapfforwc_enqueue_asset_with_legacy_handle('style', 'dapfforwc-select2-style');
+    dapfforwc_enqueue_asset_with_legacy_handle('script', 'dapfforwc-select2');
+    $admin_script_deps = ['jquery', 'dapfforwc-select2'];
+    if (false !== $code_editor_settings) {
+        $admin_script_deps[] = 'code-editor';
+    }
+    wp_enqueue_script('dapfforwc-admin-script', plugin_dir_url(__FILE__) . 'assets/js/admin-script.min.js', $admin_script_deps, dapfforwc_get_asset_version('assets/js/admin-script.min.js'), true);
+    wp_localize_script('dapfforwc-admin-script', 'dapfforwcAdminL10n', [
+        'copied' => __('Copied!', 'dynamic-ajax-product-filters-for-woocommerce'),
+        'copyFailed' => __('Failed to copy. Please select and copy manually.', 'dynamic-ajax-product-filters-for-woocommerce'),
+    ]);
     wp_enqueue_media();
     wp_enqueue_script('dapfforwc-media-uploader', plugin_dir_url(__FILE__) . 'assets/js/media-uploader.min.js', ['jquery'], $dapfforwc_media_uploader_version, true);
-
-
-    wp_enqueue_style('pluginy-select2-css', plugin_dir_url(__FILE__) . 'assets/css/select2.min.css', [], DAPFFORWC_VERSION);
-    wp_enqueue_script('pluginy-select2-js', plugin_dir_url(__FILE__) . 'assets/js/select2.min.js', ['jquery'], DAPFFORWC_VERSION, true);
-
-
-    $inline_script = 'document.addEventListener("DOMContentLoaded", function () {
-    const styleContainer = document.getElementById("style-options-container");
-    if (styleContainer && styleContainer.dataset && styleContainer.dataset.dynamic === "true") {
-        return;
-    }
-    const dropdown = document.getElementById("attribute-dropdown");
-    const dropdown_main = document.getElementById("main-texonomy-dropdown");
-    const dropdown_attr = document.getElementById("child-attr-dropdown");
-    const dropdown_custom = document.getElementById("child-custom-dropdown");
-
-    if(dropdown)dropdown.addEventListener("change", function () {
-    const selectedAttribute = this.value;
-    
-    localStorage.setItem("dapfforwc_selected_attribute", JSON.stringify({ "attribute": selectedAttribute }));
-
-    toggleDisplay(".style-options", "none");
-
-    if (selectedAttribute) {
-        const selectedOptions = document.getElementById(`options-${selectedAttribute}`);
-        if (selectedOptions) {
-            selectedOptions.style.display = "block";
-        }
-    }
-
-    if (selectedAttribute === "price") {
-        toggleDisplay(".primary_options label", "none");
-        toggleDisplay(".hierarchical", "none");
-        toggleDisplay(".primary_options label.price", "block");
-        toggleDisplay(".primary_options label.rating", "none");
-        toggleDisplay(".setting-item.single-selection", "none");
-        toggleDisplay(".setting-item.show-product-count", "none");
-    }
-    else if (selectedAttribute === "rating") {
-        toggleDisplay(".hierarchical", "none");
-        toggleDisplay(".primary_options label", "none");
-        toggleDisplay(".primary_options label.price", "none");
-        toggleDisplay(".primary_options label.rating", "block");
-        toggleDisplay(".setting-item.single-selection", "none");
-        toggleDisplay(".setting-item.show-product-count", "none");
-    } else if(selectedAttribute === "product-category"){
-        toggleDisplay(".hierarchical", "block");
-        toggleDisplay(".primary_options label", "block");
-        toggleDisplay(".primary_options label.price", "none");
-        toggleDisplay(".primary_options label.rating", "none");
-        toggleDisplay(".setting-item.show-product-count", "block");
-        toggleDisplay(".primary_options label.plugincy_color", "none");
-        toggleDisplay(".primary_options label.image", "none");
-    }else if(selectedAttribute === "tag"){
-        toggleDisplay(".hierarchical", "none");
-        toggleDisplay(".primary_options label", "block");
-        toggleDisplay(".primary_options label.price", "none");
-        toggleDisplay(".primary_options label.rating", "none");
-        toggleDisplay(".setting-item.show-product-count", "block");
-        toggleDisplay(".primary_options label.plugincy_color", "none");
-        toggleDisplay(".primary_options label.image", "none");
-    }
-    else {
-        toggleDisplay(".hierarchical", "none");
-        toggleDisplay(".primary_options label", "block");
-        toggleDisplay(".primary_options label.price", "none");
-        toggleDisplay(".primary_options label.rating", "none");
-        toggleDisplay(".setting-item.single-selection", "block");
-        toggleDisplay(".setting-item.show-product-count", "block");
-    }
-});
-
-
-    let savedAttribute = localStorage.getItem("dapfforwc_selected_attribute");
-           if (!savedAttribute) {
-                savedAttribute = JSON.stringify({ attribute: "product-category" });
-                localStorage.setItem("dapfforwc_selected_attribute", savedAttribute);
-                
-            }
-    if (savedAttribute) {
-        try {
-            const parsed = JSON.parse(savedAttribute);
-            if (parsed && parsed.attribute && dropdown) {
-                dropdown.value = parsed.attribute;
-                dropdown_main.value = parsed.attribute;
-                dropdown_attr.value = parsed.attribute;
-                dropdown_custom.value = parsed.attribute;
-                if (dropdown_attr.value) {
-                    dropdown_main.value = "attributes";
-                }else if (dropdown_custom.value){
-                    dropdown_main.value = "custom_fields";
-                }
-                // Trigger a change event on the attribute-dropdown
-                const event = new Event("change", {
-                    bubbles: true
-                });
-
-                toggleDisplay(".style-options", "none");
-                
-                dropdown_main.dispatchEvent(event);
-            }
-        } catch (e) {}
-    }
-
-    if(dropdown){
-        const firstAttribute = dropdown.value;
-        const firstOptions = document.querySelector(`#options-${firstAttribute}`);
-        if (firstOptions) {
-            firstOptions.style.display = "block";
-        }
-    }
-
-    function toggleDisplay(selector, display) {
-        document.querySelectorAll(selector).forEach(el => {
-            el.style.display = display;
-        });
-    }
-
-    
-
-    const proOnlySubOptionKeys = new Set(["dynamic-rating", "rating-slider", "input-price-range", "chart-slider", "price-range-button", "price-range-card", "color_circle", "color_value", "color_swatch_label", "image_value", "button_check", "chips", "button_chips", "pill-stepper", "compact-stepper", "boxed-stepper", "stepper", "icon_only", "icon_badge", "icon_chip", "icon_list", "icon_card", "checkbox_dropdown", "modern_dropdown", "chip_dropdown", "dimension_range", "dimensions-compact-range-card", "sku_search_button", "sku_icon_search", "discount_slider", "date-modern-calendar", "date-quick-picks", "date-dual-calendar", "date-stacked-list"]);
-    const subOptionImageBaseUrl = ' . wp_json_encode(plugin_dir_url(__FILE__) . 'assets/images/') . ';
-
-    document.querySelectorAll(`.style-options .primary_options input[type="radio"][name^="dapfforwc_style_options"]`).forEach(function (radio) {
-        radio.addEventListener("change", function () {
-            const selectedType = this.value;
-            const attributeName = this.name.match(/\[(.*?)\]/)[1];
-            const subOptionsContainer = document.querySelector(`#options-${attributeName} .dynamic-sub-options`);
-            if (!subOptionsContainer) {
-                return;
-            }
-   
-            document.querySelectorAll(".primary_options label").forEach(label => {
-                label.classList.remove("active");
-                const checkIcon = label.querySelector(".active");
-                if (checkIcon) {
-                    checkIcon.style.display = "none"; 
-                }
-            });
-            const selectedLabel = radio.closest("label");
-            selectedLabel.classList.add("active");
-
-            const subOptions = ' . (isset($dapfforwc_sub_options) && is_array($dapfforwc_sub_options) ? wp_json_encode($dapfforwc_sub_options) : '[]') . ';
-
-            const currentOptions = subOptions[selectedType] || {};
-            subOptionsContainer.innerHTML = "";
-
-            const fragment = document.createDocumentFragment();
-            for (const key in currentOptions) {
-                const label = document.createElement("label");
-                const isProOnly = proOnlySubOptionKeys.has(key);
-                label.className = key + (isProOnly ? " pro-only" : "");
-
-                const activeSpan = document.createElement("span");
-                activeSpan.className = "active";
-                activeSpan.style.display = "none";
-                const checkIcon = document.createElement("i");
-                checkIcon.className = "fa fa-check";
-                activeSpan.appendChild(checkIcon);
-
-                const input = document.createElement("input");
-                input.type = "radio";
-                input.className = "optionselect";
-                input.name = (isProOnly ? "_pro" : "dapfforwc_style_options") + "[" + attributeName + "][sub_option]";
-                input.value = key;
-                if (isProOnly) {
-                    input.disabled = true;
-                }
-
-                const image = document.createElement("img");
-                image.src = subOptionImageBaseUrl + key + ".png";
-                image.alt = currentOptions[key] || key;
-
-                label.appendChild(activeSpan);
-                label.appendChild(input);
-                label.appendChild(image);
-                fragment.appendChild(label);
-            }
-            subOptionsContainer.appendChild(fragment);
-
-            attachSubOptionListeners();
-
-           if(selectedType==="plugincy_color" || selectedType==="image") {
-            document.querySelector(`.advanced-options.${attributeName}`).style.display = "block";
-            document.querySelector(`.advanced-options.${attributeName} .plugincy_color`).style.display = "none";
-            document.querySelector(`.advanced-options.${attributeName} .image`).style.display = "none";
-            document.querySelector(`.advanced-options.${attributeName} .${selectedType}`).style.display = "block";
-            document.querySelector(`.setting-item.single-selection`).style.display = "block";
-
-           }else if(selectedType==="dropdown") {
-            radio.closest(".style-options").querySelector(`.setting-item.single-selection`).style.display = "none";
-            document.querySelectorAll(".advanced-options").forEach(advanceoptions =>{
-                advanceoptions.style.display = "none";
-            })
-            radio.closest(".style-options").querySelector(`.search_settings`).style.display = "none";  
-            radio.closest(".style-options").querySelector(`.layout_settings`).style.display = "none";  
-           } else {
-            radio.closest(".style-options").querySelector(`.setting-item.single-selection`).style.display = "block";
-            document.querySelectorAll(".advanced-options").forEach(advanceoptions =>{
-                advanceoptions.style.display = "none";
-            })
-            radio.closest(".style-options").querySelector(`.search_settings`).style.display = "block";  
-            radio.closest(".style-options").querySelector(`.layout_settings`).style.display = "flex";  
-           }
-        });
-    });
-
-    function attachSubOptionListeners() {
-    const radioButtons = document.querySelectorAll(".optionselect");
-    
-    
-    radioButtons.forEach(radio => {
-        radio.addEventListener("change", function() {
-            const selectedType = this.value;
-            document.querySelectorAll(".dynamic-sub-options label").forEach(label => {
-                label.classList.remove("active");
-                const checkIcon = label.querySelector(".active");
-                if (checkIcon) {
-                    checkIcon.style.display = "none";
-                }
-            });
-
-            const selectedLabel = this.closest("label");
-            selectedLabel.classList.add("active");
-            const checkIcon = selectedLabel.querySelector(".active");
-            if (checkIcon) {
-                checkIcon.style.display = "inline"; // Show check icon
-            }
-
-            if(selectedType==="icon_search") {
-                document.querySelector(`#options-search .optional_settings .btn_text`).style.display = "none";
-            }else{
-                document.querySelector(`#options-search .optional_settings .btn_text`).style.display = "block";
-            }
-
-            // Managing single selection checkbox
-            const singleSelectionCheckbox = this.closest(".style-options").querySelector(".setting-item.single-selection input");
-            const singleSelectiondiv = this.closest(".style-options").querySelector(".setting-item.single-selection"); 
-            if(singleSelectionCheckbox){
-                if (this.value === "select" || selectedType==="pluginy_select2") {
-                    singleSelectionCheckbox.checked = true;
-                    singleSelectiondiv.style.display = "none"; // Show the checkbox
-                    
-                } else {
-                    singleSelectionCheckbox.checked = false; // Uncheck if other options are selected
-                    singleSelectiondiv.style.display = "block"; // Hide the checkbox
-                }
-            }
-        });
-
-        const selectedType = radio.value;
-        if(selectedType==="icon_search") {
-            document.querySelector(`#options-search .optional_settings .btn_text`).style.display = "none";
-        } else if(selectedType==="rating-text"){
-                document.querySelector(`.optional_settings .additional_txt_rating`).style.display = "block";
-        } else{
-            document.querySelector(`.optional_settings .additional_txt_rating`).style.display = "none";
-            document.querySelector(`#options-search .optional_settings .btn_text`).style.display = "block";
-        }
-
-        if(selectedType==="select" || selectedType==="pluginy_select2"){
-               document.querySelector(`.single-selection`).style.display = "none";
-            }
-    });
-}
-
-// Call the function to attach listeners
-attachSubOptionListeners();
-
-});';
-    wp_add_inline_script('dapfforwc-admin-script', $inline_script);
+    wp_localize_script('dapfforwc-media-uploader', 'dapfforwcMediaUploader', [
+        'title' => __('Select or Upload an Image', 'dynamic-ajax-product-filters-for-woocommerce'),
+        'button' => __('Use this Image', 'dynamic-ajax-product-filters-for-woocommerce'),
+    ]);
 }
 
 // function dapfforwc_filter_products()
@@ -3102,21 +3142,18 @@ function dapfforwc_get_full_slug($post_id)
     if (empty($post_id)) {
         return ''; // Return an empty string if $post_id is not defined
     }
-    $dapfforwc_slug_parts = [];
-    $current_post_id = $post_id;
-
-    while ($current_post_id) {
-        $current_post = get_post($current_post_id);
-
-        if (!$current_post) {
-            break; // Exit if no post is found
+    $current_post = get_post($post_id);
+    if (!$current_post) {
+        return '';
+    }
+    // get_post_ancestors() walks the parent chain with a cycle guard (nearest parent first).
+    $dapfforwc_slug_parts = [$current_post->post_name];
+    foreach (get_post_ancestors($current_post) as $ancestor_id) {
+        $ancestor = get_post($ancestor_id);
+        if (!$ancestor) {
+            break;
         }
-
-        // Prepend the current slug
-        array_unshift($dapfforwc_slug_parts, $current_post->post_name);
-
-        // Get the parent post ID
-        $current_post_id = wp_get_post_parent_id($current_post_id);
+        array_unshift($dapfforwc_slug_parts, $ancestor->post_name);
     }
 
     return implode('/', $dapfforwc_slug_parts); // Combine slugs with '/'
@@ -3129,15 +3166,14 @@ require_once(plugin_dir_path(__FILE__) . 'includes/blocks_widget_create.php');
 // block editor script
 function dapfforwc_enqueue_dynamic_ajax_filter_block_assets()
 {
-    wp_enqueue_script(
-        'dynamic-ajax-filter-block',
-        plugins_url('includes/block.min.js', __FILE__),
-        array('wp-blocks', 'wp-element', 'wp-editor'),
-        filemtime(plugin_dir_path(__FILE__) . 'includes/block.min.js'),
-        true
-    );
+    // Registered once (with its real dependencies) by dapfforwc_register_dynamic_ajax_filter_block_script().
+    if (function_exists('dapfforwc_register_dynamic_ajax_filter_block_script')) {
+        dapfforwc_register_dynamic_ajax_filter_block_script();
+    }
+    dapfforwc_enqueue_asset_with_legacy_handle('script', 'dapfforwc-filter-block');
 
-    wp_enqueue_style('custom-box-control-styles', plugin_dir_url(__FILE__) . 'assets/css/block-editor.min.css', [], DAPFFORWC_VERSION);
+    wp_register_style('dapfforwc-block-editor-style', plugin_dir_url(__FILE__) . 'assets/css/block-editor.min.css', [], dapfforwc_get_asset_version('assets/css/block-editor.min.css'));
+    dapfforwc_enqueue_asset_with_legacy_handle('style', 'dapfforwc-block-editor-style');
 }
 add_action('enqueue_block_editor_assets', 'dapfforwc_enqueue_dynamic_ajax_filter_block_assets');
 
@@ -3148,7 +3184,13 @@ add_action('enqueue_block_editor_assets', 'dapfforwc_enqueue_dynamic_ajax_filter
 
 function dapfforwc_add_debug_menu($wp_admin_bar)
 {
-    if (current_user_can('administrator')) {
+    // The node is filled by the front-end checker printed on wp_footer; in wp-admin it stayed "Checking..." forever.
+    if (is_admin()) {
+        return;
+    }
+
+    // A capability, not a role name (WordPress discourages role checks with current_user_can()).
+    if (current_user_can('manage_options')) {
         $args = [
             'id'    => 'dapfforwc_debug',
             'title' => '<span class="ab-icon dashicons dashicons-filter"></span><span id="dapfforwc_issue_count"></span> ' . esc_html__('Product Filter', 'dynamic-ajax-product-filters-for-woocommerce'),
@@ -3174,13 +3216,29 @@ add_action('wp_footer', 'dapfforwc_check_elements', 100); // Ensure this runs af
 function dapfforwc_check_elements()
 {
     global $dapfforwc_advance_settings;
-    if (current_user_can('administrator')) {
+    // The checks only report into the admin-bar node added by dapfforwc_add_debug_menu().
+    if (current_user_can('manage_options') && is_admin_bar_showing()) {
+        $dapfforwc_pagination_selector = isset($dapfforwc_advance_settings["pagination_selector"]) && is_string($dapfforwc_advance_settings["pagination_selector"]) ? trim($dapfforwc_advance_settings["pagination_selector"]) : '';
         ob_start();
         ?>
             document.addEventListener('DOMContentLoaded', function() {
                 setTimeout(function() {
                     var debugMessage = document.getElementById('dapfforwc_debug_message');
                     var issueCount = document.getElementById('dapfforwc_issue_count');
+                    if (!debugMessage || !issueCount) {
+                        return;
+                    }
+                    var paginationSelector = <?php echo wp_json_encode($dapfforwc_pagination_selector); ?>;
+                    function dapfforwcSelectorMatches(selector) {
+                        if (!selector) {
+                            return false;
+                        }
+                        try {
+                            return !!document.querySelector(selector);
+                        } catch (error) {
+                            return false;
+                        }
+                    }
                     if (!document.querySelector('#product-filter')) {
                         debugMessage.innerHTML = '<span style="color: red;">&#10007;</span> <?php echo esc_html__('Filter is not added', 'dynamic-ajax-product-filters-for-woocommerce'); ?>';
                         issueCount.innerHTML = '1';
@@ -3219,10 +3277,10 @@ function dapfforwc_check_elements()
                                     flex-shrink: 0;
                                 ">&#9888;</span>
                                 <span style="flex:1;">
-                                    <strong style="display:block;font-size:17px;margin-bottom:2px;">Product Selector Not Found</strong>
+                                    <strong style="display:block;font-size:17px;margin-bottom:2px;">${<?php echo wp_json_encode(esc_html__('Product Selector Not Found', 'dynamic-ajax-product-filters-for-woocommerce')); ?>}</strong>
                                     <span>
-                                        The product selector does not match any element on this page.<br>
-                                        <a href="https://plugincy.com/documentations/dynamic-ajax-product-filters-for-woocommerce/filters-setup/managing-selectors-in-product-filters/#product-selector-configuration" target="_blank" style="color:#432fb8;text-decoration:underline;font-weight:500;display:inline-block;margin-top:6px;"><?php echo esc_html__('View documentation', 'dynamic-ajax-product-filters-for-woocommerce'); ?></a>
+                                        ${<?php echo wp_json_encode(esc_html__('The product selector does not match any element on this page.', 'dynamic-ajax-product-filters-for-woocommerce')); ?>}<br>
+                                        <a href="https://plugincy.com/documentations/dynamic-ajax-product-filters-for-woocommerce/filters-setup/managing-selectors-in-product-filters/#product-selector-configuration" target="_blank" style="color:#432fb8;text-decoration:underline;font-weight:500;display:inline-block;margin-top:6px;">${<?php echo wp_json_encode(esc_html__('View documentation', 'dynamic-ajax-product-filters-for-woocommerce')); ?>}</a>
                                     </span>
                                 </span>
                                 <span style="
@@ -3233,12 +3291,12 @@ function dapfforwc_check_elements()
                                     font-size: 22px;
                                     line-height: 1;
                                     transition: color 0.2s;
-                                " onclick="this.closest('#dapfforwc-popup-notification').style.display='none'" title="Dismiss">&times;</span>
+                                " onclick="this.closest('#dapfforwc-popup-notification').style.display='none'" title="${<?php echo wp_json_encode(esc_attr__('Dismiss', 'dynamic-ajax-product-filters-for-woocommerce')); ?>}">&times;</span>
                             </div>
                         `;
                             document.body.appendChild(popup);
                         }
-                    } else if (!document.querySelector('<?php echo esc_js(isset($dapfforwc_advance_settings["pagination_selector"]) && !empty($dapfforwc_advance_settings["pagination_selector"]) ? $dapfforwc_advance_settings["pagination_selector"] : ''); ?>') && !document.querySelector('.plugincy-filter-pagination')) {
+                    } else if (!dapfforwcSelectorMatches(paginationSelector) && !document.querySelector('.plugincy-filter-pagination')) {
                         debugMessage.innerHTML = '<span style="color: red;">&#10007;</span> <?php echo esc_html__('Pagination is not found', 'dynamic-ajax-product-filters-for-woocommerce'); ?> <a href="https://plugincy.com/documentations/dynamic-ajax-product-filters-for-woocommerce/filters-setup/managing-selectors-in-product-filters/#pagination-selector-configuration" target="_blank" style="display: inline; padding: 0;"><?php echo esc_html__('change selector', 'dynamic-ajax-product-filters-for-woocommerce'); ?></a>';
                         issueCount.innerHTML = '1';
                         issueCount.style.display = 'block';
@@ -3275,9 +3333,10 @@ function dapfforwc_register_api_routes()
     register_rest_route('dynamic-ajax-product-filters-for-woocommerce/v1', '/attributes/', array(
         'methods' => 'GET',
         'callback' => 'dapfforwc_get_product_attributes',
-        // Public access is intentional for block/editor option discovery. The callback only exposes non-sensitive
-        // attribute labels/slugs publicly and keeps custom field keys behind an admin/WooCommerce capability check.
-        'permission_callback' => '__return_true',
+        // Only the block editor reads this list.
+        'permission_callback' => function () {
+            return current_user_can('edit_posts');
+        },
     ));
 }
 add_action('rest_api_init', 'dapfforwc_register_api_routes');
@@ -3411,7 +3470,7 @@ function dapfforwc_editor_script()
         'plugincy-custom-editor',
         plugin_dir_url(__FILE__) . 'includes/blocks/editor.js',
         array('wp-blocks', 'wp-element', 'wp-edit-post', 'wp-dom-ready', 'wp-plugins'),
-        DAPFFORWC_VERSION,
+        dapfforwc_get_asset_version('includes/blocks/editor.js'),
         true
     );
 }
@@ -3419,22 +3478,33 @@ add_action('enqueue_block_editor_assets', 'dapfforwc_editor_script');
 
 
 
-if (isset($dapfforwc_advance_settings["remove_outofStock"]) && $dapfforwc_advance_settings["remove_outofStock"] === 'on') {
-    // Filter products to exclude out of stock items
-    add_filter('woocommerce_product_query_meta_query', function ($meta_query) {
-        $meta_query[] = array(
-            'key' => '_stock_status',
-            'value' => 'instock',
-            'compare' => '='
-        );
-        return $meta_query;
-    });
+// "Remove out of stock" hides only out-of-stock products (backorders stay purchasable) and only in the product
+// listings the filter drives. WooCommerce's own hide-out-of-stock option is not overridden, so related products,
+// widgets, blocks elsewhere and the WooCommerce settings screen keep the store's own setting.
+function dapfforwc_exclude_out_of_stock_meta_query($meta_query)
+{
+    global $dapfforwc_advance_settings;
 
-    // Or use the built-in WooCommerce option
-    add_filter('pre_option_woocommerce_hide_out_of_stock_items', function () {
-        return 'yes';
-    });
+    if (!isset($dapfforwc_advance_settings["remove_outofStock"]) || $dapfforwc_advance_settings["remove_outofStock"] !== 'on') {
+        return $meta_query;
+    }
+
+    $meta_query = is_array($meta_query) ? $meta_query : array();
+    $meta_query[] = array(
+        'key' => '_stock_status',
+        'value' => 'outofstock',
+        'compare' => '!='
+    );
+    return $meta_query;
 }
+add_filter('woocommerce_product_query_meta_query', 'dapfforwc_exclude_out_of_stock_meta_query');
+
+function dapfforwc_exclude_out_of_stock_from_shortcode_products($query_args)
+{
+    $query_args['meta_query'] = dapfforwc_exclude_out_of_stock_meta_query(isset($query_args['meta_query']) ? $query_args['meta_query'] : array());
+    return $query_args;
+}
+add_filter('woocommerce_shortcode_products_query', 'dapfforwc_exclude_out_of_stock_from_shortcode_products');
 
 
 
@@ -3453,8 +3523,6 @@ class dapfforwc_cart_analytics_main
 
     public function __construct()
     {
-        global $dapfforwc_advance_settings;
-        $allow_data_share = isset($dapfforwc_advance_settings["allow_data_share"]) && $dapfforwc_advance_settings["allow_data_share"] === 'on';
         // Initialize analytics with the correct plugin file path
         $this->analytics = new dapfforwc_cart_anaylytics(
             '01',
@@ -3466,9 +3534,6 @@ class dapfforwc_cart_analytics_main
 
         // Plugin hooks
         add_action('init', array($this, 'init'));
-        if ($allow_data_share) {
-            add_action('admin_init', array($this, 'admin_init'));
-        }
 
         // Handle deactivation feedback AJAX
         add_action('wp_ajax_dapfforwc_send_deactivation_feedback', array($this, 'handle_deactivation_feedback'));
@@ -3479,23 +3544,6 @@ class dapfforwc_cart_analytics_main
         // Any initialization code
     }
 
-    public function admin_init()
-    {
-        // Send analytics data on first activation or weekly
-        $this->maybe_send_analytics();
-    }
-
-    private function maybe_send_analytics()
-    {
-        $last_sent = get_option('dapfforwc_analytics_last_sent', get_option('onepaquc_analytics_last_sent', 0));
-        $week_ago = strtotime('-1 week');
-
-        if ($last_sent < $week_ago) {
-            $this->analytics->send_tracking_data();
-            update_option('dapfforwc_analytics_last_sent', time(), false);
-        }
-    }
-
     public function handle_deactivation_feedback()
     {
         global $dapfforwc_advance_settings;
@@ -3504,6 +3552,10 @@ class dapfforwc_cart_analytics_main
         }
 
         check_ajax_referer('deactivation_feedback', 'nonce');
+
+        if (!current_user_can('activate_plugins')) {
+            wp_send_json_error(esc_html__('You are not allowed to deactivate plugins.', 'dynamic-ajax-product-filters-for-woocommerce'), 403);
+        }
 
         $reason = isset($_POST['reason']) ? sanitize_text_field(wp_unslash($_POST['reason'])) : '';
         $this->analytics->send_deactivation_data($reason);
@@ -3562,7 +3614,7 @@ function dapfforwc_sidebar_to_top_inline_scripts()
 
     ob_start();
     ?>
-        jQuery(document).ready(function($) {
+        <?php echo dapfforwc_inline_jquery_ready_open(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Static script text. ?>
 
             var mobileBreakpoint = <?php echo (int) $mobile_breakpoint; ?>;
             var $filterForm = $('form#product-filter');
@@ -3573,6 +3625,12 @@ function dapfforwc_sidebar_to_top_inline_scripts()
             }
 
             if ($filterForm.data("mobile-style") !== "style_1" && $filterForm.data("mobile-style") !== "style_2") {
+                return;
+            }
+
+            // Style 2 chosen in the global Mobile Filter Style setting means "use the theme's own mobile filter panel":
+            // the form stays inside the theme's (off-canvas) sidebar instead of being moved to the top of the page.
+            if ($filterForm.data("mobile-style") === "style_2" && $filterForm.attr("data-mobile-style-source") === "global") {
                 return;
             }
 
@@ -3614,7 +3672,7 @@ function dapfforwc_sidebar_to_top_inline_scripts()
                 // Function to check if form#product-filter is already at the top of .products
                 function isFilterFormAlreadyAtTop() {
                     try {
-                        var $products = $(window.getProductSelectorString ? window.getProductSelectorString : '.products');
+                        var $products = $(window.getProductSelectorString ? window.getProductSelectorString : '.products').first(); // only the first grid: .before() on several would clone the sidebar
 
                         if (!isValidElement($filterForm) || !isValidElement($products)) {
                             return false;
@@ -3735,7 +3793,7 @@ function dapfforwc_sidebar_to_top_inline_scripts()
                             if ($sidebar.hasClass('sidebar-moved-to-top')) return;
 
                             // Try to find .products container first as the preferred target
-                            var $products = $(window.getProductSelectorString ? window.getProductSelectorString : '.products');
+                            var $products = $(window.getProductSelectorString ? window.getProductSelectorString : '.products').first(); // only the first grid: .before() on several would clone the sidebar
                             var $targetParent = null;
 
                             if (isValidElement($products)) {
@@ -3963,7 +4021,9 @@ function dapfforwc_display_archive_content()
         return;
     }
 
-    if (is_active_sidebar('wc-archive-content')) {
+    if (is_active_sidebar('wc-archive-content') && empty($GLOBALS['dapfforwc_archive_content_printed'])) {
+        // Printed once per page: block themes can reach it through the products block as well (see below).
+        $GLOBALS['dapfforwc_archive_content_printed'] = true;
         echo '<div class="plugincy-archive-content-wrapper">';
         dynamic_sidebar('wc-archive-content');
         echo '</div>';
@@ -3971,22 +4031,59 @@ function dapfforwc_display_archive_content()
 }
 
 /**
+ * Block themes: WooCommerce's block templates for product archives never run woocommerce_archive_description for
+ * the archive (only for a Term Description block placed inside the products block), so the area did not show.
+ * There it is printed right before the block that lists the archive's products: a Product Collection or Products
+ * (core/query) block that inherits the main query. Classic templates and the Legacy Template block print it
+ * through woocommerce_archive_description first, which this then leaves alone.
+ *
+ * @param string $block_content Rendered block.
+ * @param array  $block         Parsed block.
+ * @return string
+ */
+function dapfforwc_render_archive_content_before_products_block($block_content, $block)
+{
+    if (!empty($GLOBALS['dapfforwc_archive_content_printed']) || !is_array($block)) {
+        return $block_content;
+    }
+
+    $block_name = isset($block['blockName']) ? (string) $block['blockName'] : '';
+    if (!in_array($block_name, array('woocommerce/product-collection', 'core/query'), true) || empty($block['attrs']['query']['inherit'])) {
+        return $block_content;
+    }
+
+    ob_start();
+    dapfforwc_display_archive_content();
+
+    return ob_get_clean() . $block_content;
+}
+
+/**
  * Hook into WooCommerce template to display content
  */
 function dapfforwc_hook_archive_content()
 {
-    // Remove default WooCommerce hooks temporarily to insert our content
-    remove_action('woocommerce_archive_description', 'woocommerce_taxonomy_archive_description', 10);
-    remove_action('woocommerce_archive_description', 'woocommerce_product_archive_description', 10);
+    // Only on product archives that have something in the archive sidebar: everywhere else WooCommerce's
+    // description callbacks stay where they are.
+    if ((!is_shop() && !is_product_category() && !is_product_tag() && !is_product_taxonomy()) || !is_active_sidebar('wc-archive-content')) {
+        return;
+    }
 
     // Add our custom content
     add_action('woocommerce_archive_description', 'dapfforwc_display_archive_content', 15);
+    add_filter('render_block', 'dapfforwc_render_archive_content_before_products_block', 10, 2);
 
-    // Re-add the default WooCommerce hooks after our content
-    add_action('woocommerce_archive_description', 'woocommerce_taxonomy_archive_description', 20);
-    add_action('woocommerce_archive_description', 'woocommerce_product_archive_description', 20);
+    // Move WooCommerce's descriptions after our content, but only callbacks that are still attached at their
+    // default priority: a theme that removed or moved them keeps its choice.
+    foreach (['woocommerce_taxonomy_archive_description', 'woocommerce_product_archive_description'] as $description_callback) {
+        if (has_action('woocommerce_archive_description', $description_callback) === 10) {
+            remove_action('woocommerce_archive_description', $description_callback, 10);
+            add_action('woocommerce_archive_description', $description_callback, 20);
+        }
+    }
 }
-add_action('init', 'dapfforwc_hook_archive_content');
+// On wp (after the main query, before the template), so theme changes made up to init are respected.
+add_action('wp', 'dapfforwc_hook_archive_content');
 
 /**
  * Clear plugin-owned cache during install/update lifecycle events.
@@ -4102,15 +4199,19 @@ function dapfforwc_ajax_activate_template()
 
     $updated = update_option('dapfforwc_template_options', $template_options);
     // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound
+    // update_option() also returns false when the value did not change (template already active): that is a success.
+    $saved_template_options = get_option('dapfforwc_template_options', []);
+    $is_active = is_array($saved_template_options) && isset($saved_template_options['active_template']) && $saved_template_options['active_template'] === $template_id;
 
-    if ($updated !== false) {
+    if ($updated !== false || $is_active) {
         // Get template name for success message
         $template_names = [
             'clean'  => esc_html__('Minimal Template', 'dynamic-ajax-product-filters-for-woocommerce'),
             'shadow' => esc_html__('Elevated Template', 'dynamic-ajax-product-filters-for-woocommerce'),
             'modern' => esc_html__('Modern Template', 'dynamic-ajax-product-filters-for-woocommerce'),
-            'basic' => esc_html__('Basic Template', 'dynamic-ajax-product-filters-for-woocommerce'),
-            'basic_bordered' => esc_html__('Basic Bordered Template', 'dynamic-ajax-product-filters-for-woocommerce'),
+            // Same names as the template cards.
+            'basic' => esc_html__('Classic Template', 'dynamic-ajax-product-filters-for-woocommerce'),
+            'basic_bordered' => esc_html__('Bordered Template', 'dynamic-ajax-product-filters-for-woocommerce'),
         ];
 
         wp_send_json_success(sprintf(
@@ -4166,14 +4267,16 @@ class dapfforwc_Widget_filters extends WP_Widget
             return;
         }
 
-        $content = '[plugincy_filters]';
+        // "Mobile style" field: empty = the global Mobile Filter Style setting (resolved by the shortcode).
+        $mobile_style = isset($instance['mobile_responsive']) && is_scalar($instance['mobile_responsive']) ? sanitize_key((string) $instance['mobile_responsive']) : '';
+        $content = dapfforwc_is_mobile_responsive_style($mobile_style) ? '[plugincy_filters mobile_responsive="' . $mobile_style . '"]' : '[plugincy_filters]';
 
-        echo wp_kses($args['before_widget'], $dapfforwc_allowed_tags);
+        echo dapfforwc_kses($args['before_widget'], $dapfforwc_allowed_tags); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- dapfforwc_kses() is wp_kses() with the plugin allow-list.
 
         // Process shortcodes and display content
-        echo do_shortcode(wpautop($content));
+        echo do_shortcode($content);
 
-        echo wp_kses($args['after_widget'], $dapfforwc_allowed_tags);
+        echo dapfforwc_kses($args['after_widget'], $dapfforwc_allowed_tags); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- dapfforwc_kses() is wp_kses() with the plugin allow-list.
     }
 
     /**
@@ -4182,8 +4285,21 @@ class dapfforwc_Widget_filters extends WP_Widget
     public function form($instance)
     {
         $content = '[plugincy_filters]';
+        $mobile_style = isset($instance['mobile_responsive']) && is_scalar($instance['mobile_responsive']) ? sanitize_key((string) $instance['mobile_responsive']) : '';
+        if (!dapfforwc_is_mobile_responsive_style($mobile_style)) {
+            $mobile_style = '';
+        }
     ?>
         <p> <?php echo esc_attr($content); ?></p>
+        <p>
+            <label for="<?php echo esc_attr($this->get_field_id('mobile_responsive')); ?>"><?php esc_html_e('Mobile style', 'dynamic-ajax-product-filters-for-woocommerce'); ?></label>
+            <select class="widefat" id="<?php echo esc_attr($this->get_field_id('mobile_responsive')); ?>" name="<?php echo esc_attr($this->get_field_name('mobile_responsive')); ?>">
+                <option value="" <?php selected($mobile_style, ''); ?>><?php esc_html_e('Use global setting', 'dynamic-ajax-product-filters-for-woocommerce'); ?></option>
+                <?php foreach (dapfforwc_get_mobile_responsive_styles() as $style_key => $style_label) { ?>
+                    <option value="<?php echo esc_attr($style_key); ?>" <?php selected($mobile_style, $style_key); ?>><?php echo esc_html($style_label); ?></option>
+                <?php } ?>
+            </select>
+        </p>
     <?php
     }
 
@@ -4194,6 +4310,8 @@ class dapfforwc_Widget_filters extends WP_Widget
     {
         $instance = array();
         $instance['content'] = '[plugincy_filters]';
+        $mobile_style = isset($new_instance['mobile_responsive']) && is_scalar($new_instance['mobile_responsive']) ? sanitize_key((string) $new_instance['mobile_responsive']) : '';
+        $instance['mobile_responsive'] = dapfforwc_is_mobile_responsive_style($mobile_style) ? $mobile_style : '';
 
         return $instance;
     }
@@ -4243,9 +4361,9 @@ class dapfforwc_Widget_single_filter extends WP_Widget
         $selector = !empty($instance['selector']) ? $instance['selector'] : 'selector_here';
         $content = '[plugincy_filters_single name="' . esc_attr($selector) . '"]';
 
-        echo wp_kses($args['before_widget'], $dapfforwc_allowed_tags);
-        echo do_shortcode(wpautop($content));
-        echo wp_kses($args['after_widget'], $dapfforwc_allowed_tags);
+        echo dapfforwc_kses($args['before_widget'], $dapfforwc_allowed_tags); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- dapfforwc_kses() is wp_kses() with the plugin allow-list.
+        echo do_shortcode($content);
+        echo dapfforwc_kses($args['after_widget'], $dapfforwc_allowed_tags); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- dapfforwc_kses() is wp_kses() with the plugin allow-list.
     }
 
     /**
@@ -4316,10 +4434,10 @@ class dapfforwc_Widget_selected_filter extends WP_Widget
         }
         $content = '[plugincy_filters_selected]';
 
-        echo wp_kses($args['before_widget'], $dapfforwc_allowed_tags);
+        echo dapfforwc_kses($args['before_widget'], $dapfforwc_allowed_tags); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- dapfforwc_kses() is wp_kses() with the plugin allow-list.
         // No dynamic content required, just output shortcode
         echo do_shortcode($content);
-        echo wp_kses($args['after_widget'], $dapfforwc_allowed_tags);
+        echo dapfforwc_kses($args['after_widget'], $dapfforwc_allowed_tags); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- dapfforwc_kses() is wp_kses() with the plugin allow-list.
     }
 
     /**
@@ -4345,12 +4463,10 @@ class dapfforwc_Widget_selected_filter extends WP_Widget
 }
 
 
-add_action('widgets_init', function () {
-    if (function_exists('wp_use_widgets_block_editor') && wp_use_widgets_block_editor()) {
-        unregister_widget('dapfforwc_Widget_filters');
-        unregister_widget('dapfforwc_Widget_single_filter');
-        unregister_widget('dapfforwc_Widget_selected_filter');
-    }
+// With the block widget editor the block replaces these widgets, so they are only hidden from the
+// Legacy Widget inserter: unregistering them would stop widgets that are already placed from rendering.
+add_filter('widget_types_to_hide_from_legacy_widget_block', function ($widget_types) {
+    return array_merge((array) $widget_types, array('plugincy_widget', 'plugincy_widget_single', 'plugincy_widget_selected'));
 });
 
 
@@ -4374,30 +4490,55 @@ add_action('wp_enqueue_scripts', function () {
 // Function to clear all cache files
 function dapfforwc_clear_woocommerce_caches($context = null, $schedule_rebuild = true)
 {
+    // Hooked calls get the hook's first argument (post ID, product ...). Lifecycle events and the
+    // manual Clear/Build buttons always run a full clean-up; every other call is a routine purge.
+    $is_routine_clear = !in_array($context, array('plugin_activation', 'plugin_update', 'lifecycle', 'manual_clear', 'manual_build'), true);
+
+    // One change fires several of the hooks below (one product save fires about four), so a routine
+    // purge runs again only after a plugin cache was rebuilt since the last purge in this request.
+    if ($is_routine_clear) {
+        if (!empty($GLOBALS['dapfforwc_caches_purged'])) {
+            return;
+        }
+        $GLOBALS['dapfforwc_caches_purged'] = true;
+    }
+
     if (function_exists('dapfforwc_unschedule_filter_cache_background_jobs')) {
         dapfforwc_unschedule_filter_cache_background_jobs();
     }
 
     $transients = array(
-        'dapfforwc_attributes_cache_v8',
-        'dapfforwc_attributes_cache_v7',
-        'dapfforwc_attributes_cache_v6',
-        'dapfforwc_attributes_cache_v5',
-        'dapfforwc_attributes_cache_v4',
         'dapfforwc_attributes_cache_v3',
-        'dapfforwc_attributes_cache_v2',
-        'dapfforwc_attributes_cache_v1',
-        'dapfforwc_filter_options_light_cache_v1',
-        'dapfforwc_product_details_cache_v8',
-        'dapfforwc_product_details_cache_v7',
-        'dapfforwc_product_details_cache_v6',
-        'dapfforwc_product_details_cache_v5',
-        'dapfforwc_product_details_cache_v4',
-        'dapfforwc_product_details_cache_v3',
-        'dapfforwc_product_details_cache_v2',
-        'dapfforwc_product_details_cache_v1',
+        'dapfforwc_filter_options_light_cache_v2',
+        // f5: the product-details rows no longer carry product_category/product_brand/custom_meta (C09-08).
+        'dapfforwc_product_details_cache_f5',
         'dapfforwc_min_max_prices_cache_v1',
     );
+
+    // Other cache versions can only be left by an older release, so remove them on activation,
+    // plugin update and the manual buttons, not on every product change.
+    if (!$is_routine_clear) {
+        $transients = array_merge($transients, array(
+            'dapfforwc_attributes_cache_v8',
+            'dapfforwc_attributes_cache_v7',
+            'dapfforwc_attributes_cache_v6',
+            'dapfforwc_attributes_cache_v5',
+            'dapfforwc_attributes_cache_v4',
+            'dapfforwc_attributes_cache_v2',
+            'dapfforwc_attributes_cache_v1',
+            'dapfforwc_filter_options_light_cache_v1',
+            'dapfforwc_product_details_cache_v10',
+            'dapfforwc_product_details_cache_v9',
+            'dapfforwc_product_details_cache_v8',
+            'dapfforwc_product_details_cache_v7',
+            'dapfforwc_product_details_cache_v6',
+            'dapfforwc_product_details_cache_v5',
+            'dapfforwc_product_details_cache_v4',
+            'dapfforwc_product_details_cache_v3',
+            'dapfforwc_product_details_cache_v2',
+            'dapfforwc_product_details_cache_v1',
+        ));
+    }
 
     foreach ($transients as $transient) {
         delete_transient($transient);
@@ -4445,6 +4586,43 @@ function dapfforwc_clear_woocommerce_caches($context = null, $schedule_rebuild =
     }
 }
 
+/**
+ * Re-arm the routine purge once a plugin cache was written again in this request.
+ *
+ * @param string $transient Transient name.
+ */
+function dapfforwc_rearm_cache_purge_after_rebuild($transient)
+{
+    if (strpos((string) $transient, 'dapfforwc_') === 0) {
+        $GLOBALS['dapfforwc_caches_purged'] = false;
+    }
+}
+// WordPress 6.8 renamed the generic "transient was set" action.
+add_action(version_compare(get_bloginfo('version'), '6.8', '>=') ? 'set_transient' : 'setted_transient', 'dapfforwc_rearm_cache_purge_after_rebuild');
+
+/**
+ * Re-arm the routine purge when a background cache batch runs, so a change made after
+ * a batch in the same request (Action Scheduler runs several actions per request) restarts the build.
+ */
+function dapfforwc_rearm_cache_purge_for_batch()
+{
+    $GLOBALS['dapfforwc_caches_purged'] = false;
+}
+add_action(DAPFFORWC_FILTER_CACHE_BATCH_HOOK, 'dapfforwc_rearm_cache_purge_for_batch', 0);
+add_action(DAPFFORWC_PRODUCT_DETAILS_CACHE_BATCH_HOOK, 'dapfforwc_rearm_cache_purge_for_batch', 0);
+
+/**
+ * Editor bookkeeping meta (heartbeat post locks) does not change any filter data.
+ *
+ * @param string $meta_key Meta key.
+ *
+ * @return bool
+ */
+function dapfforwc_is_cache_neutral_meta_key($meta_key)
+{
+    return in_array($meta_key, array('_edit_lock', '_edit_last'), true);
+}
+
 
 
 /**
@@ -4452,7 +4630,64 @@ function dapfforwc_clear_woocommerce_caches($context = null, $schedule_rebuild =
  * Goal: Emit only the needed HTML markup, nothing else.
  */
 
-// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Fragment mode is read-only output trimming and requires a valid gm-product-filter-nonce before the fragment flag is honored.
+if (!function_exists('dapfforwc_get_avada_catalog_query_param_keys')) {
+    /**
+     * Avada's own shop sort bar (.catalog-ordering) sorts, sets the page size and switches grid/list with
+     * ?product_orderby=, ?product_order=, ?product_count= and ?product_view=, which the theme reads from the request.
+     * They are kept in filter URLs while Avada (or its builder) is active, so a filter change keeps the sort and a
+     * sort keeps the filters.
+     *
+     * @param bool|null $avada_active Null detects the theme.
+     * @return string[]
+     */
+    function dapfforwc_get_avada_catalog_query_param_keys($avada_active = null): array
+    {
+        if (null === $avada_active) {
+            $avada_active = function_exists('Avada') || class_exists('Avada', false) || defined('FUSION_BUILDER_VERSION');
+        }
+
+        return $avada_active ? array('product_orderby', 'product_order', 'product_count', 'product_view') : array();
+    }
+}
+
+if (!function_exists('dapfforwc_get_kept_query_param_keys')) {
+    /**
+     * Query args that are not filters but that filter URLs keep when the current address has them: the site language
+     * (WPML/Polylang "lang"), theme listing views (Riode "showtype" grid/list and "count" per page) and, with Avada,
+     * the theme's sort bar args (see dapfforwc_get_avada_catalog_query_param_keys()).
+     * Other foreign args (tracking and so on) are dropped. Themes or sites add their own view args with the
+     * dapfforwc_keep_query_params filter.
+     *
+     * @return string[]
+     */
+    function dapfforwc_get_kept_query_param_keys(): array
+    {
+        $keys = apply_filters('dapfforwc_keep_query_params', array_merge(array('lang', 'showtype', 'count'), dapfforwc_get_avada_catalog_query_param_keys()));
+        $keys = is_array($keys) ? array_map('sanitize_key', array_filter($keys, 'is_scalar')) : array();
+
+        return array_values(array_unique(array_filter($keys, 'strlen')));
+    }
+}
+
+if (!function_exists('dapfforwc_is_filter_form_request')) {
+    /**
+     * Whether the request comes from a submitted plugin filter form (or a link/AJAX URL built from it).
+     *
+     * The form carries the gm-product-filter-nonce field only as a marker. Filtering is a public, read-only GET,
+     * so a real nonce protected nothing, while it leaked user-specific values into shared links and page caches
+     * and made cached pages with an expired nonce switch to a different parser. Any non-empty value counts,
+     * so links and cached pages that still carry an old nonce behave the same as new ones.
+     *
+     * @return bool
+     */
+    function dapfforwc_is_filter_form_request(): bool
+    {
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Presence marker of the public GET filter form, not a nonce check.
+        return isset($_GET['gm-product-filter-nonce']) && is_scalar($_GET['gm-product-filter-nonce']) && (string) $_GET['gm-product-filter-nonce'] !== '';
+    }
+}
+
+// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Fragment mode is read-only output trimming and is only honored for requests from the filter form.
 if (!function_exists('dapfforwc_is_fragment_request')) {
     function dapfforwc_is_fragment_request(): bool
     {
@@ -4461,12 +4696,7 @@ if (!function_exists('dapfforwc_is_fragment_request')) {
             return $cached_result;
         }
 
-        if (empty($_GET['gm-product-filter-nonce'])) {
-            return $cached_result = false;
-        }
-
-        $nonce = sanitize_text_field(wp_unslash($_GET['gm-product-filter-nonce']));
-        if (!wp_verify_nonce($nonce, 'gm-product-filter-action')) {
+        if (!dapfforwc_is_filter_form_request()) {
             return $cached_result = false;
         }
 
@@ -4522,7 +4752,7 @@ add_action('init', function () {
 }, 1);
 
 /**
- * Dequeue/deregister anything that still gets enqueued.
+ * Dequeue anything that still gets enqueued.
  * Also neuter tag writers in case something slips through late.
  */
 add_action('wp_enqueue_scripts', function () {
@@ -4530,24 +4760,23 @@ add_action('wp_enqueue_scripts', function () {
 
     global $wp_styles, $wp_scripts;
 
+    // Dequeue only: deregistering made every handle enqueued later with one of these as a dependency (Blocksy's
+    // ct-pagination-styles needs ct-main-styles) log a "dependencies that are not registered" notice. Nothing is
+    // printed anyway: the printers are removed and the tag filters below return empty strings.
     if ($wp_styles && !empty($wp_styles->queue)) {
         foreach ((array) $wp_styles->queue as $h) {
             wp_dequeue_style($h);
-            wp_deregister_style($h);
         }
     }
     if ($wp_scripts && !empty($wp_scripts->queue)) {
         foreach ((array) $wp_scripts->queue as $h) {
             wp_dequeue_script($h);
-            wp_deregister_script($h);
         }
     }
 
     // Known inline handles (WP 5.9+)
     wp_dequeue_style('global-styles');
-    wp_deregister_style('global-styles');
     wp_dequeue_style('classic-theme-styles');
-    wp_deregister_style('classic-theme-styles');
 
     add_filter('style_loader_tag',  '__return_empty_string', 9999);
     add_filter('script_loader_tag', '__return_empty_string', 9999, 3);
@@ -4605,8 +4834,10 @@ if (!function_exists('dapfforwc_cleanup_fragment_output')) {
             '//noscript',
             '//link',
             '//meta',
-            '//header',
-            '//footer',
+            // Only the site header/footer (classic theme masthead/colophon or block-theme template part):
+            // product cards (<header class="entry-header">) and WooCommerce's products header are kept.
+            '//header[contains(concat(" ", normalize-space(@class), " "), " site-header ") or contains(concat(" ", normalize-space(@class), " "), " wp-block-template-part ") or @id="masthead"]',
+            '//footer[contains(concat(" ", normalize-space(@class), " "), " site-footer ") or contains(concat(" ", normalize-space(@class), " "), " wp-block-template-part ") or @id="colophon"]',
             '//*[@id="wpadminbar"]',
             '//*[@id="wpadminbar-mobile"]',
             '//*[contains(concat(" ", normalize-space(@class), " "), " no-results ")]//script',
@@ -4646,17 +4877,27 @@ if (!function_exists('dapfforwc_cleanup_fragment_output')) {
             return $cleaned;
         }
 
-        $html = preg_replace('#<link[^>]+rel=["\']stylesheet["\'][^>]*>#i', '', $html);
-        $html = preg_replace('#<link[^>]+rel=["\']preload["\'][^>]+as=["\'](?:style|font)["\'][^>]*>#i', '', $html);
-        $html = preg_replace('#<!DOCTYPE[^>]*>#i', '', $html);
-        $html = preg_replace('#<head\b[^>]*>.*?</head>#is', '', $html);
-        $html = preg_replace('#<header\b[^>]*>.*?</header>#is', '', $html);
-        $html = preg_replace('#<footer\b[^>]*>.*?</footer>#is', '', $html);
-        $html = preg_replace('#<' . 'script\b[^>]*>.*?</' . 'script>#is', '', $html);
-        $html = preg_replace('#<body\b[^>]*>#i', '', $html);
-        $html = preg_replace('#</body>#i', '', $html);
-        $html = preg_replace('#<html\b[^>]*>#i', '', $html);
-        $html = preg_replace('#</html>#i', '', $html);
+        $patterns = [
+            '#<link[^>]+rel=["\']stylesheet["\'][^>]*>#i',
+            '#<link[^>]+rel=["\']preload["\'][^>]+as=["\'](?:style|font)["\'][^>]*>#i',
+            '#<!DOCTYPE[^>]*>#i',
+            '#<head\b[^>]*>.*?</head>#is',
+            // Only the site header/footer; product-card and WooCommerce headers are kept.
+            '#<header\b(?=[^>]*(?:\bsite-header\b|\bwp-block-template-part\b|id=["\']masthead["\']))[^>]*>.*?</header>#is',
+            '#<footer\b(?=[^>]*(?:\bsite-footer\b|\bwp-block-template-part\b|id=["\']colophon["\']))[^>]*>.*?</footer>#is',
+            '#<' . 'script\b[^>]*>.*?</' . 'script>#is',
+            '#<body\b[^>]*>#i',
+            '#</body>#i',
+            '#<html\b[^>]*>#i',
+            '#</html>#i',
+        ];
+        foreach ($patterns as $pattern) {
+            $stripped = preg_replace($pattern, '', $html);
+            // preg_replace() returns null on a PCRE backtrack/JIT limit; keep the page rather than an empty response.
+            if (is_string($stripped)) {
+                $html = $stripped;
+            }
+        }
         return $html;
     }
 }
@@ -4701,9 +4942,8 @@ add_filter('woocommerce_use_cart_session', function ($use) {
     return dapfforwc_is_fragment_request() ? false : $use;
 }, 10, 1);
 
-add_filter('woocommerce_cart_hash', function ($hash) {
-    return dapfforwc_is_fragment_request() ? '' : $hash;
-}, 10, 1);
+// No woocommerce_cart_hash override here: an empty hash made WC_Cart_Session::set_cart_cookies() delete the
+// woocommerce_cart_hash cookie on every filter request, so cart fragments and page caches saw a changed cart.
 
 
 /** ------------------------------------------------------------------------
@@ -4716,11 +4956,25 @@ add_action('init', function () {
 
 add_action('send_headers', function () {
     if (!dapfforwc_is_fragment_request()) return;
-    header('X-GM-PF-Fragment: 1');   // debug flag
-    header('Connection: keep-alive');
+    // No Connection header (hop-by-hop, invalid behind HTTP/2 proxies and CDNs) and no debug header.
     header('Cache-Control: no-store, max-age=0'); // personalized, keep off
 });
 
+
+if (!function_exists('dapfforwc_request_keeps_query_pagination')) {
+    /**
+     * Whether the current request is a place where the filter writes query-string pagination (?paged=N):
+     * the shop, product taxonomy archives and pages (product shortcodes).
+     */
+    function dapfforwc_request_keeps_query_pagination()
+    {
+        if (function_exists('is_shop') && (is_shop() || is_product_taxonomy())) {
+            return true;
+        }
+
+        return is_page();
+    }
+}
 
 add_filter('redirect_canonical', function ($redirect_url, $requested_url) {
     $requested_query = wp_parse_url($requested_url, PHP_URL_QUERY);
@@ -4732,8 +4986,10 @@ add_filter('redirect_canonical', function ($redirect_url, $requested_url) {
 
     $paged = isset($requested_args['paged']) ? absint($requested_args['paged']) : 0;
 
-    if ($paged > 0) {
-        // Prevent redirect for paged URLs like /products/?paged=2
+    // Keep the query-string pagination the filter writes (?paged=N) on product archives and on pages, which can
+    // hold product shortcodes. Elsewhere (blog, posts, single products) core's canonical redirect to /page/N/
+    // still applies, so no duplicate URLs are created.
+    if ($paged > 0 && dapfforwc_request_keeps_query_pagination()) {
         return false;
     }
     return $redirect_url;

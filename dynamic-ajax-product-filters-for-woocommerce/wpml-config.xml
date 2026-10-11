@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ Lets WPML and Polylang translate the texts the shop owner types in the plugin settings.
+ admin-texts: only the text parts of each option are listed (filter titles, placeholders, button texts,
+ tooltips, status / date / dimension labels, filter heading, mobile title, "no products" text).
+ Per-filter texts are keyed by the filter name (product-category, pa_color, ...), hence the "*" keys.
+ tests/regression.php checks that each listed text is an option key the plugin really uses.
+-->
+<wpml-config>
+  <admin-texts>
+    <!-- Form Style: texts of each filter -->
+    <key name="dapfforwc_style_options">
+      <key name="widget_title"><key name="*" /></key>
+      <key name="placeholder"><key name="*" /></key>
+      <key name="btntext"><key name="*" /></key>
+      <key name="applybtntext"><key name="*" /></key>
+      <key name="tooltip_text"><key name="*" /></key>
+      <key name="terms_search_texts"><key name="*"><key name="*" /></key></key>
+      <key name="stock_status_text"><key name="*" /></key>
+      <key name="sale_status_text"><key name="*" /></key>
+      <key name="additional_text_1"><key name="*" /></key>
+      <key name="additional_text"><key name="*" /></key>
+      <key name="additional_text_5"><key name="*" /></key>
+      <key name="input_label"><key name="*"><key name="*" /></key></key>
+      <key name="date_filter_texts"><key name="*" /></key>
+      <key name="dimensions_text"><key name="*" /></key>
+      <key name="dimensions_placeholder"><key name="*" /></key>
+      <key name="reset_btn">
+        <key name="filter_heading_text" />
+        <key name="mobile_filter_title" />
+      </key>
+    </key>
+    <!-- Advanced settings: "no products found" text and the dropdown search placeholder -->
+    <key name="dapfforwc_advance_options">
+      <key name="no_products_text" />
+      <key name="select2_placeholder" />
+    </key>
+  </admin-texts>
+</wpml-config>

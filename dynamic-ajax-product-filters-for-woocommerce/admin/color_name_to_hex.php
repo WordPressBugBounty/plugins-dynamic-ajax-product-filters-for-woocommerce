@@ -4,6 +4,11 @@ if (!defined('ABSPATH')) {
 }
 
 function dapfforwc_color_name_to_hex($color_name) {
+    // Built once per request: this runs for every colour term on the Form Style tab.
+    static $colors = null;
+    if ($colors !== null) {
+        return $colors[strtolower((string) $color_name)] ?? null;
+    }
     $colors = [
         'aliceblue' => '#F0F8FF',
         'antiquewhite' => '#FAEBD7',
@@ -148,7 +153,14 @@ function dapfforwc_color_name_to_hex($color_name) {
         'yellowgreen' => '#9ACD32'
     ];
 
-    $color_name = strtolower($color_name); // Make the color name case-insensitive
+    // CSS also accepts the British spelling "grey" for every gray name (grey, darkgrey, lightslategrey, ...).
+    foreach ($colors as $name => $hex) {
+        if (strpos($name, 'gray') !== false) {
+            $colors[str_replace('gray', 'grey', $name)] = $hex;
+        }
+    }
+
+    $color_name = strtolower((string) $color_name); // Make the color name case-insensitive
 
     return $colors[$color_name] ?? null; // Return the hex value or null if not found
 }

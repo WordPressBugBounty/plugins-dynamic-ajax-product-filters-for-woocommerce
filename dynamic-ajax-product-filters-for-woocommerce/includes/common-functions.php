@@ -109,6 +109,49 @@ function dapfforwc_clear_caches_after_term_order()
     }
 }
 
+/**
+ * Exchange rate of the shopper's currency against the store currency while a currency switcher shows prices in
+ * another currency (CURCY - Multi Currency for WooCommerce, WOOCS - Currency Switcher for WooCommerce), else 1.
+ *
+ * Product prices (_price, the cached product data) are in the store currency, while the price slider and price
+ * filter URLs use the currency the shopper sees.
+ *
+ * @return float Amount in the shopper's currency for 1 in the store currency.
+ */
+function dapfforwc_get_price_filter_currency_rate() {
+    $rate = 1.0;
+    if (function_exists('wmc_get_price')) {
+        // CURCY: converts a store-currency amount into the current currency.
+        $rate = (float) wmc_get_price(1);
+    } elseif (isset($GLOBALS['WOOCS']) && is_object($GLOBALS['WOOCS']) && method_exists($GLOBALS['WOOCS'], 'get_currencies')) {
+        $woocs_currencies = (array) $GLOBALS['WOOCS']->get_currencies();
+        $woocs_current = isset($GLOBALS['WOOCS']->current_currency) ? (string) $GLOBALS['WOOCS']->current_currency : '';
+        if (isset($woocs_currencies[$woocs_current]['rate'])) {
+            $rate = (float) $woocs_currencies[$woocs_current]['rate'];
+        }
+    }
+
+    /**
+     * Filters the exchange rate used for the price filter (shopper's currency per 1 store currency). Return the
+     * rate for other currency switchers; 1 keeps prices in the store currency.
+     *
+     * @param float $rate Detected rate.
+     */
+    $rate = (float) apply_filters('dapfforwc_price_filter_currency_rate', $rate);
+    return $rate > 0 ? $rate : 1.0;
+}
+
+/**
+ * Converts a price filter amount from the shopper's currency into the store currency.
+ *
+ * @param float|int|string $amount Amount from the price slider or a price filter URL.
+ * @return float
+ */
+function dapfforwc_price_filter_to_store_currency($amount) {
+    $rate = dapfforwc_get_price_filter_currency_rate();
+    return $rate === 1.0 ? (float) $amount : (float) $amount / $rate;
+}
+
 function dapfforwc_get_min_max_price($products, $products_id = []) {
     $target_product_ids = array_fill_keys(array_map('intval', (array) $products_id), true);
     $min_price = null;
@@ -137,12 +180,15 @@ function dapfforwc_get_min_max_price($products, $products_id = []) {
         }
     }
 
+    // The slider shows the shopper's currency (currency switchers).
+    $currency_rate = dapfforwc_get_price_filter_currency_rate();
+
     if (!is_null($min_price)) {
-        $min_price = floor($min_price); // always take lower integer
+        $min_price = floor($min_price * $currency_rate); // always take lower integer
     }
 
     if (!is_null($max_price)) {
-        $max_price = ceil($max_price); // always take upper integer
+        $max_price = ceil($max_price * $currency_rate); // always take upper integer
     }
 
     return array('min' => $min_price, 'max' => $max_price);
@@ -185,6 +231,91 @@ function dapfforwc_dimension_row_matches_bound_filters(array $dimension_row, arr
     }
 
     return true;
+}
+
+if (!function_exists('dapfforwc_get_request_uri_query_params')) {
+    /**
+     * Query-string parameters of the current request URI (not the hydrated $_GET).
+     * Parsed directly instead of rebuilding "http://host/uri" first.
+     */
+    function dapfforwc_get_request_uri_query_params()
+    {
+        $request_uri = isset($_SERVER['REQUEST_URI']) ? (string) wp_unslash($_SERVER['REQUEST_URI']) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Only the query part is parsed; callers sanitize the values they use.
+        $query = (string) wp_parse_url($request_uri, PHP_URL_QUERY);
+
+        $query_params = array();
+        if ($query !== '') {
+            parse_str($query, $query_params);
+        }
+
+        return $query_params;
+    }
+}
+
+if (!function_exists('dapfforwc_get_on_sale_product_ids')) {
+    /**
+     * Product IDs on sale from WooCommerce's cached lookup: honours scheduled sales and lists the parents of on-sale
+     * variations, so no product has to be loaded to know whether it is on sale. The on-sale filter and the on-sale
+     * option data both use it, so counts and results agree.
+     */
+    function dapfforwc_get_on_sale_product_ids(): array
+    {
+        $ids = function_exists('wc_get_product_ids_on_sale') ? (array) wc_get_product_ids_on_sale() : array();
+
+        return array_values(array_unique(array_filter(array_map('absint', $ids))));
+    }
+}
+
+if (!function_exists('dapfforwc_get_dimension_filter_unit')) {
+    /**
+     * Unit of a dimension filter: product dimensions are stored in the store's WooCommerce units
+     * (Settings > Products > General).
+     */
+    function dapfforwc_get_dimension_filter_unit(string $dimension): string
+    {
+        $is_weight = $dimension === 'weight';
+        $unit = sanitize_text_field((string) get_option($is_weight ? 'woocommerce_weight_unit' : 'woocommerce_dimension_unit', $is_weight ? 'kg' : 'cm'));
+
+        return $unit !== '' ? $unit : ($is_weight ? 'kg' : 'cm');
+    }
+}
+
+if (!function_exists('dapfforwc_get_dimension_filter_label')) {
+    /**
+     * Label of a dimension filter. A saved custom label is kept; a saved label equal to the old hard-coded
+     * cm/kg default (which the settings form used to pre-fill and save) is treated as the default.
+     */
+    function dapfforwc_get_dimension_filter_label(string $dimension, $saved_label = ''): string
+    {
+        $legacy_defaults = array(
+            'length' => 'Length (cm):',
+            'width' => 'Width (cm):',
+            'height' => 'Height (cm):',
+            'weight' => 'Weight (kg):',
+        );
+        $saved_label = is_scalar($saved_label) ? trim((string) $saved_label) : '';
+        if ($saved_label !== '' && $saved_label !== ($legacy_defaults[$dimension] ?? '')) {
+            return $saved_label;
+        }
+
+        $unit = dapfforwc_get_dimension_filter_unit($dimension);
+        switch ($dimension) {
+            case 'length':
+                /* translators: %s: dimension unit set in WooCommerce, e.g. cm or in. */
+                return sprintf(__('Length (%s):', 'dynamic-ajax-product-filters-for-woocommerce'), $unit);
+            case 'width':
+                /* translators: %s: dimension unit set in WooCommerce, e.g. cm or in. */
+                return sprintf(__('Width (%s):', 'dynamic-ajax-product-filters-for-woocommerce'), $unit);
+            case 'height':
+                /* translators: %s: dimension unit set in WooCommerce, e.g. cm or in. */
+                return sprintf(__('Height (%s):', 'dynamic-ajax-product-filters-for-woocommerce'), $unit);
+            case 'weight':
+                /* translators: %s: weight unit set in WooCommerce, e.g. kg or lbs. */
+                return sprintf(__('Weight (%s):', 'dynamic-ajax-product-filters-for-woocommerce'), $unit);
+        }
+
+        return ucfirst($dimension) . ':';
+    }
 }
 
 function dapfforwc_get_dimension_filter_bounds($products, $products_id = [], $active_dimension_filters = [])
@@ -297,10 +428,13 @@ function dapfforwc_get_dimension_filter_bounds($products, $products_id = [], $ac
 
 
 function dapfforwc_getFilteredProductIds($array) {
-    // Collect all non-empty filter arrays (indexed numerically)
-    $filters = array_filter($array, function($filter) {
+    // Collect all non-empty filter arrays. Re-index (string keys would be unpacked as named arguments on PHP 8)
+    // and cast each one to an array (a scalar would make array_intersect() throw a TypeError).
+    $filters = array_values(array_map(function ($filter) {
+        return (array) $filter;
+    }, array_filter((array) $array, function ($filter) {
         return !empty($filter);
-    });
+    })));
 
     // Return empty array if no filters are applied
     if (empty($filters)) {
@@ -309,11 +443,11 @@ function dapfforwc_getFilteredProductIds($array) {
 
     // If only one filter is applied, return its values
     if (count($filters) === 1) {
-        return array_values(reset($filters));
+        return array_values($filters[0]);
     }
 
     // Intersect all non-empty filters to get common product IDs
-    return array_values(call_user_func_array('array_intersect', $filters));
+    return array_values(array_intersect(...$filters));
 }
 
 if (!function_exists('dapfforwc_get_style_option_attribute_groups')) {
@@ -528,6 +662,41 @@ if (isset($GLOBALS['dapfforwc_styleoptions'])) {
     );
 }
 
+if (!function_exists('dapfforwc_refresh_text_option_globals')) {
+    /**
+     * The option globals are read when the plugin loads, before WPML / Polylang know the visitor's language.
+     * Read the stored options again once it is known, so the texts listed in wpml-config.xml show translated.
+     */
+    function dapfforwc_refresh_text_option_globals(): void
+    {
+        $language = apply_filters('wpml_current_language', null); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WPML / Polylang hook.
+        if (!is_scalar($language) || (string) $language === '') {
+            return;
+        }
+
+        global $dapfforwc_styleoptions, $dapfforwc_advance_settings;
+
+        $style_options = get_option('dapfforwc_style_options');
+        if (is_array($style_options)) {
+            $dapfforwc_styleoptions = dapfforwc_prepare_style_options_for_runtime(
+                array_replace_recursive(is_array($dapfforwc_styleoptions) ? $dapfforwc_styleoptions : [], $style_options)
+            );
+        }
+
+        $advance_options = get_option('dapfforwc_advance_options');
+        if (is_array($advance_options)) {
+            $dapfforwc_advance_settings = array_replace_recursive(is_array($dapfforwc_advance_settings) ? $dapfforwc_advance_settings : [], $advance_options);
+        }
+    }
+}
+add_action('wp', 'dapfforwc_refresh_text_option_globals', 5);
+// admin-ajax requests never fire 'wp': refresh there too, so AJAX output is translated.
+add_action('admin_init', function () {
+    if (wp_doing_ajax()) {
+        dapfforwc_refresh_text_option_globals();
+    }
+}, 5);
+
 if (!function_exists('dapfforwc_get_style_term_taxonomy')) {
     function dapfforwc_get_style_term_taxonomy(string $attribute): string
     {
@@ -553,13 +722,14 @@ if (!function_exists('dapfforwc_get_style_term_taxonomy')) {
             return taxonomy_exists('product_brand') ? 'product_brand' : '';
         }
 
-        if (taxonomy_exists($attribute)) {
-            return $attribute;
+        // An unprefixed key is a WooCommerce attribute first (color => pa_color). A same-named taxonomy is only used
+        // when it belongs to products, so another plugin's "color" taxonomy is never picked.
+        $attribute_taxonomy = strpos($attribute, 'pa_') === 0 ? $attribute : 'pa_' . sanitize_title($attribute);
+        if (taxonomy_exists($attribute_taxonomy)) {
+            return $attribute_taxonomy;
         }
 
-        $attribute_taxonomy = strpos($attribute, 'pa_') === 0 ? $attribute : 'pa_' . sanitize_title($attribute);
-
-        return taxonomy_exists($attribute_taxonomy) ? $attribute_taxonomy : '';
+        return (taxonomy_exists($attribute) && is_object_in_taxonomy('product', $attribute)) ? $attribute : '';
     }
 }
 
@@ -643,6 +813,18 @@ if (!function_exists('dapfforwc_get_term_style_lookup_keys')) {
             $taxonomy = dapfforwc_get_style_term_taxonomy($attribute);
         }
 
+        // Saved values are term IDs (older settings used slugs), so a numeric slug key ("38") may only be used
+        // when no other term of this taxonomy has that ID; otherwise it would match that other term too.
+        $slug_key_is_safe = static function ($slug_key, $owner_term_id) use ($taxonomy): bool {
+            $slug_key = rawurldecode(trim((string) $slug_key));
+            if ($slug_key === '' || $taxonomy === '' || !preg_match('/^[0-9]+$/', $slug_key)) {
+                return true;
+            }
+
+            $id_term = get_term((int) $slug_key, $taxonomy);
+            return !$id_term || is_wp_error($id_term) || (int) $id_term->term_id === (int) $owner_term_id;
+        };
+
         if ($term_id > 0) {
             dapfforwc_add_term_style_option_key($keys, $term_id);
         }
@@ -663,15 +845,20 @@ if (!function_exists('dapfforwc_get_term_style_lookup_keys')) {
 
             if ($resolved_term && !is_wp_error($resolved_term)) {
                 dapfforwc_add_term_style_option_key($keys, $resolved_term->term_id);
-                dapfforwc_add_term_style_option_key($keys, $resolved_term->slug);
-                dapfforwc_add_term_style_option_key($keys, sanitize_title($resolved_term->slug));
+                if ($slug_key_is_safe($resolved_term->slug, $resolved_term->term_id)) {
+                    dapfforwc_add_term_style_option_key($keys, $resolved_term->slug);
+                    dapfforwc_add_term_style_option_key($keys, sanitize_title($resolved_term->slug));
+                }
             }
         }
 
-        dapfforwc_add_term_style_option_key($keys, $slug);
-        dapfforwc_add_term_style_option_key($keys, sanitize_title($slug));
-        dapfforwc_add_term_style_option_key($keys, $source_slug);
-        dapfforwc_add_term_style_option_key($keys, sanitize_title($source_slug));
+        $owner_term_id = ($resolved_term && !is_wp_error($resolved_term)) ? (int) $resolved_term->term_id : $term_id;
+        foreach (array($slug, $source_slug) as $slug_key) {
+            if ($slug_key_is_safe($slug_key, $owner_term_id)) {
+                dapfforwc_add_term_style_option_key($keys, $slug_key);
+                dapfforwc_add_term_style_option_key($keys, sanitize_title($slug_key));
+            }
+        }
 
         return $keys;
     }
@@ -739,9 +926,32 @@ function dapfforwc_get_wc_brand_image_by_slug($brand_slug) {
 
         // Get the image URL
         $image_url = wp_get_attachment_url($thumbnail_id);
+        if ($image_url && is_numeric($thumbnail_id)) {
+            // The filter renders this URL as an attachment again; remember the ID to skip the reverse lookup.
+            wp_cache_set('attachment_id_' . md5($image_url), (int) $thumbnail_id, 'dapfforwc', HOUR_IN_SECONDS);
+        }
 
         // Return the image URL
         return $image_url;
     }
     return false;
+}
+
+/**
+ * attachment_url_to_postid() runs an uncached query on every call; cache the result per image URL.
+ */
+function dapfforwc_get_image_attachment_id($image_url) {
+    $image_url = (string) $image_url;
+    if ($image_url === '') {
+        return 0;
+    }
+
+    $cache_key = 'attachment_id_' . md5($image_url);
+    $attachment_id = wp_cache_get($cache_key, 'dapfforwc');
+    if ($attachment_id === false) {
+        $attachment_id = (int) attachment_url_to_postid($image_url);
+        wp_cache_set($cache_key, $attachment_id, 'dapfforwc', HOUR_IN_SECONDS);
+    }
+
+    return (int) $attachment_id;
 }

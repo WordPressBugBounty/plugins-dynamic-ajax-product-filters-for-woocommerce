@@ -4,7 +4,7 @@ Contributors: plugincy, hellomasum
 Tags: product filter, ajax product filter, woocommerce filter, woocommerce product filter, shop filter
 Requires at least: 5.9
 Tested up to: 7.0
-Stable tag: 1.6.4
+Stable tag: 1.6.6
 Requires PHP: 7.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -433,6 +433,52 @@ Yes. You can use Elementor widgets, Gutenberg blocks, `[plugincy_filters]`, `[pl
 Yes. Pro includes WPML compatibility for saved option strings, translated taxonomy/product filter data, language-aware filter caches, and current-language frontend labels.
 
 == Changelog ==
+
+= 1.6.6 =
+* Added: filter titles, labels, button texts and SEO texts can be translated with WPML and Polylang using wpml-config.xml.
+* Fixed: WooCommerce no longer warns that the plugin is incompatible; the plugin now declares support for HPOS order storage and block cart/checkout.
+* Fixed: other plugins' admin notices now show above the settings page instead of inside the settings card.
+* Changed: the first quick start step now reads "Easy Configure Filters".
+
+= 1.6.5 =
+* Security: escaped filter output, block settings, selector attributes and URL values to prevent HTML/script injection.
+* Security: restricted allowed filter HTML and protected the attributes REST route.
+* Security: custom field filter URLs now accept only public, non-excluded meta keys.
+* Security: Author filter no longer reveals login names.
+* Security: deactivation feedback now requires manage_plugins permission.
+* Fixed: selected filters that match no products are no longer ignored.
+* Fixed: quick successive clicks, chip removals and filter requests now apply reliably.
+* Fixed: shared/reloaded filter URLs now show the correct filtered products.
+* Fixed: filter parameters no longer break single product pages, REST API or Store API requests.
+* Fixed: Remove out of stock no longer hides backorder products or empties filter options.
+* Fixed: rating, on-sale and discount filters now match listed products.
+* Fixed: pagination, slider pagination and third-party AJAX request conflicts.
+* Fixed: mobile drawer duplication and top filter bar scrolling issues.
+* Fixed: selected chips now show term names instead of slugs.
+* Fixed: image swatches, numeric term slugs, dimension/weight labels and block editor preview/settings issues.
+* Improved: keyboard and screen-reader accessibility for swatches, buttons, popups and admin dialogs.
+* Improved: admin, frontend and block editor texts are translatable.
+* Added: WPML/Polylang support for filter titles, button texts, placeholders and no-products text.
+* Improved: RTL styling and reduced CSS conflicts with other site elements.
+* Improved: filter data generation, image caching, discount/on-sale queries and cache clearing performance.
+* Improved: settings page performance.
+* Added: Mobile Filter Style setting with global/widget/block/Elementor support.
+* Fixed: WooCommerce Product Collection, All Products and Query Loop block filtering.
+* Fixed: block theme archive widget area and inline script handling.
+* Added: cache clearing support for WP Super Cache, W3 Total Cache and WP Fastest Cache.
+* Fixed: WPML/Polylang filtering, pagination and reset keep the lang URL parameter.
+* Fixed: compatibility with Blocksy, Elementor, Element Pack, Essential Addons, Flatsome, TheGem, WoodMart, Avada, Riode, YITH Infinite Scrolling and several theme load-more/sorting flows.
+* Fixed: currency switcher support for price filters, including CURCY and WOOCS.
+* Fixed: optimization plugins that defer or merge JavaScript no longer break mobile drawer/top filter bar scripts.
+* Changed: filter URLs no longer include per-visitor security tokens, improving cache/share behavior.
+* Changed: Author filter now uses public author nicename instead of login.
+* Changed: Remove out of stock affects only filter results, not WooCommerce’s site-wide stock visibility setting.
+* Added: Delete all plugin data on uninstall setting.
+* Changed: new installs exclude total_sales from custom field filters.
+* Changed: free plugin stays idle while Pro is active, including network-active Pro.
+* Developer: renamed/prefixed asset handles with backward-compatible aliases where possible.
+* Developer: dapfforwc_FILTER_API.reset() now resets everything like the Reset button.
+* Developer: regenerated .pot file with 995 strings.
 
 = 1.6.4 =
 * Removed: manual min/max/auto price style controls.

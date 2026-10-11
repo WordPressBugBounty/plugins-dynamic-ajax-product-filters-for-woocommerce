@@ -30,15 +30,20 @@ class dapfforwc_cart_anaylytics
         global $dapfforwc_advance_settings;
         $allow_data_share = isset($dapfforwc_advance_settings["allow_data_share"]) && $dapfforwc_advance_settings["allow_data_share"] === 'on';
 
-        // Hook into plugin activation/deactivation using the correct file path
+        // Hook into plugin activation/deactivation using the correct file path.
+        // Deactivation always clears the weekly event, even after data sharing was turned off.
         if ($this->plugin_file && $allow_data_share) {
             register_activation_hook($this->plugin_file, array($this, 'on_plugin_activation'));
+        }
+        if ($this->plugin_file) {
             register_deactivation_hook($this->plugin_file, array($this, 'on_plugin_deactivation'));
         }
         if ($allow_data_share) {
-            // Send tracking data periodically (weekly)
+            // Send tracking data periodically (weekly). WP-Cron is the only sender, so page loads never wait for it.
             add_action('wp_loaded', array($this, 'schedule_tracking'));
             add_action('send_plugin_analytics_' . $this->product_id, array($this, 'send_tracking_data'));
+        } else {
+            add_action('wp_loaded', array($this, 'unschedule_tracking'));
         }
 
         // Add deactivation feedback form only when data sharing is allowed
@@ -83,6 +88,16 @@ class dapfforwc_cart_anaylytics
     }
 
     /**
+     * Remove the weekly event after data sharing was turned off
+     */
+    public function unschedule_tracking()
+    {
+        if (wp_next_scheduled('send_plugin_analytics_' . $this->product_id)) {
+            wp_clear_scheduled_hook('send_plugin_analytics_' . $this->product_id);
+        }
+    }
+
+    /**
      * Send tracking data to analytics API
      */
     public function send_tracking_data()
@@ -106,6 +121,8 @@ class dapfforwc_cart_anaylytics
         if ($response_code !== 200) {
             return false;
         }
+
+        update_option('dapfforwc_analytics_last_sent', time(), false);
 
         return true;
     }
@@ -181,8 +198,17 @@ class dapfforwc_cart_anaylytics
         $active_plugins = get_option('active_plugins', array());
         $plugins = array();
 
-        foreach ($active_plugins as $plugin_path) {
-            $plugin_data = get_plugin_data(WP_PLUGIN_DIR . '/' . $plugin_path);
+        if (!function_exists('get_plugin_data')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+
+        foreach ((array) $active_plugins as $plugin_path) {
+            $plugin_file = WP_PLUGIN_DIR . '/' . $plugin_path;
+            if (!is_readable($plugin_file)) {
+                continue;
+            }
+            // Only Name and Version are needed: no markup pass and no loading of each plugin's text domain.
+            $plugin_data = get_plugin_data($plugin_file, false, false);
             if (!empty($plugin_data['Name']) && $plugin_data['Name'] !== $this->plugin_name) {
                 $plugins[] = array(
                     'name' => $plugin_data['Name'],
@@ -208,7 +234,7 @@ class dapfforwc_cart_anaylytics
 ?>
             <div id="dapfforwc-plugin-deactivation-feedback" style="display:none;">
                 <div class="feedback-overlay">
-                    <div class="feedback-modal">
+                    <div class="feedback-modal" role="dialog" aria-modal="true" aria-labelledby="dapfforwc-feedback-title">
                         <div class="modal-header">
                             <div style="display: flex; gap:10px;align-items: center;">
                                 <div class="plugincy_icon" style=" line-height: 1; "><svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="24" height="24" viewBox="0 0 24 24">
@@ -222,47 +248,50 @@ class dapfforwc_cart_anaylytics
                                         <path d="m14.25 11.625 0.75 0.188 -0.188 0.75 -0.75 -0.188z" fill="#A52679" />
                                         <path d="M12.75 17.813h1.125v0.563H12.75z" fill="#EEDBE8" />
                                     </svg></div>
-                                <h3>Quick Feedback</h3>
+                                <h3 id="dapfforwc-feedback-title"><?php esc_html_e('Quick Feedback', 'dynamic-ajax-product-filters-for-woocommerce'); ?></h3>
                             </div>
-                            <button type="button" class="close-button" aria-label="Close">
+                            <button type="button" class="close-button" aria-label="<?php esc_attr_e('Close', 'dynamic-ajax-product-filters-for-woocommerce'); ?>">
                                 <span aria-hidden="true">&times;</span>
                             </button>
                         </div>
                         <div class="modal-body">
-                            <p>If you have a moment, please share why you are deactivating <?php echo esc_html($this->plugin_name); ?>:</p>
+                            <p id="dapfforwc-feedback-question"><?php
+                                /* translators: %s: plugin name. */
+                                echo esc_html(sprintf(__('If you have a moment, please share why you are deactivating %s:', 'dynamic-ajax-product-filters-for-woocommerce'), $this->plugin_name));
+                                ?></p>
                             <form id="dapfforwc-deactivation-feedback-form">
-                                <div class="feedback-options">
+                                <div class="feedback-options" role="radiogroup" aria-labelledby="dapfforwc-feedback-question">
                                     <label class="feedback-option">
                                         <input type="radio" name="reason" value="temporary">
-                                        <span class="radio-button"></span>
-                                        It's a temporary deactivation.
+                                        <span class="radio-button" aria-hidden="true"></span>
+                                        <?php esc_html_e("It's a temporary deactivation.", 'dynamic-ajax-product-filters-for-woocommerce'); ?>
                                     </label>
                                     <label class="feedback-option">
                                         <input type="radio" name="reason" value="not-working">
-                                        <span class="radio-button"></span>
-                                        The plugin isn't working properly.
+                                        <span class="radio-button" aria-hidden="true"></span>
+                                        <?php esc_html_e("The plugin isn't working properly.", 'dynamic-ajax-product-filters-for-woocommerce'); ?>
                                     </label>
                                     <label class="feedback-option">
                                         <input type="radio" name="reason" value="better-plugin">
-                                        <span class="radio-button"></span>
-                                        I found a better alternative plugin.
+                                        <span class="radio-button" aria-hidden="true"></span>
+                                        <?php esc_html_e('I found a better alternative plugin.', 'dynamic-ajax-product-filters-for-woocommerce'); ?>
                                     </label>
                                     <label class="feedback-option">
                                         <input type="radio" name="reason" value="missing-feature">
-                                        <span class="radio-button"></span>
-                                        It's missing a specific feature.
+                                        <span class="radio-button" aria-hidden="true"></span>
+                                        <?php esc_html_e("It's missing a specific feature.", 'dynamic-ajax-product-filters-for-woocommerce'); ?>
                                     </label>
                                     <label class="feedback-option">
                                         <input type="radio" name="reason" value="other">
-                                        <span class="radio-button"></span>
-                                        Other
+                                        <span class="radio-button" aria-hidden="true"></span>
+                                        <?php esc_html_e('Other', 'dynamic-ajax-product-filters-for-woocommerce'); ?>
                                     </label>
                                 </div>
                                 <div class="other-reason-container" style="display:none;">
-                                    <textarea name="other_reason" placeholder="Please tell us more..." rows="3"></textarea>
+                                    <textarea name="other_reason" placeholder="<?php esc_attr_e('Please tell us more...', 'dynamic-ajax-product-filters-for-woocommerce'); ?>" aria-label="<?php esc_attr_e('Other reason', 'dynamic-ajax-product-filters-for-woocommerce'); ?>" rows="3"></textarea>
                                 </div>
                                 <div class="modal-footer">
-                                    <button type="submit" class="btn btn-primary">Submit & Deactivate</button>
+                                    <button type="submit" class="btn btn-primary"><?php esc_html_e('Submit & Deactivate', 'dynamic-ajax-product-filters-for-woocommerce'); ?></button>
                                 </div>
                             </form>
                         </div>
@@ -271,7 +300,7 @@ class dapfforwc_cart_anaylytics
             </div>
 
             <?php ob_start(); ?>
-                .feedback-overlay {
+                #dapfforwc-plugin-deactivation-feedback .feedback-overlay {
                     position: fixed;
                     top: 0;
                     left: 0;
@@ -284,7 +313,7 @@ class dapfforwc_cart_anaylytics
                     justify-content: center;
                 }
 
-                .feedback-modal {
+                #dapfforwc-plugin-deactivation-feedback .feedback-modal {
                     background: #ffffff;
                     border-radius: 8px;
                     max-width: 500px;
@@ -295,21 +324,21 @@ class dapfforwc_cart_anaylytics
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 }
 
-                .modal-header {
+                #dapfforwc-plugin-deactivation-feedback .modal-header {
                     padding: 24px 24px 8px;
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
                 }
 
-                .modal-header h3 {
+                #dapfforwc-plugin-deactivation-feedback .modal-header h3 {
                     margin: 0;
                     font-size: 18px;
                     font-weight: 600;
                     color: #1a1a1a;
                 }
 
-                .close-button {
+                #dapfforwc-plugin-deactivation-feedback .close-button {
                     background: none;
                     border: none;
                     font-size: 20px;
@@ -320,26 +349,26 @@ class dapfforwc_cart_anaylytics
                     transition: background-color 0.2s ease;
                 }
 
-                .close-button:hover {
+                #dapfforwc-plugin-deactivation-feedback .close-button:hover {
                     background: #f5f5f5;
                 }
 
-                .modal-body {
+                #dapfforwc-plugin-deactivation-feedback .modal-body {
                     padding: 16px 24px 24px;
                 }
 
-                .modal-body p {
+                #dapfforwc-plugin-deactivation-feedback .modal-body p {
                     margin: 0 0 20px;
                     color: #555;
                     font-size: 14px;
                     line-height: 1.5;
                 }
 
-                .feedback-options {
+                #dapfforwc-plugin-deactivation-feedback .feedback-options {
                     margin-bottom: 16px;
                 }
 
-                .feedback-option {
+                #dapfforwc-plugin-deactivation-feedback .feedback-option {
                     display: flex;
                     align-items: center;
                     margin: 0 0 12px;
@@ -350,11 +379,11 @@ class dapfforwc_cart_anaylytics
                     line-height: 1.4;
                 }
 
-                .feedback-option:hover {
+                #dapfforwc-plugin-deactivation-feedback .feedback-option:hover {
                     color: #432fb8;
                 }
 
-                .feedback-option input[type="radio"] {
+                #dapfforwc-plugin-deactivation-feedback .feedback-option input[type="radio"] {
                     position: absolute;
                     opacity: 0;
                     cursor: pointer;
@@ -362,7 +391,13 @@ class dapfforwc_cart_anaylytics
                     width: 0;
                 }
 
-                .radio-button {
+                /* The real radio is invisible: show keyboard focus on the drawn circle. */
+                #dapfforwc-plugin-deactivation-feedback .feedback-option input[type="radio"]:focus-visible + .radio-button {
+                    outline: 2px solid #432fb8;
+                    outline-offset: 2px;
+                }
+
+                #dapfforwc-plugin-deactivation-feedback .radio-button {
                     height: 16px;
                     width: 16px;
                     background: #ffffff;
@@ -374,12 +409,12 @@ class dapfforwc_cart_anaylytics
                     transition: all 0.2s ease;
                 }
 
-                .feedback-option input[type="radio"]:checked+.radio-button {
+                #dapfforwc-plugin-deactivation-feedback .feedback-option input[type="radio"]:checked+.radio-button {
                     border-color: #432fb8;
                     background: #432fb8;
                 }
 
-                .feedback-option input[type="radio"]:checked+.radio-button:after {
+                #dapfforwc-plugin-deactivation-feedback .feedback-option input[type="radio"]:checked+.radio-button:after {
                     content: "";
                     position: absolute;
                     display: block;
@@ -392,12 +427,12 @@ class dapfforwc_cart_anaylytics
                     background: white;
                 }
 
-                .other-reason-container {
+                #dapfforwc-plugin-deactivation-feedback .other-reason-container {
                     margin-top: 16px;
-                    animation: slideDown 0.3s ease-out;
+                    animation: dapfforwc-slideDown 0.3s ease-out;
                 }
 
-                @keyframes slideDown {
+                @keyframes dapfforwc-slideDown {
                     from {
                         opacity: 0;
                         max-height: 0;
@@ -411,7 +446,7 @@ class dapfforwc_cart_anaylytics
                     }
                 }
 
-                .other-reason-container textarea {
+                #dapfforwc-plugin-deactivation-feedback .other-reason-container textarea {
                     width: 100%;
                     padding: 8px 12px;
                     border: 1px solid #ddd;
@@ -424,13 +459,13 @@ class dapfforwc_cart_anaylytics
                     box-sizing: border-box;
                 }
 
-                .other-reason-container textarea:focus {
+                #dapfforwc-plugin-deactivation-feedback .other-reason-container textarea:focus {
                     outline: none;
                     border-color: #432fb8;
                     box-shadow: 0 0 0 1px #432fb8;
                 }
 
-                .modal-footer {
+                #dapfforwc-plugin-deactivation-feedback .modal-footer {
                     display: flex;
                     justify-content: flex-end;
                     margin-top: 20px;
@@ -438,7 +473,7 @@ class dapfforwc_cart_anaylytics
                     border-top: 1px solid #eee;
                 }
 
-                .btn {
+                #dapfforwc-plugin-deactivation-feedback .btn {
                     padding: 8px 16px;
                     border: none;
                     border-radius: 4px;
@@ -453,31 +488,31 @@ class dapfforwc_cart_anaylytics
                     min-width: 120px;
                 }
 
-                .btn-primary {
+                #dapfforwc-plugin-deactivation-feedback .btn-primary {
                     background: #432fb8;
                     color: white;
                 }
 
-                .btn-primary:hover {
+                #dapfforwc-plugin-deactivation-feedback .btn-primary:hover {
                     background: #005a87;
                 }
 
                 /* Responsive design */
                 @media (max-width: 640px) {
-                    .feedback-modal {
+                    #dapfforwc-plugin-deactivation-feedback .feedback-modal {
                         margin: 20px;
                         width: calc(100% - 40px);
                     }
 
-                    .modal-header {
+                    #dapfforwc-plugin-deactivation-feedback .modal-header {
                         padding: 20px 20px 8px;
                     }
 
-                    .modal-body {
+                    #dapfforwc-plugin-deactivation-feedback .modal-body {
                         padding: 16px 20px 20px;
                     }
 
-                    .btn {
+                    #dapfforwc-plugin-deactivation-feedback .btn {
                         width: 100%;
                     }
                 }
@@ -488,6 +523,49 @@ class dapfforwc_cart_anaylytics
                     var pluginBasename = '<?php echo esc_js($plugin_basename); ?>';
                     var pluginSlug = '<?php echo esc_js($plugin_slug); ?>';
                     var deactivateUrl = '';
+
+                    var $feedback = $('#dapfforwc-plugin-deactivation-feedback');
+                    var feedbackOpener = null;
+
+                    // The modal takes focus when it opens and gives it back to the "Deactivate" link when it closes.
+                    function openFeedback(opener) {
+                        feedbackOpener = opener;
+                        $feedback.show();
+                        $feedback.find('input[name="reason"]').first().trigger('focus');
+                    }
+
+                    function closeFeedback() {
+                        if (!$feedback.is(':visible')) {
+                            return;
+                        }
+                        $feedback.hide();
+                        if (feedbackOpener && document.contains(feedbackOpener)) {
+                            feedbackOpener.focus();
+                        }
+                    }
+
+                    // Keep Tab inside the open modal.
+                    $(document).on('keydown.dapfforwcDeactivationFeedback', function(e) {
+                        if (e.key !== 'Tab' || !$feedback.is(':visible')) {
+                            return;
+                        }
+                        var $focusable = $feedback.find('.feedback-modal').find('button, textarea, a[href], input[type="radio"]').filter(function() {
+                            return !this.disabled && $(this).is(':visible, input[type="radio"]');
+                        });
+                        if (!$focusable.length) {
+                            return;
+                        }
+                        var first = $focusable.get(0);
+                        var last = $focusable.get($focusable.length - 1);
+                        var inside = $feedback.get(0).contains(document.activeElement);
+                        if (e.shiftKey && (!inside || document.activeElement === first)) {
+                            e.preventDefault();
+                            last.focus();
+                        } else if (!e.shiftKey && (!inside || document.activeElement === last)) {
+                            e.preventDefault();
+                            first.focus();
+                        }
+                    });
 
                     // Multiple selectors to catch the deactivation link
                     var selectors = [
@@ -501,7 +579,7 @@ class dapfforwc_cart_anaylytics
                         $(selector).on('click', function(e) {
                             e.preventDefault();
                             deactivateUrl = $(this).attr('href');
-                            $('#dapfforwc-plugin-deactivation-feedback').show();
+                            openFeedback(this);
                         });
                     });
 
@@ -512,7 +590,7 @@ class dapfforwc_cart_anaylytics
                             $(this).on('click', function(e) {
                                 e.preventDefault();
                                 deactivateUrl = $(this).attr('href');
-                                $('#dapfforwc-plugin-deactivation-feedback').show();
+                                openFeedback(this);
                             });
                         }
                     });
@@ -527,14 +605,15 @@ class dapfforwc_cart_anaylytics
                             window.location.href = deactivateUrl;
                             return;
                         }
-                        var reason = $('input[name="reason"]:checked').val();
-                        var otherReason = $('textarea[name="other_reason"]').val();
+                        var $feedbackRoot = $('#dapfforwc-plugin-deactivation-feedback');
+                        var reason = $feedbackRoot.find('input[name="reason"]:checked').val();
+                        var otherReason = $feedbackRoot.find('textarea[name="other_reason"]').val();
 
                         if (reason === 'other' && otherReason) {
                             reason = otherReason;
                         }
 
-                        $(this).find("button.btn.btn-primary").text("Deactivating...");
+                        $(this).find("button.btn.btn-primary").text(<?php echo wp_json_encode(__('Deactivating...', 'dynamic-ajax-product-filters-for-woocommerce')); ?>);
 
                         // Send deactivation data
                         $.ajax({
@@ -564,30 +643,32 @@ class dapfforwc_cart_anaylytics
                     });
 
                     // Handle other reason text area
-                    $(document).on('change', 'input[name="reason"]', function() {
+                    // All lookups stay inside this modal: other plugins' modals on the Plugins screen use the same names.
+                    $(document).on('change', '#dapfforwc-plugin-deactivation-feedback input[name="reason"]', function() {
+                        var $otherReason = $('#dapfforwc-plugin-deactivation-feedback .other-reason-container');
                         if ($(this).val() === 'other') {
-                            $('.other-reason-container').slideDown(300);
+                            $otherReason.slideDown(300);
                         } else {
-                            $('.other-reason-container').slideUp(300);
+                            $otherReason.slideUp(300);
                         }
                     });
 
-                    // Handle close button
-                    $(document).on('click', '.close-button', function() {
-                        $('#dapfforwc-plugin-deactivation-feedback').hide();
+                    // Handle close button (only this modal's, not other plugins' .close-button)
+                    $(document).on('click', '#dapfforwc-plugin-deactivation-feedback .close-button', function() {
+                        closeFeedback();
                     });
 
                     // Handle overlay click to close
-                    $(document).on('click', '.feedback-overlay', function(e) {
+                    $(document).on('click', '#dapfforwc-plugin-deactivation-feedback .feedback-overlay', function(e) {
                         if (e.target === this) {
-                            $('#dapfforwc-plugin-deactivation-feedback').hide();
+                            closeFeedback();
                         }
                     });
 
                     // Handle escape key
-                    $(document).on('keyup', function(e) {
-                        if (e.keyCode === 27) { // ESC key
-                            $('#dapfforwc-plugin-deactivation-feedback').hide();
+                    $(document).on('keyup.dapfforwcDeactivationFeedback', function(e) {
+                        if (e.keyCode === 27) { // ESC key; closeFeedback() does nothing unless this modal is open
+                            closeFeedback();
                         }
                     });
                 });

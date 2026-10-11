@@ -28,10 +28,128 @@ if (!function_exists('dapfforwc_array_intersect_values')) {
     }
 }
 
+if (!function_exists('dapfforwc_normalize_author_filter_values')) {
+    /**
+     * Normalize author filter values to public author slugs (user_nicename).
+     * Values are matched against authors of published products only: by nicename first, then, for links made
+     * before author slugs switched to the nicename, by login name. A matched login is replaced by that author's
+     * nicename, so login names never reach the form, chips or generated links. Other values are returned unchanged.
+     *
+     * @param mixed $values Author filter values.
+     * @return array
+     */
+    function dapfforwc_normalize_author_filter_values($values)
+    {
+        static $authors = null;
+        static $authors_version = null;
+
+        $values = array_values(array_filter(array_map(
+            static function ($value) {
+                return is_scalar($value) ? trim((string) $value) : '';
+            },
+            (array) $values
+        ), 'strlen'));
+        if (empty($values)) {
+            return array();
+        }
+
+        // Kept for the request, and rebuilt when posts change (post author edits clear the posts cache).
+        $last_changed = wp_cache_get_last_changed('posts');
+        if (null === $authors || $authors_version !== $last_changed) {
+            $authors_version = $last_changed;
+            global $wpdb;
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Small lookup of product authors, kept for the request.
+            $rows = $wpdb->get_results(
+                "SELECT DISTINCT u.ID, u.user_nicename, u.user_login FROM {$wpdb->users} u
+                INNER JOIN {$wpdb->posts} p ON p.post_author = u.ID
+                WHERE p.post_type = 'product' AND p.post_status = 'publish'",
+                ARRAY_A
+            );
+            $authors = array('nicename' => array(), 'login' => array());
+            foreach ((array) $rows as $row) {
+                $authors['nicename'][(string) $row['user_nicename']] = (int) $row['ID'];
+                $authors['login'][strtolower((string) $row['user_login'])] = (string) $row['user_nicename'];
+            }
+        }
+
+        $normalized = array();
+        foreach ($values as $value) {
+            $slug = sanitize_title($value);
+            if (isset($authors['nicename'][$value])) {
+                $normalized[] = $value;
+            } elseif ($slug !== '' && isset($authors['nicename'][$slug])) {
+                $normalized[] = $slug;
+            } elseif (isset($authors['login'][strtolower($value)])) {
+                $normalized[] = $authors['login'][strtolower($value)];
+            } else {
+                $normalized[] = $value;
+            }
+        }
+
+        return array_values(array_unique($normalized));
+    }
+}
+
+if (!function_exists('dapfforwc_get_product_type_sql_parts')) {
+    /**
+     * SQL pieces that tell variable products from simple ones in the stock/sale data queries (product alias "p").
+     * WooCommerce stores the product type in the product_type taxonomy (never in a _product_type meta).
+     * Without that term, fall back to "has a published variation".
+     *
+     * @return array{0: string, 1: string} JOIN clause and the CASE expression giving 'variable' or 'simple'.
+     */
+    function dapfforwc_get_product_type_sql_parts()
+    {
+        global $wpdb;
+        $variable_type_term = get_term_by('slug', 'variable', 'product_type');
+        $variable_type_tt_id = ($variable_type_term && !is_wp_error($variable_type_term)) ? (int) $variable_type_term->term_taxonomy_id : 0;
+        if ($variable_type_tt_id > 0) {
+            return array(
+                "LEFT JOIN {$wpdb->term_relationships} p_type ON p_type.object_id = p.ID AND p_type.term_taxonomy_id = {$variable_type_tt_id}",
+                "(CASE WHEN p_type.object_id IS NOT NULL THEN 'variable' ELSE 'simple' END)",
+            );
+        }
+
+        return array(
+            '',
+            "(CASE WHEN EXISTS (SELECT 1 FROM {$wpdb->prefix}posts v WHERE v.post_parent = p.ID AND v.post_type = 'product_variation' AND v.post_status = 'publish') THEN 'variable' ELSE 'simple' END)",
+        );
+    }
+}
+
+if (!function_exists('dapfforwc_get_active_sale_window_sql')) {
+    /**
+     * SQL condition: the sale of the row whose sale dates are in the given aliases is active now
+     * (same rule as WC_Product::is_on_sale(): no future start date, no past end date).
+     *
+     * @param string $from_alias Alias of the _sale_price_dates_from postmeta join.
+     * @param string $to_alias   Alias of the _sale_price_dates_to postmeta join.
+     * @return string
+     */
+    function dapfforwc_get_active_sale_window_sql($from_alias, $to_alias)
+    {
+        $now = time();
+        return "({$from_alias}.meta_value IS NULL OR {$from_alias}.meta_value = '' OR CAST({$from_alias}.meta_value AS UNSIGNED) <= {$now})"
+            . " AND ({$to_alias}.meta_value IS NULL OR {$to_alias}.meta_value = '' OR CAST({$to_alias}.meta_value AS UNSIGNED) >= {$now})";
+    }
+}
+
 if (!function_exists('dapfforwc_no_matching_product_ids')) {
     function dapfforwc_no_matching_product_ids()
     {
         return array(0);
+    }
+}
+
+if (!function_exists('dapfforwc_active_filter_product_ids')) {
+    /**
+     * Product IDs of a filter the shopper has set. dapfforwc_getFilteredProductIds()
+     * treats an empty set as "not selected", so a selection that matches nothing
+     * becomes the no-match marker instead.
+     */
+    function dapfforwc_active_filter_product_ids(array $product_ids): array
+    {
+        return !empty($product_ids) ? array_values($product_ids) : dapfforwc_no_matching_product_ids();
     }
 }
 
@@ -90,14 +208,18 @@ if (!function_exists('dapfforwc_product_matches_rating_filter')) {
                 : 'rating';
         }
 
+        // Same bounds as the rating meta query: an average counts as N stars from N - 0.5 up to N + 0.5.
         if (dapfforwc_rating_uses_threshold_match($rating_style)) {
-            return $product_rating >= min($ratings);
+            return $product_rating >= min($ratings) - 0.5;
         }
 
-        $rating_bucket = (int) round($product_rating);
-        $selected_buckets = array_map('intval', $ratings);
+        foreach ($ratings as $selected_rating) {
+            if ($product_rating >= $selected_rating - 0.5 && $product_rating < $selected_rating + 0.5) {
+                return true;
+            }
+        }
 
-        return in_array($rating_bucket, $selected_buckets, true);
+        return false;
     }
 }
 
@@ -303,6 +425,20 @@ if (!function_exists('dapfforwc_get_brand_taxonomies')) {
     }
 }
 
+if (!function_exists('dapfforwc_sanitize_selector_attribute')) {
+    // Selector attributes can be stored by any post author. A CSS selector never needs "<", while jQuery
+    // parses a string starting with it as HTML, so such values are dropped. Brackets arrive entity-encoded
+    // from block/widget generated shortcodes (a raw "]" would end the shortcode).
+    function dapfforwc_sanitize_selector_attribute($selector)
+    {
+        $selector = html_entity_decode((string) $selector, ENT_QUOTES, 'UTF-8');
+        if (strpos($selector, '<') !== false) {
+            return '';
+        }
+
+        return sanitize_text_field($selector);
+    }
+}
 
 function dapfforwc_get_product_filter_shortcode_defaults()
 {
@@ -314,7 +450,8 @@ function dapfforwc_get_product_filter_shortcode_defaults()
         'layout' => 'sidebar',
         'product_selector' => '',
         'pagination_selector' => '',
-        'mobile_responsive' => 'style_4',
+        // Empty = the global "Mobile Filter Style" setting, else style_4 (resolved in the shortcode).
+        'mobile_responsive' => '',
         'use_custom_template_design' => 'no',
         'per_page' => '',
     );
@@ -508,15 +645,10 @@ function dapfforwc_get_product_filter_shortcode_builder_schema()
             'mobile_responsive' => array(
                 'group' => 'display',
                 'label' => esc_html__('Mobile Responsive', 'dynamic-ajax-product-filters-for-woocommerce'),
-                'description' => esc_html__('Choose the mobile filter style.', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'description' => esc_html__('Choose the mobile filter style. Without this attribute the filter uses the Mobile Filter Style setting (Advanced settings).', 'dynamic-ajax-product-filters-for-woocommerce'),
                 'type' => 'select',
                 'default' => 'style_4',
-                'options' => array(
-                    'style_1' => esc_html__('Style 1', 'dynamic-ajax-product-filters-for-woocommerce'),
-                    'style_2' => esc_html__('Style 2', 'dynamic-ajax-product-filters-for-woocommerce'),
-                    'style_3' => esc_html__('Style 3', 'dynamic-ajax-product-filters-for-woocommerce'),
-                    'style_4' => esc_html__('Style 4', 'dynamic-ajax-product-filters-for-woocommerce'),
-                ),
+                'options' => dapfforwc_get_mobile_responsive_styles(),
             ),
             'per_page' => array(
                 'group' => 'query',
@@ -663,7 +795,13 @@ function dapfforwc_product_filter_shortcode($atts)
 
 
     // Define default attributes and merge with user-defined attributes
-    $atts = shortcode_atts(dapfforwc_get_product_filter_shortcode_defaults(), $atts);
+    // Third argument: lets sites adjust attributes through the standard shortcode_atts_plugincy_filters filter.
+    $atts = shortcode_atts(dapfforwc_get_product_filter_shortcode_defaults(), $atts, 'plugincy_filters');
+    $atts['product_selector'] = dapfforwc_sanitize_selector_attribute($atts['product_selector']);
+    $atts['pagination_selector'] = dapfforwc_sanitize_selector_attribute($atts['pagination_selector']);
+    // Precedence: the attribute (also passed by blocks, widgets and Elementor) > global setting > style_4.
+    $mobile_style_source = dapfforwc_is_mobile_responsive_style(sanitize_key((string) $atts['mobile_responsive'])) ? 'attribute' : (dapfforwc_get_global_mobile_responsive_style() !== '' ? 'global' : 'default');
+    $atts['mobile_responsive'] = dapfforwc_resolve_mobile_responsive_style($atts['mobile_responsive'], 'style_4');
 
     $mobile_breakpoint = dapfforwc_get_mobile_breakpoint();
     $desktop_breakpoint = $mobile_breakpoint + 1;
@@ -900,25 +1038,8 @@ function dapfforwc_product_filter_shortcode($atts)
     $is_all_cata = false;
     $make_default_selected = false;
     $dapfforwc_options['default_filters'][$dapfforwc_slug] = [];
-    // Validate and sanitize host
-    $host = isset($_SERVER['HTTP_HOST']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST'])) : '';
-
-    // Validate and sanitize request URI
-    $request_uri = isset($_SERVER['REQUEST_URI']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'])) : '';
-
-    // Build the sanitized URL
-    if (!empty($host) && !empty($request_uri)) {
-        $url_page = esc_url("http://{$host}{$request_uri}");
-    } else {
-        $url_page = home_url(); // Fallback to homepage if values are missing
-    }
-
-    // Parse the URL
-    $parsed_url = wp_parse_url($url_page);
-    // Parse the query string into an associative array
-    if (isset($parsed_url['query'])) {
-        parse_str($parsed_url['query'], $query_params);
-    }
+    // Query-string parameters of the request URI itself.
+    $query_params = dapfforwc_get_request_uri_query_params();
 
     // Get the value of 'filters'
     $filters = isset($query_params['filters']) ? $query_params['filters'] : null;
@@ -943,7 +1064,8 @@ function dapfforwc_product_filter_shortcode($atts)
         $brands_in_filter = array_intersect($filter_value, $all_brands_slug);
 
         $all_authors_slug = array_column($all_authors, 'slug');
-        $author_in_filter = array_intersect($filter_value, $all_authors_slug);
+        // Older links may carry an author's login name; match it as that author's nicename.
+        $author_in_filter = array_intersect(dapfforwc_normalize_author_filter_values($filter_value), $all_authors_slug);
 
         $all_stock_status_slug = array_column($all_stock_status, 'slug');
         $all_stock_status_slug_in_filter = array_intersect($filter_value, $all_stock_status_slug);
@@ -1001,7 +1123,8 @@ function dapfforwc_product_filter_shortcode($atts)
 
         $dimensions = ['length', 'width', 'height', 'weight'];
         foreach ($dimensions as $dimension_key) {
-            $dim = isset($prefix_options[$dimension_key]) && is_scalar($prefix_options[$dimension_key]) ? (string) $prefix_options[$dimension_key] : $dimension_key;
+            // The configured prefix may be missing, empty or not a string (older options): fall back to the dimension name.
+            $dim = isset($prefix_options[$dimension_key]) && is_scalar($prefix_options[$dimension_key]) && (string) $prefix_options[$dimension_key] !== '' ? (string) $prefix_options[$dimension_key] : $dimension_key;
 
             if (!empty($_GET[$dim])) {
                 // sanitize incoming value
@@ -1053,11 +1176,12 @@ function dapfforwc_product_filter_shortcode($atts)
             $filteroptionsfromurl["discount"] = sanitize_text_field(wp_unslash($_GET[$prefix_options["discount"] ?? 'discount']));
         }
         if (!empty($all_date_in_filter)) {
-            $filteroptionsfromurl["date_filter"] = $all_date_in_filter[0];
+            // array_intersect() keeps the original keys (?filters=hoodies,today gives [1 => 'today']).
+            $filteroptionsfromurl["date_filter"] = reset($all_date_in_filter);
         }
     }
 
-    if (isset($_GET['gm-product-filter-nonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['gm-product-filter-nonce'])), 'gm-product-filter-action')) {
+    if (dapfforwc_is_filter_form_request()) {
         $dapfforwc_options['default_filters'][$dapfforwc_slug] = [];
         if (isset($_GET['product-category'])) {
             $filteroptionsfromurl["product-category[]"] = array_map('sanitize_text_field', explode(",", sanitize_text_field(wp_unslash($_GET['product-category']))));
@@ -1153,7 +1277,13 @@ function dapfforwc_product_filter_shortcode($atts)
 
         // check if rating is set and sanitize it
         if (isset($_GET['rating'])) {
-            $filteroptionsfromurl["rating[]"] = array_map('sanitize_text_field', explode(",", sanitize_text_field(wp_unslash($_GET['rating']))));
+            // Only whole ratings 1-5 are valid selections.
+            $filteroptionsfromurl["rating[]"] = array_values(array_unique(array_filter(
+                array_map('trim', explode(",", is_scalar($_GET['rating']) ? sanitize_text_field(wp_unslash((string) $_GET['rating'])) : '')),
+                static function ($rating) {
+                    return ctype_digit($rating) && (int) $rating >= 1 && (int) $rating <= 5;
+                }
+            )));
         }
 
         // check if mn_price=10&mx_price=100 is set and sanitize it
@@ -1210,7 +1340,9 @@ function dapfforwc_product_filter_shortcode($atts)
             $filteroptionsfromurl["discount"] = sanitize_text_field(wp_unslash($_GET['discount']));
         }
         if (isset($_GET['date_filter'])) {
-            $filteroptionsfromurl["date_filter"] = sanitize_text_field(wp_unslash($_GET['date_filter']));
+            // Only the known date ranges (today, this_week, ...) are valid.
+            $dapfforwc_date_filter_value = is_scalar($_GET['date_filter']) ? sanitize_key(wp_unslash((string) $_GET['date_filter'])) : '';
+            $filteroptionsfromurl["date_filter"] = in_array($dapfforwc_date_filter_value, array('today', 'this_week', 'this_month', 'this_year', 'custom'), true) ? $dapfforwc_date_filter_value : '';
         }
     }
 
@@ -1223,6 +1355,12 @@ function dapfforwc_product_filter_shortcode($atts)
     }
     if (!empty($request_filter_state)) {
         $filteroptionsfromurl = $merge_request_filter_state($filteroptionsfromurl, $request_filter_state);
+    }
+    // Author values from older links may be login names: show and match them as the author's nicename.
+    foreach (array('author[]', 'rpluthor[]') as $dapfforwc_author_state_key) {
+        if (!empty($filteroptionsfromurl[$dapfforwc_author_state_key])) {
+            $filteroptionsfromurl[$dapfforwc_author_state_key] = dapfforwc_normalize_author_filter_values($filteroptionsfromurl[$dapfforwc_author_state_key]);
+        }
     }
 
     $has_filter_value = static function ($value) use (&$has_filter_value): bool {
@@ -1268,6 +1406,114 @@ function dapfforwc_product_filter_shortcode($atts)
         || $has_filter_value($filteroptionsfromurl["max_height"] ?? null)
         || $has_filter_value($filteroptionsfromurl["min_weight"] ?? null)
         || $has_filter_value($filteroptionsfromurl["max_weight"] ?? null);
+
+    // Parse prefix-style query filters (?color=blue) first: the default-filter checks below test $parsed_filters.
+    $parsed_filters = [];
+
+    // filters === 1
+
+    if (isset($dapfforwc_seo_permalinks_options["use_attribute_type_in_permalinks"]) && $dapfforwc_seo_permalinks_options["use_attribute_type_in_permalinks"] === "on") {
+        $prefix = isset($dapfforwc_seo_permalinks_options["dapfforwc_permalinks_prefix_options"]) && is_array($dapfforwc_seo_permalinks_options["dapfforwc_permalinks_prefix_options"])
+            ? $dapfforwc_seo_permalinks_options["dapfforwc_permalinks_prefix_options"]
+            : [];
+
+        // Reverse the $prefix to find key from value
+        $reverse_prefix = dapfforwc_build_reverse_prefix_map($prefix);
+        $query_vars = [];
+
+        if (!empty($prefix)) {
+            // Process only configured query vars and normalize scalar/array forms.
+            foreach ($reverse_prefix as $key => $info) {
+                if (!isset($_GET[$key]) || !is_array($info) || empty($info['type'])) {
+                    continue;
+                }
+
+                // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- The key is allowlisted by the configured prefix map; each scalar value is sanitized below before use.
+                $raw_values = wp_unslash($_GET[$key]);
+                $raw_values = is_array($raw_values) ? $raw_values : [$raw_values];
+                $values = [];
+
+                foreach ($raw_values as $raw_value) {
+                    if (!is_scalar($raw_value)) {
+                        continue;
+                    }
+
+                    $sanitized_value = sanitize_text_field((string) $raw_value);
+                    $split_values = array_filter(
+                        array_map('trim', explode(',', $sanitized_value)),
+                        static function ($value) {
+                            return $value !== '';
+                        }
+                    );
+                    $values = array_merge($values, $split_values);
+                }
+
+                $values = array_values(array_unique($values));
+                if (empty($values)) {
+                    continue;
+                }
+
+                $query_vars[$key] = implode(',', $values);
+
+                if (in_array($info['type'], ['pagination', 'orderby'], true)) {
+                    continue;
+                }
+
+                if ($info['type'] === 'attribute') {
+                    $parsed_filters['attribute'][$info['key']] = $values;
+                } else if ($info['type'] === 'custom_meta') {
+                    $parsed_filters['custom_meta'][$info['key']] = $values;
+                } else {
+                    $parsed_filters[$info['type'] . "[]"] = $values;
+                }
+            }
+        }
+        // if $query_vars["length"] .... which value can be length=0-10000&width=0-10000&height=0-10000&weight=0-10000 collect them & store in min_length, max_length, min_width, max_width,min_height, max_height, min_weight, max_weight
+        // Collect dimension ranges (length, width, height, weight) from query vars and store min/max values
+        $dimensions = ['length', 'width', 'height', 'weight'];
+        foreach ($dimensions as $dimension_key) {
+            // The configured prefix may be missing, empty or not a string (older options): fall back to the dimension name.
+            $dim = isset($prefix[$dimension_key]) && is_scalar($prefix[$dimension_key]) && (string) $prefix[$dimension_key] !== '' ? (string) $prefix[$dimension_key] : $dimension_key;
+
+            if (!empty($query_vars[$dim])) {
+                // sanitize incoming value
+                $raw = sanitize_text_field(wp_unslash($query_vars[$dim]));
+                $min = null;
+                $max = null;
+
+                if (strpos($raw, '-') !== false) {
+                    list($min_raw, $max_raw) = explode('-', $raw, 2);
+                } elseif (strpos($raw, ',') !== false) {
+                    list($min_raw, $max_raw) = explode(',', $raw, 2);
+                } else {
+                    $min_raw = $raw;
+                    $max_raw = null;
+                }
+
+                $min_raw = trim($min_raw);
+                $max_raw = $max_raw !== null ? trim($max_raw) : null;
+
+                if ($min_raw !== '' && is_numeric($min_raw)) {
+                    $min = floatval($min_raw);
+                }
+
+                if ($max_raw !== null && $max_raw !== '' && is_numeric($max_raw)) {
+                    $max = floatval($max_raw);
+                }
+
+                $filter_type = isset($reverse_prefix[$dim]['type']) && is_string($reverse_prefix[$dim]['type'])
+                    ? $reverse_prefix[$dim]['type']
+                    : $dimension_key;
+
+                if ($min !== null) {
+                    $parsed_filters['min_' . $filter_type] = $min;
+                }
+                if ($max !== null) {
+                    $parsed_filters['max_' . $filter_type] = $max;
+                }
+            }
+        }
+    }
 
     if ($atts['category'] === '' && $atts['attribute'] === '' && $atts['terms'] === '' && $atts['tag'] === '') {
         foreach ($attributes_list as $attributes) {
@@ -1375,7 +1621,7 @@ function dapfforwc_product_filter_shortcode($atts)
         $current_attribute = get_queried_object();
         $attribute_slug = $current_attribute->slug;
         $taxonomy = $current_attribute->taxonomy;
-        $attribute_name = str_replace('pa_', '', $taxonomy);
+        $attribute_name = strpos($taxonomy, 'pa_') === 0 ? substr($taxonomy, 3) : $taxonomy;
         $dapfforwc_options['default_filters'][$dapfforwc_slug] = [];
         $dapfforwc_options['default_filters'][$dapfforwc_slug]["attribute"][$attribute_name] = [$attribute_slug];
         if (empty($filteroptionsfromurl)) {
@@ -1410,117 +1656,11 @@ function dapfforwc_product_filter_shortcode($atts)
         $is_all_cata = true;
         $make_default_selected = true;
     }
-    if (isset($dapfforwc_options['product_show_settings'][$dapfforwc_slug]['per_page']) && $dapfforwc_options['product_show_settings'][$dapfforwc_slug]['per_page'] === 12) {
+    // Values parsed from [products limit="12"] are strings, so compare as integers.
+    if (isset($dapfforwc_options['product_show_settings'][$dapfforwc_slug]['per_page']) && is_scalar($dapfforwc_options['product_show_settings'][$dapfforwc_slug]['per_page']) && (int) $dapfforwc_options['product_show_settings'][$dapfforwc_slug]['per_page'] === 12) {
         $dapfforwc_options['product_show_settings'][$dapfforwc_slug]['per_page'] = $atts['per_page'];
     } elseif (!isset($dapfforwc_options['product_show_settings'][$dapfforwc_slug]['per_page'])) {
         $dapfforwc_options['product_show_settings'][$dapfforwc_slug]['per_page'] = $atts['per_page'];
-    }
-
-    // Initialize result
-    $parsed_filters = [];
-
-    // filters === 1
-
-    if (isset($dapfforwc_seo_permalinks_options["use_attribute_type_in_permalinks"]) && $dapfforwc_seo_permalinks_options["use_attribute_type_in_permalinks"] === "on") {
-        $prefix = isset($dapfforwc_seo_permalinks_options["dapfforwc_permalinks_prefix_options"]) && is_array($dapfforwc_seo_permalinks_options["dapfforwc_permalinks_prefix_options"])
-            ? $dapfforwc_seo_permalinks_options["dapfforwc_permalinks_prefix_options"]
-            : [];
-
-        // Reverse the $prefix to find key from value
-        $reverse_prefix = dapfforwc_build_reverse_prefix_map($prefix);
-        $query_vars = [];
-
-        if (!empty($prefix)) {
-            // Process only configured query vars and normalize scalar/array forms.
-            foreach ($reverse_prefix as $key => $info) {
-                if (!isset($_GET[$key]) || !is_array($info) || empty($info['type'])) {
-                    continue;
-                }
-
-                // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- The key is allowlisted by the configured prefix map; each scalar value is sanitized below before use.
-                $raw_values = wp_unslash($_GET[$key]);
-                $raw_values = is_array($raw_values) ? $raw_values : [$raw_values];
-                $values = [];
-
-                foreach ($raw_values as $raw_value) {
-                    if (!is_scalar($raw_value)) {
-                        continue;
-                    }
-
-                    $sanitized_value = sanitize_text_field((string) $raw_value);
-                    $split_values = array_filter(
-                        array_map('trim', explode(',', $sanitized_value)),
-                        static function ($value) {
-                            return $value !== '';
-                        }
-                    );
-                    $values = array_merge($values, $split_values);
-                }
-
-                $values = array_values(array_unique($values));
-                if (empty($values)) {
-                    continue;
-                }
-
-                $query_vars[$key] = implode(',', $values);
-
-                if (in_array($info['type'], ['pagination', 'orderby'], true)) {
-                    continue;
-                }
-
-                if ($info['type'] === 'attribute') {
-                    $parsed_filters['attribute'][$info['key']] = $values;
-                } else if ($info['type'] === 'custom_meta') {
-                    $parsed_filters['custom_meta'][$info['key']] = $values;
-                } else {
-                    $parsed_filters[$info['type'] . "[]"] = $values;
-                }
-            }
-        }
-        // if $query_vars["length"] .... which value can be length=0-10000&width=0-10000&height=0-10000&weight=0-10000 collect them & store in min_length, max_length, min_width, max_width,min_height, max_height, min_weight, max_weight
-        // Collect dimension ranges (length, width, height, weight) from query vars and store min/max values
-        $dimensions = ['length', 'width', 'height', 'weight'];
-        foreach ($dimensions as $dimension_key) {
-            $dim = isset($prefix[$dimension_key]) && is_scalar($prefix[$dimension_key]) ? (string) $prefix[$dimension_key] : $dimension_key;
-
-            if (!empty($query_vars[$dim])) {
-                // sanitize incoming value
-                $raw = sanitize_text_field(wp_unslash($query_vars[$dim]));
-                $min = null;
-                $max = null;
-
-                if (strpos($raw, '-') !== false) {
-                    list($min_raw, $max_raw) = explode('-', $raw, 2);
-                } elseif (strpos($raw, ',') !== false) {
-                    list($min_raw, $max_raw) = explode(',', $raw, 2);
-                } else {
-                    $min_raw = $raw;
-                    $max_raw = null;
-                }
-
-                $min_raw = trim($min_raw);
-                $max_raw = $max_raw !== null ? trim($max_raw) : null;
-
-                if ($min_raw !== '' && is_numeric($min_raw)) {
-                    $min = floatval($min_raw);
-                }
-
-                if ($max_raw !== null && $max_raw !== '' && is_numeric($max_raw)) {
-                    $max = floatval($max_raw);
-                }
-
-                $filter_type = isset($reverse_prefix[$dim]['type']) && is_string($reverse_prefix[$dim]['type'])
-                    ? $reverse_prefix[$dim]['type']
-                    : $dimension_key;
-
-                if ($min !== null) {
-                    $parsed_filters['min_' . $filter_type] = $min;
-                }
-                if ($max !== null) {
-                    $parsed_filters['max_' . $filter_type] = $max;
-                }
-            }
-        }
     }
 
     $normalize_visible_stock_filter_values = static function ($values) use ($all_stock_status): array {
@@ -1725,11 +1865,9 @@ function dapfforwc_product_filter_shortcode($atts)
             // Remove filter after query
             remove_filter('posts_search', 'dapfforwc_search_by_title_only', 500);
 
-            if (!empty($search_query->posts)) {
-                $products_id_by_search = array_map('intval', $search_query->posts);
-            }
-
-            wp_reset_postdata();
+            $products_id_by_search = dapfforwc_active_filter_product_ids(array_map('intval', (array) $search_query->posts));
+            // fields=ids never calls the_post(), so there is no post data to reset; wp_reset_postdata() here would
+            // reset the global $post of an outer loop (shortcode, widget, builder grid) that is still running.
         }
     }
 
@@ -1737,21 +1875,29 @@ function dapfforwc_product_filter_shortcode($atts)
     $products_id_by_price = [];
     if (!$database_safe_mode && !empty($default_filter["price[]"])) {
         $price_ranges = (array)$default_filter["price[]"];
+        $has_price_range = false;
+        $price_ids_seen = []; // keyed lookup instead of in_array() inside the product loop (O(n*m))
         foreach ($price_ranges as $range) {
             if (strpos($range, '-') !== false) {
+                $has_price_range = true;
                 list($min, $max) = explode('-', $range, 2);
-                $min = floatval($min);
-                $max = floatval($max);
+                // The range is in the shopper's currency (currency switchers), product prices in the store currency.
+                $min = dapfforwc_price_filter_to_store_currency(floatval($min));
+                $max = dapfforwc_price_filter_to_store_currency(floatval($max));
 
                 foreach ($product_details as $product) {
                     $product_price = floatval($product['price'] ?: $product['regular_price'] ?: 0);
                     if ($product_price >= $min && $product_price <= $max) {
-                        if (!in_array($product['ID'], $products_id_by_price)) {
+                        if (!isset($price_ids_seen[$product['ID']])) {
+                            $price_ids_seen[$product['ID']] = true;
                             $products_id_by_price[] = $product['ID'];
                         }
                     }
                 }
             }
+        }
+        if ($has_price_range) {
+            $products_id_by_price = dapfforwc_active_filter_product_ids($products_id_by_price);
         }
     }
 
@@ -1764,6 +1910,7 @@ function dapfforwc_product_filter_shortcode($atts)
                 $products_id_by_dimensions[] = $product['ID'];
             }
         }
+        $products_id_by_dimensions = dapfforwc_active_filter_product_ids($products_id_by_dimensions);
     }
 
     $products_id_by_sku = [];
@@ -1784,7 +1931,7 @@ function dapfforwc_product_filter_shortcode($atts)
                 }
             }
 
-            $products_id_by_sku = array_keys($products_id_by_sku);
+            $products_id_by_sku = dapfforwc_active_filter_product_ids(array_keys($products_id_by_sku));
         }
     }
 
@@ -1800,6 +1947,7 @@ function dapfforwc_product_filter_shortcode($atts)
                     $products_id_by_discount[] = $product['ID'];
                 }
             }
+            $products_id_by_discount = dapfforwc_active_filter_product_ids($products_id_by_discount);
         }
     }
 
@@ -1816,8 +1964,11 @@ function dapfforwc_product_filter_shortcode($atts)
                 $end = strtotime('tomorrow') - 1;
                 break;
             case 'this_week':
-                $start = strtotime('monday this week');
-                $end = strtotime('sunday this week 23:59:59');
+                // The week starts on the day set in Settings > General ("Week Starts On"), 0 = Sunday.
+                $start_of_week = (int) get_option('start_of_week', 1);
+                $days_since_week_start = ((int) gmdate('w') - $start_of_week + 7) % 7;
+                $start = strtotime('today -' . $days_since_week_start . ' days');
+                $end = $start + 7 * DAY_IN_SECONDS - 1;
                 break;
             case 'this_month':
                 $start = strtotime('first day of this month');
@@ -1853,6 +2004,7 @@ function dapfforwc_product_filter_shortcode($atts)
                     $products_id_by_date_filter[] = $product['ID'];
                 }
             }
+            $products_id_by_date_filter = dapfforwc_active_filter_product_ids($products_id_by_date_filter);
         }
     }
 
@@ -1957,10 +2109,10 @@ function dapfforwc_product_filter_shortcode($atts)
         }
 
         if ($operator === 'AND') {
-            return dapfforwc_array_intersect_values($product_sets);
+            return dapfforwc_active_filter_product_ids(dapfforwc_array_intersect_values($product_sets));
         }
 
-        return array_values(array_unique(array_merge(...$product_sets)));
+        return dapfforwc_active_filter_product_ids(array_unique(array_merge(...$product_sets)));
     };
 
     // Match Filters
@@ -2004,7 +2156,7 @@ function dapfforwc_product_filter_shortcode($atts)
     );
     // filter by authors
     if (isset($dapfforwc_seo_permalinks_options["use_attribute_type_in_permalinks"]) && $dapfforwc_seo_permalinks_options["use_attribute_type_in_permalinks"] === "on") {
-        $matched_author_with_ids = array_intersect_key($authors_lookup, array_flip(array_filter(isset($default_filter["author[]"]) ? $default_filter["author[]"] : [])));
+        $matched_author_with_ids = array_intersect_key($authors_lookup, array_flip(dapfforwc_normalize_author_filter_values(isset($default_filter["author[]"]) ? $default_filter["author[]"] : [])));
     } else {
         // Merge both possible category sources: 'brands[]' and numeric keys (0,1,2,...)
         $author_slugs = array_filter(isset($default_filter["author[]"]) ? $default_filter["author[]"] : []);
@@ -2014,7 +2166,7 @@ function dapfforwc_product_filter_shortcode($atts)
                 $author_slugs[] = $val;
             }
         }
-        $matched_author_with_ids = array_intersect_key($authors_lookup, array_flip($author_slugs));
+        $matched_author_with_ids = array_intersect_key($authors_lookup, array_flip(dapfforwc_normalize_author_filter_values($author_slugs)));
     }
     $all_data_objects["rpluthor[]"] = array_keys($matched_author_with_ids);
     $products_id_by_author = $combine_filter_product_ids(
@@ -2125,7 +2277,7 @@ function dapfforwc_product_filter_shortcode($atts)
         foreach ($all_attributes as $taxonomy => $lookup) {
             if (isset($lookup['terms']) && is_array($lookup['terms'])) {
                 foreach ($lookup['terms'] as $term) {
-                    if (in_array($term['slug'], $attribute_slugs_by_tax[$taxonomy] ?? [])) {
+                    if (in_array((string) $term['slug'], array_map('strval', $attribute_slugs_by_tax[$taxonomy] ?? []), true)) {
                         $match_attributes_with_ids[$taxonomy][] = $term['products'];
                         $all_data_objects['attribute[' . $taxonomy . '][]'][] = $term['slug'];
                     }
@@ -2141,7 +2293,7 @@ function dapfforwc_product_filter_shortcode($atts)
         );
     }
 
-    $common_values = dapfforwc_array_intersect_values($products_id_by_attributes);
+    $common_values = empty($products_id_by_attributes) ? [] : dapfforwc_active_filter_product_ids(dapfforwc_array_intersect_values($products_id_by_attributes));
 
     // filter by custom_meta
     // Match custom_meta
@@ -2202,7 +2354,7 @@ function dapfforwc_product_filter_shortcode($atts)
         );
     }
 
-    $common_values_custom_meta = dapfforwc_array_intersect_values($products_id_by_custom_meta);
+    $common_values_custom_meta = empty($products_id_by_custom_meta) ? [] : dapfforwc_active_filter_product_ids(dapfforwc_array_intersect_values($products_id_by_custom_meta));
 
 
     $has_product_filter_selection = false;
@@ -2371,9 +2523,10 @@ function dapfforwc_product_filter_shortcode($atts)
     if (dapfforwc_is_product_brand()) {
         $brand_op = 'AND';
     }
-    $author_op = strtoupper($dapfforwc_styleoptions["operator"]["authors"] ?? 'OR');
-    $status_op = strtoupper($dapfforwc_styleoptions["operator"]["status"] ?? 'OR');
-    $sale_status_op = strtoupper($dapfforwc_styleoptions["operator"]["sale_status"] ?? 'OR');
+    // Same normalisation as the product sets above (IN means OR; anything else falls back to OR).
+    $author_op = $get_filter_operator('authors');
+    $status_op = $get_filter_operator('status');
+    $sale_status_op = $get_filter_operator('sale_status');
     $products_id_by_attributes = [];
     foreach ($match_attributes_with_ids as $taxonomy => $products) {
         $products_id_by_attributes[$taxonomy] = $combine_filter_product_ids(
@@ -2381,7 +2534,7 @@ function dapfforwc_product_filter_shortcode($atts)
             $get_filter_operator($taxonomy, $terms_operator_fallback)
         );
     }
-    $common_values = dapfforwc_array_intersect_values(array_values($products_id_by_attributes));
+    $common_values = empty($products_id_by_attributes) ? [] : dapfforwc_active_filter_product_ids(dapfforwc_array_intersect_values(array_values($products_id_by_attributes)));
 
     $products_for_categories = ($cat_op === 'OR')
         ? dapfforwc_getFilteredProductIds([
@@ -2503,8 +2656,14 @@ function dapfforwc_product_filter_shortcode($atts)
         ])
         : $products_ids_for_filter_options;
 
+    // Like categories and tags: only an OR group counts its options without its own selection.
+    // An AND group counts within the current result, because every extra term narrows it further.
     $products_for_attributes = [];
     foreach ($products_id_by_attributes as $taxonomy => $set) {
+        if ($get_filter_operator($taxonomy, $terms_operator_fallback) === 'AND') {
+            $products_for_attributes[$taxonomy] = $products_ids_for_filter_options;
+            continue;
+        }
         $other_attr_sets = array_diff_key($products_id_by_attributes, [$taxonomy => true]);
         $products_for_attributes[$taxonomy] = dapfforwc_getFilteredProductIds(array_merge(
             [
@@ -2535,10 +2694,14 @@ function dapfforwc_product_filter_shortcode($atts)
             $get_filter_operator($taxonomy, $terms_operator_fallback)
         );
     }
-    $common_values_custom_meta = dapfforwc_array_intersect_values(array_values($products_id_by_custom_meta));
+    $common_values_custom_meta = empty($products_id_by_custom_meta) ? [] : dapfforwc_active_filter_product_ids(dapfforwc_array_intersect_values(array_values($products_id_by_custom_meta)));
 
     $products_for_custom_meta = [];
     foreach ($products_id_by_custom_meta as $taxonomy => $set) {
+        if ($get_filter_operator($taxonomy, $terms_operator_fallback) === 'AND') {
+            $products_for_custom_meta[$taxonomy] = $products_ids_for_filter_options;
+            continue;
+        }
         $other_cm_sets = array_diff_key($products_id_by_custom_meta, [$taxonomy => true]);
         $products_for_custom_meta[$taxonomy] = dapfforwc_getFilteredProductIds(array_merge(
             [
@@ -2562,18 +2725,6 @@ function dapfforwc_product_filter_shortcode($atts)
         ));
     }
 
-    if (!empty($products_ids)) {
-        // Store in a global for immediate use
-        $GLOBALS['dapfforwc_filtered_product_ids'] = $products_ids;
-
-        // Also store a hash of current filters to validate freshness
-        $filter_hash = md5(wp_json_encode($filteroptionsfromurl));
-        $GLOBALS['dapfforwc_filter_hash'] = $filter_hash;
-
-        // Optionally store in transient for AJAX requests (short-lived, 5 minutes)
-        set_transient('dapfforwc_filtered_ids_' . $filter_hash, $products_ids, 300);
-    }
-
     $updated_filters = dapfforwc_get_updated_filters($products_ids_for_filter_options, $all_data, [
         'categories' => $products_for_categories,
         'tags'       => $products_for_tags,
@@ -2582,7 +2733,8 @@ function dapfforwc_product_filter_shortcode($atts)
         'stock_status' => $products_for_stock_status,
         'sale_status' => $products_for_sale_status,
         'attributes'   => $products_for_attributes,
-        'custom_fields' => $products_for_custom_meta
+        'custom_fields' => $products_for_custom_meta,
+        'selected' => dapfforwc_get_selected_filter_option_slugs($all_data_objects),
     ]) ?? [];
 
     $has_active_price_filter = isset($filteroptionsfromurl["min_price"], $filteroptionsfromurl["max_price"])
@@ -2600,10 +2752,10 @@ function dapfforwc_product_filter_shortcode($atts)
         ? dapfforwc_get_database_mode_min_max_price()
         : dapfforwc_get_min_max_price($product_details, $price_bounds_product_ids);
 
+    // No priced product in the current result (e.g. zero results): keep the full range so the slider stays usable instead of 0-0.
     if (
         !$database_safe_mode
         && ($min_max_prices['min'] === null || $min_max_prices['max'] === null)
-        && !$has_product_filter_selection
     ) {
         $min_max_prices = dapfforwc_get_min_max_price($product_details, $all_product_ids);
     }
@@ -2691,7 +2843,9 @@ function dapfforwc_product_filter_shortcode($atts)
                 }
 
                 .plugincy_filter_wrapper:hover .plugincy-next-button,
-                .plugincy_filter_wrapper:hover .plugincy-prev-button {
+                .plugincy_filter_wrapper:hover .plugincy-prev-button,
+                .plugincy_filter_wrapper:focus-within .plugincy-next-button,
+                .plugincy_filter_wrapper:focus-within .plugincy-prev-button {
                     display: flex !important;
                     position: absolute;
                     z-index: 9999;
@@ -2701,11 +2855,13 @@ function dapfforwc_product_filter_shortcode($atts)
                     align-items: center;
                 }
 
-                .plugincy_filter_wrapper:hover .plugincy-next-button {
+                .plugincy_filter_wrapper:hover .plugincy-next-button,
+                .plugincy_filter_wrapper:focus-within .plugincy-next-button {
                     right: 0;
                 }
 
-                .plugincy_filter_wrapper:hover .plugincy-prev-button {
+                .plugincy_filter_wrapper:hover .plugincy-prev-button,
+                .plugincy_filter_wrapper:focus-within .plugincy-prev-button {
                     left: 0;
                 }
 
@@ -2795,40 +2951,8 @@ function dapfforwc_product_filter_shortcode($atts)
             }
         <?php
         dapfforwc_add_inline_style(ob_get_clean(), dapfforwc_get_frontend_style_handle());
-        wp_add_inline_script('urlfilter-ajax', "
-            document.addEventListener('DOMContentLoaded', function () {
-  if (window.innerWidth > " . intval($mobile_breakpoint) . ") {
-    const productFilter = document.getElementById('product-filter');
-    const nextButton = document.querySelector('.plugincy-next-button');
-    const prevButton = document.querySelector('.plugincy-prev-button');
-
-    if (productFilter) {
-      // Horizontal scroll for the filter rail, but NOT when hovering .items
-      productFilter.addEventListener('wheel', function (e) {
-        // If the wheel event started inside .items, let the browser handle it
-        if (e.target.closest('#product-filter .items')) return;
-
-        // Otherwise, hijack to horizontal scroll
-        e.preventDefault();
-        const delta = (typeof e.deltaY === 'number' ? e.deltaY : 0) ||
-                      (typeof e.deltaX === 'number' ? e.deltaX : 0) ||
-                      (typeof e.wheelDelta === 'number' ? -e.wheelDelta : 0);
-        productFilter.scrollLeft += delta;
-      }, { passive: false }); // ensure preventDefault works
-
-      if (nextButton) {
-        nextButton.addEventListener('click', function () {
-          productFilter.scrollLeft += 200;
-        });
-      }
-      if (prevButton) {
-        prevButton.addEventListener('click', function () {
-          productFilter.scrollLeft -= 200;
-        });
-      }
-    }
-  }
-});", 100);
+        // The rail scroll (wheel and prev/next buttons) is set up by filter.min.js from data-dapfforwc-top-view-rail on
+        // the wrapper, so no inline script with page-specific values is printed.
     }
 
     if ($template_options['active_template'] && $template_options['active_template'] === 'shadow') {
@@ -2918,6 +3042,13 @@ function dapfforwc_product_filter_shortcode($atts)
             color: <?php echo esc_html(isset($template_options["primary_color"]) ? $template_options["primary_color"] : '#432fb8'); ?>;
         }
 
+        /* Plain checkbox/radio lists: themes such as Sober hide every checkbox on WooCommerce pages
+           (.woocommerce input[type=checkbox] { display: none }) and draw their own on a following label,
+           which these options do not have, so the visitor saw no box and no checked state. */
+        #product-filter .items:is([class="items"], [class="items "], [class~="checkbox"], [class~="radio"], [class="items rating rating"]) > label > input:is([type="checkbox"], [type="radio"]):not([style*="display"]) {
+            display: inline-block;
+        }
+
         #product-filter .plugincy-filter-group .items {
             width: 100%;
             border-top: 1px solid <?php echo esc_html(isset($template_options["border_color"]) ? $template_options["border_color"] : '#eee'); ?>;
@@ -2929,12 +3060,10 @@ function dapfforwc_product_filter_shortcode($atts)
         }
 
         #product-filter .plugrogress-percentage:before {
-            content: "0";
             content: "<?php echo esc_html($initial_price_display_min); ?>";
         }
 
         #product-filter .plugrogress-percentage:after {
-            content: "";
             content: "<?php echo esc_html($initial_price_display_max); ?>";
         }
 
@@ -2968,7 +3097,7 @@ function dapfforwc_product_filter_shortcode($atts)
             }
 
             #product-filter:before {
-                content: "Filter";
+                content: <?php echo wp_json_encode(wp_strip_all_tags(__('Filter', 'dynamic-ajax-product-filters-for-woocommerce')), JSON_UNESCAPED_UNICODE); ?>;
                 background: <?php echo esc_html(isset($template_options["primary_color"]) ? $template_options["primary_color"] : '#432fb8'); ?>;
                 color: white;
                 padding: 10px 11px;
@@ -3043,8 +3172,8 @@ function dapfforwc_product_filter_shortcode($atts)
         ?>
             @media (min-width: <?php echo intval($desktop_breakpoint); ?>px) {
 
-                #mobileonly,
-                #filter-button {
+                .dapfforwc-mobileonly,
+                .dapfforwc-filter-button {
                     display: none !important;
                 }
             }
@@ -3092,8 +3221,8 @@ function dapfforwc_product_filter_shortcode($atts)
         ?>
             @media (min-width: <?php echo intval($desktop_breakpoint); ?>px) {
 
-                #mobileonly,
-                #filter-button {
+                .dapfforwc-mobileonly,
+                .dapfforwc-filter-button {
                     display: none !important;
                 }
             }
@@ -3138,314 +3267,45 @@ function dapfforwc_product_filter_shortcode($atts)
         dapfforwc_add_inline_style(ob_get_clean(), dapfforwc_get_frontend_style_handle());
     }
 
+    // Each form with a mobile drawer gets its own instance number: its script moves only its own elements, and the
+    // ids stay unique when a page holds several forms (the first keeps the legacy ids for custom CSS).
+    $mobile_instance = 0;
     if ($atts['mobile_responsive'] === 'style_3' ||  $atts['mobile_responsive'] === 'style_4') {
+        static $dapfforwc_mobile_instance_count = 0;
+        $dapfforwc_mobile_instance_count++;
+        $mobile_instance = $dapfforwc_mobile_instance_count;
+        $mobile_id_suffix = $mobile_instance > 1 ? '-' . $mobile_instance : '';
         $mobile_filter_title = isset($dapfforwc_styleoptions['reset_btn']['mobile_filter_title'])
             ? trim((string) $dapfforwc_styleoptions['reset_btn']['mobile_filter_title'])
             : '';
         ?>
-        <button id="filter-button" style="position: fixed;z-index: 2147483645;bottom: 20px;right: 20px;background-color: <?php echo esc_html(isset($template_options["primary_color"]) ? $template_options["primary_color"] : '#041a57'); ?>;color: white;border: none;border-radius: 50%;aspect-ratio: 1;display: flex;align-items: center;justify-content: center;width: 40px;height: 40px;padding: 0;">
-            <svg style=" width: 20px; fill: #fff; " xmlns="https://www.w3.org/2000/svg" viewBox="0 0 512 512" role="graphics-symbol" aria-hidden="false" aria-label="">
+        <button id="filter-button<?php echo esc_attr($mobile_id_suffix); ?>" class="dapfforwc-filter-button" data-dapfforwc-mobile="<?php echo esc_attr($mobile_instance); ?>" style="position: fixed;z-index: 2147483645;bottom: 20px;right: 20px;background-color: <?php echo esc_html(isset($template_options["primary_color"]) ? $template_options["primary_color"] : '#432fb8'); ?>;color: white;border: none;border-radius: 50%;aspect-ratio: 1;display: flex;align-items: center;justify-content: center;width: 40px;height: 40px;padding: 0;">
+            <svg style=" width: 20px; fill: #fff; " xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="graphics-symbol" aria-hidden="false" aria-label="">
                 <path d="M3.853 54.87C10.47 40.9 24.54 32 40 32H472C487.5 32 501.5 40.9 508.1 54.87C514.8 68.84 512.7 85.37 502.1 97.33L320 320.9V448C320 460.1 313.2 471.2 302.3 476.6C291.5 482 278.5 480.9 268.8 473.6L204.8 425.6C196.7 419.6 192 410.1 192 400V320.9L9.042 97.33C-.745 85.37-2.765 68.84 3.854 54.87L3.853 54.87z"></path>
             </svg>
         </button>
-        <div class="mobile-filter-overlay" aria-hidden="true"></div>
-        <div class="mobile-filter">
-            <div class="sm-top-btn" id="mobileonly" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; padding: 20px;margin-bottom: 10px;">
+        <div class="mobile-filter-overlay" aria-hidden="true" data-dapfforwc-mobile="<?php echo esc_attr($mobile_instance); ?>"></div>
+        <div class="mobile-filter" data-dapfforwc-mobile="<?php echo esc_attr($mobile_instance); ?>" data-dapfforwc-mobile-style="<?php echo esc_attr($atts['mobile_responsive']); ?>" data-dapfforwc-mobile-bp="<?php echo esc_attr(intval($mobile_breakpoint)); ?>">
+            <div class="sm-top-btn dapfforwc-mobileonly"<?php echo $mobile_instance === 1 ? ' id="mobileonly"' : ''; ?> style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; padding: 20px;margin-bottom: 10px;">
                 <button class="filter-cancel-button" aria-label="Close filters" style="background: none !important;padding:0;color: #000;display: inline-flex;align-items: center;justify-content: center;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
                     </svg>
                 </button>
-                <p style="margin: 0;" id="rcountproduct"<?php echo $mobile_filter_title !== '' ? ' data-dapfforwc-static-title="true"' : ''; ?>><?php echo $mobile_filter_title !== '' ? esc_html($mobile_filter_title) : esc_html__('Showing (All)', 'dynamic-ajax-product-filters-for-woocommerce'); ?></p>
+                <p style="margin: 0;" id="rcountproduct<?php echo esc_attr($mobile_id_suffix); ?>" class="dapfforwc-rcountproduct"<?php echo $mobile_filter_title !== '' ? ' data-dapfforwc-static-title="true"' : ''; ?>><?php echo $mobile_filter_title !== '' ? esc_html($mobile_filter_title) : esc_html__('Showing (All)', 'dynamic-ajax-product-filters-for-woocommerce'); ?></p>
             </div>
         <?php
-        echo '<div class="rfilterselected" id="mobileonly"><div><ul></ul></div></div>';
+        echo '<div class="rfilterselected dapfforwc-mobileonly"><div><ul></ul></div></div>';
     }
-    if ($atts['mobile_responsive'] === 'style_3') {
-        wp_add_inline_script('urlfilter-ajax', '
-         jQuery(document).ready(function($) {
-                    const MOBILE_BP = ' . intval($mobile_breakpoint) . ';
-                    const $mobileFilter = $(".mobile-filter");
-                    const $mobileOverlay = $(".mobile-filter-overlay");
-                    const $filterButton = $("#filter-button");
-                    const $loader = $("div#loader");
-                    const originalPositions = {
-                        mobileFilter: $mobileFilter.length ? { parent: $mobileFilter.parent(), next: $mobileFilter.next() } : null,
-                        mobileOverlay: $mobileOverlay.length ? { parent: $mobileOverlay.parent(), next: $mobileOverlay.next() } : null,
-                        filterButton: $filterButton.length ? { parent: $filterButton.parent(), next: $filterButton.next() } : null,
-                        loader: $loader.length ? { parent: $loader.parent(), next: $loader.next() } : null
-                    };
-
-                    const moveElementToBody = function ($el) {
-                        if ($el.length && !$el.parent().is("body")) {
-                            $el.appendTo("body");
-                        }
-                    };
-
-                    const restoreElement = function ($el, position) {
-                        if (!$el.length || !position || !position.parent || !position.parent.length) {
-                            return;
-                        }
-
-                        if (position.next && position.next.length && position.next.parent().is(position.parent)) {
-                            $el.insertBefore(position.next);
-                        } else {
-                            position.parent.append($el);
-                        }
-                    };
-
-                    const moveElementsToBody = function () {
-                        moveElementToBody($mobileFilter);
-                        moveElementToBody($mobileOverlay);
-                        moveElementToBody($filterButton);
-                        moveElementToBody($loader);
-
-                        closeFilter(true);
-                    };
-
-                    const restoreElements = function () {
-                        restoreElement($mobileFilter, originalPositions.mobileFilter);
-                        restoreElement($mobileOverlay, originalPositions.mobileOverlay);
-                        restoreElement($filterButton, originalPositions.filterButton);
-                        restoreElement($loader, originalPositions.loader);
-                    };
-
-                    const openFilter = function () {
-                        $mobileFilter.slideDown();
-                        $mobileOverlay.fadeIn();
-                    };
-
-                    const closeFilter = function (immediate) {
-                        if (immediate) {
-                            $mobileFilter.stop(true, true).hide();
-                            $mobileOverlay.stop(true, true).hide();
-                            return;
-                        }
-
-                        $mobileFilter.slideUp();
-                        $mobileOverlay.fadeOut();
-                    };
-
-                    const showDesktop = function () {
-                        $mobileFilter.stop(true, true).show();
-                        $mobileOverlay.stop(true, true).hide();
-                    };
-
-                    let isMobile = false;
-
-                    const updateIsMobile = function () {
-                        const nowMobile = window.innerWidth <= MOBILE_BP;
-
-                        if (nowMobile) {
-                            moveElementsToBody();
-                        } else {
-                            restoreElements();
-                            showDesktop();
-                        }
-
-                        isMobile = nowMobile;
-                    };
-
-                    $(".filter-cancel-button").on("click", function(event) {
-                        event.preventDefault();
-
-                        if (!isMobile) {
-                            return;
-                        }
-
-                        closeFilter();
-                    });
-
-                    $("#filter-button").on("click", function(event) {
-                        event.preventDefault();
-
-                        if (!isMobile) {
-                            return;
-                        }
-
-                        if ($mobileFilter.is(":visible")) {
-                            closeFilter();
-                        } else {
-                            openFilter();
-                        }
-                    });
-
-                    $mobileOverlay.on("click", function() {
-                        if (!isMobile) {
-                            return;
-                        }
-
-                        closeFilter();
-                    });
-
-                    $(document).on("click", function(event) {
-                        if (!isMobile) {
-                            return;
-                        }
-
-                        if (!$(event.target).closest(".mobile-filter, #filter-button").length) {
-                            closeFilter();
-                        }
-                    });
-
-                    updateIsMobile();
-
-                    $(window).on("resize", function() {
-                        const nowMobile = window.innerWidth <= MOBILE_BP;
-                        if (nowMobile) {
-                            return;
-                        }
-                        updateIsMobile();
-                    });
-                });
-         ');
-    }
-
-    if ($atts['mobile_responsive'] === 'style_4') {
-        wp_add_inline_script('urlfilter-ajax', '
-        jQuery(document).ready(function($) {
-                    const MOBILE_BP = ' . intval($mobile_breakpoint) . ';
-                    const $mobileFilter = $(".mobile-filter");
-                    const $mobileOverlay = $(".mobile-filter-overlay");
-                    const $filterButton = $("#filter-button");
-                    const $loader = $("div#loader");
-                    const originalPositions = {
-                        mobileFilter: $mobileFilter.length ? { parent: $mobileFilter.parent(), next: $mobileFilter.next() } : null,
-                        mobileOverlay: $mobileOverlay.length ? { parent: $mobileOverlay.parent(), next: $mobileOverlay.next() } : null,
-                        filterButton: $filterButton.length ? { parent: $filterButton.parent(), next: $filterButton.next() } : null,
-                        loader: $loader.length ? { parent: $loader.parent(), next: $loader.next() } : null
-                    };
-
-                    const moveElementToBody = function ($el) {
-                        if ($el.length && !$el.parent().is("body")) {
-                            $el.appendTo("body");
-                        }
-                    };
-
-                    const restoreElement = function ($el, position) {
-                        if (!$el.length || !position || !position.parent || !position.parent.length) {
-                            return;
-                        }
-
-                        if (position.next && position.next.length && position.next.parent().is(position.parent)) {
-                            $el.insertBefore(position.next);
-                        } else {
-                            position.parent.append($el);
-                        }
-                    };
-
-                    const moveElementsToBody = function () {
-                        moveElementToBody($mobileFilter);
-                        moveElementToBody($mobileOverlay);
-                        moveElementToBody($filterButton);
-                        moveElementToBody($loader);
-
-                        closeFilter(true);
-                    };
-
-                    const restoreElements = function () {
-                        restoreElement($mobileFilter, originalPositions.mobileFilter);
-                        restoreElement($mobileOverlay, originalPositions.mobileOverlay);
-                        restoreElement($filterButton, originalPositions.filterButton);
-                        restoreElement($loader, originalPositions.loader);
-                    };
-
-                    const openFilter = function () {
-                        $mobileFilter.addClass("open");
-                        $mobileOverlay.fadeIn();
-                    };
-
-                    const closeFilter = function (immediate) {
-                        $mobileFilter.removeClass("open");
-
-                        if (immediate) {
-                            $mobileOverlay.stop(true, true).hide();
-                            return;
-                        }
-
-                        $mobileOverlay.fadeOut();
-                    };
-
-                    const showDesktop = function () {
-                        $mobileFilter.removeClass("open").stop(true, true).show();
-                        $mobileOverlay.stop(true, true).hide();
-                    };
-
-                    let isMobile = false;
-
-                    const updateIsMobile = function () {
-                        const nowMobile = window.innerWidth <= MOBILE_BP;
-
-                        if (nowMobile) {
-                            moveElementsToBody();
-                        } else {
-                            restoreElements();
-                            showDesktop();
-                        }
-
-                        isMobile = nowMobile;
-                    };
-
-                    $("#filter-button").on("click", function(event) {
-                        event.preventDefault();
-
-                        if (!isMobile) {
-                            return;
-                        }
-
-                        if ($mobileFilter.hasClass("open")) {
-                            closeFilter();
-                        } else {
-                            openFilter();
-                        }
-                    });
-
-                    $(".filter-cancel-button").on("click", function(event) {
-                        event.preventDefault();
-
-                        if (!isMobile) {
-                            return;
-                        }
-
-                        closeFilter();
-                    });
-
-                    $mobileOverlay.on("click", function() {
-                        if (!isMobile) {
-                            return;
-                        }
-
-                        closeFilter();
-                    });
-
-                    $(document).on("click", function(event) {
-                        if (!isMobile) {
-                            return;
-                        }
-
-                        if (!$(event.target).closest(".mobile-filter, #filter-button").length) {
-                            closeFilter();
-                        }
-                    });
-
-                    updateIsMobile();
-
-                    $(window).on("resize", function() {
-                        const nowMobile = window.innerWidth <= MOBILE_BP;
-                        if (nowMobile) {
-                            return;
-                        }
-                        updateIsMobile();
-                    });
-                });
-        ');
-    } ?>
-        <div class="plugincy_filter_wrapper" style="position: relative;">
+    // filter.min.js sets the drawer up from the data attributes on .mobile-filter (style, breakpoint, instance), so no
+    // inline script with page-specific values is printed (script-merging plugins could serve another page's copy).
+    ?>
+        <div class="plugincy_filter_wrapper" style="position: relative;"<?php echo $atts['layout'] === 'top_view' ? ' data-dapfforwc-top-view-rail="' . esc_attr(intval($mobile_breakpoint)) . '"' : ''; ?>>
             <!-- Navigation Buttons -->
-            <button type="button" class="plugincy-prev-button" aria-label="Previous" style="display: none;">
+            <button type="button" class="plugincy-prev-button" aria-label="<?php echo esc_attr__('Previous', 'dynamic-ajax-product-filters-for-woocommerce'); ?>" style="display: none;">
                 &#8592;
             </button>
-            <button type="button" class="plugincy-next-button" aria-label="Next" style="display: none;">
+            <button type="button" class="plugincy-next-button" aria-label="<?php echo esc_attr__('Next', 'dynamic-ajax-product-filters-for-woocommerce'); ?>" style="display: none;">
                 &#8594;
             </button>
             <?php
@@ -3464,13 +3324,15 @@ function dapfforwc_product_filter_shortcode($atts)
                 $product_show_settings[$setting_key] = $effective_operator;
             };
 
-            $sync_product_show_operator('cat_operator', 'product-category', $product_show_settings['cat_operator'] ?? $cat_operator_fallback ?? 'OR');
-            $sync_product_show_operator('tag_operator', 'tag', $product_show_settings['tag_operator'] ?? $tag_operator_fallback ?? 'OR');
-            $sync_product_show_operator('brand_operator', 'brands', $product_show_settings['brand_operator'] ?? $brand_operator_fallback ?? 'OR');
+            // Send the operators the server just used (a ?cat_operator= in the URL wins over the saved setting), so the next AJAX request filters the same way.
+            $sync_product_show_operator('cat_operator', 'product-category', $cat_operator_fallback);
+            $sync_product_show_operator('tag_operator', 'tag', $tag_operator_fallback);
+            $sync_product_show_operator('brand_operator', 'brands', $brand_operator_fallback);
+            $sync_product_show_operator('terms_operator', '', $terms_operator_fallback);
 
             $product_show_settings_attr = !empty($product_show_settings) ? wp_json_encode($product_show_settings) : '';
             ?>
-            <form id="product-filter" class="dapfforwc-product-filter plugincy_layout_<?php echo esc_attr($atts['layout']); ?>" method="POST" data-layout='<?php echo esc_attr($atts['layout']); ?>' data-mobile-style='<?php echo esc_attr($atts['mobile_responsive']); ?>' data-mobile-breakpoint='<?php echo esc_attr($mobile_breakpoint); ?>'
+            <form id="product-filter" class="dapfforwc-product-filter plugincy_layout_<?php echo esc_attr($atts['layout']); ?>" method="POST" data-layout='<?php echo esc_attr($atts['layout']); ?>' data-mobile-style='<?php echo esc_attr($atts['mobile_responsive']); ?>' data-mobile-style-source='<?php echo esc_attr($mobile_style_source); ?>' data-mobile-breakpoint='<?php echo esc_attr($mobile_breakpoint); ?>'
                 data-product_show_settings='<?php echo esc_attr($product_show_settings_attr); ?>'
                 <?php if (!empty($atts['product_selector'])) {
                     echo 'data-product_selector="' . esc_attr($atts["product_selector"]) . '"';
@@ -3502,7 +3364,8 @@ function dapfforwc_product_filter_shortcode($atts)
                     }
                 }
                 echo '</div>';
-                wp_nonce_field('gm-product-filter-action', 'gm-product-filter-nonce');
+                // Form marker read by dapfforwc_is_filter_form_request(): a constant, so cached pages and shared links carry no nonce.
+                echo '<input type="hidden" name="gm-product-filter-nonce" value="1">';
                 $default_data_objects = array_merge(
                     [
                         "min_price" => $min_price,
@@ -3511,7 +3374,7 @@ function dapfforwc_product_filter_shortcode($atts)
                     is_array($filteroptionsfromurl ?? null) ? $filteroptionsfromurl : [],
                     is_array($parsed_filters ?? null) ? $parsed_filters : []
                 );
-                echo wp_kses(dapfforwc_filter_form($updated_filters, !$make_default_selected || (isset($dapfforwc_advance_settings["default_value_selected"]) && $dapfforwc_advance_settings["default_value_selected"] === 'on' && !is_shop()) ? $all_data_objects : $default_data_objects, $use_anchor, $use_filters_word, $atts, $min_price, $max_price, $min_max_prices, '', false, false, $dimension_bounds), $dapfforwc_allowed_tags);
+                echo dapfforwc_kses(dapfforwc_filter_form($updated_filters, !$make_default_selected || (isset($dapfforwc_advance_settings["default_value_selected"]) && $dapfforwc_advance_settings["default_value_selected"] === 'on' && !is_shop()) ? $all_data_objects : $default_data_objects, $use_anchor, $use_filters_word, $atts, $min_price, $max_price, $min_max_prices, '', false, false, $dimension_bounds), $dapfforwc_allowed_tags); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- dapfforwc_kses() is wp_kses() with the plugin allow-list.
                 echo '</form></div>';
                 if ($atts['mobile_responsive'] === 'style_3' || $atts['mobile_responsive'] === 'style_4') { ?>
         </div>
@@ -3521,9 +3384,13 @@ function dapfforwc_product_filter_shortcode($atts)
     <!-- Loader HTML -->
     <?php
 
-    echo wp_kses('<div id="loader" style="display:none;"></div>', $dapfforwc_allowed_tags);
+    // The loader and overlay keep their legacy ids, but all plugin CSS and JS reach them through this host, so another
+    // element with id="loader" or "roverlay" on the page (a theme preloader, for example) is left alone.
+    // display:contents keeps the host out of the layout (no box, no theme block spacing).
+    echo '<div class="dapfforwc-loader-host" style="display: contents;">';
+    echo dapfforwc_kses('<div id="loader" style="display:none;"></div>', $dapfforwc_allowed_tags); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- dapfforwc_kses() is wp_kses() with the plugin allow-list.
     dapfforwc_add_inline_style(
-        '#loader {
+        '.dapfforwc-loader-host #loader {
                 width: 56px;
                 height: 56px;
                 border-radius: 50%;
@@ -3541,6 +3408,7 @@ function dapfforwc_product_filter_shortcode($atts)
     );
     ?>
     <div id="roverlay" style="display: none;"></div>
+    </div>
 
 <?php
 
@@ -3553,12 +3421,13 @@ function dapfforwc_generatePremiumBadge($title)
 {
     $gradientId = 'gradient-' . uniqid();
     $shadowId = 'shadow-' . uniqid();
-    $safeTitle = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
+    // Callers pass the already-escaped option title: escape what is left without encoding existing entities again.
+    $safeTitle = htmlspecialchars((string) $title, ENT_QUOTES, 'UTF-8', false);
 
     return sprintf(
         '
         <svg style="width: 100%%; height: 100%%;" width="78" height="80" viewBox="0 0 78 80" 
-             xmlns="http://www.w3.org/2000/svg" role="img" aria-label="%s - Premium Brand">
+             xmlns="http://www.w3.org/2000/svg" role="img" aria-label="%s">
             <defs>
                 <linearGradient id="%s" x1="0%%" y1="0%%" x2="100%%" y2="100%%">
                     <stop offset="0%%" stop-color="#2563eb" stop-opacity="1"/>
@@ -3569,11 +3438,8 @@ function dapfforwc_generatePremiumBadge($title)
                 </filter>
             </defs>
             <rect width="78" height="80" rx="8" ry="8" fill="url(#%s)" filter="url(#%s)"/>
-            <text x="39" y="32" font-family="Arial, Helvetica, sans-serif" font-size="10" 
+            <text x="39" y="40" font-family="Arial, Helvetica, sans-serif" font-size="10" 
                   font-weight="bold" fill="#ffffff" text-anchor="middle" dominant-baseline="middle">%s</text>
-            <line x1="12" y1="42" x2="66" y2="42" stroke="rgba(255, 255, 255, 0.4)" stroke-width="1"/>
-            <text x="39" y="52" font-family="Arial, Helvetica, sans-serif" font-size="7" 
-                  fill="rgba(255, 255, 255, 0.7)" text-anchor="middle" dominant-baseline="middle">PREMIUM BRAND</text>
         </svg>',
         $safeTitle,
         $gradientId,
@@ -3597,11 +3463,34 @@ function dapfforwc_render_filter_option($sub_option, $title, $value, $checked, $
     if ($selected_min_price > $selected_max_price) {
         $selected_min_price = $selected_max_price;
     }
+    // Legacy price layouts (slider, slider2, price) print the same clamped values the progress bar uses.
+    $format_price_input_value = static function ($value) {
+        return rtrim(rtrim(number_format((float) $value, 2, '.', ''), '0'), '.');
+    };
+    $clamped_min_price_value = $format_price_input_value($selected_min_price);
+    $clamped_max_price_value = $format_price_input_value($selected_max_price);
     $price_range_span = max($default_max_price_float - $default_min_price_float, 1);
     $price_progress_left = (($selected_min_price - $default_min_price_float) / $price_range_span) * 100;
     $price_progress_right = (($default_max_price_float - $selected_max_price) / $price_range_span) * 100;
     $price_progress_style = 'left:' . $price_progress_left . '%;right:' . $price_progress_right . '%;';
     $output = '';
+
+    // Escape at output in every branch. Callers may pass raw or already-escaped text: esc_html()/esc_attr() never
+    // double-encode existing entities, so pre-escaped values render unchanged.
+    $title = esc_html((string) $title);
+    $value = esc_attr((string) $value);
+    $name = esc_attr((string) $name);
+    if (!is_int($count) && !is_float($count)) {
+        $count = esc_html((string) $count);
+    }
+
+    // Price fields, ranges and star-only rating inputs have no visible text label, so they are always named.
+    $get_control_label_attr = static function ($label) {
+        $label = trim(wp_strip_all_tags((string) $label));
+        return $label !== '' ? ' aria-label="' . esc_attr($label) . '"' : '';
+    };
+    $min_price_label = __('Minimum price', 'dynamic-ajax-product-filters-for-woocommerce');
+    $max_price_label = __('Maximum price', 'dynamic-ajax-product-filters-for-woocommerce');
 
     switch ($sub_option) {
         case 'checkbox':
@@ -3649,6 +3538,10 @@ function dapfforwc_render_filter_option($sub_option, $title, $value, $checked, $
             $color = function_exists('dapfforwc_get_term_style_option_value')
                 ? dapfforwc_get_term_style_option_value($dapfforwc_styleoptions, (string) $attribute, 'colors', $style_term_key, '#000')
                 : (isset($dapfforwc_styleoptions[$attribute]['colors'][$style_term_key]) ? $dapfforwc_styleoptions[$attribute]['colors'][$style_term_key] : '#000');
+            if (is_array($color)) {
+                // A mixed color saved by the Pro edition: show its primary color.
+                $color = isset($color['primary']) && is_string($color['primary']) && $color['primary'] !== '' ? $color['primary'] : '#000';
+            }
             $border = ($sub_option === 'color_no_border') ? 'none' : '1px solid #000';
             $value_show = ($sub_option === 'color_value') ? 'block' : 'none';
             $output .= '<label style="position: relative;"><input ' . ($disable_unselected && !$checked ? "disabled" : "") . ' type="' . ($singlevalueSelect === "yes" ? 'radio' : 'checkbox') . '" class="filter-color" name="' . $name . '[]"  title="' . $title . '" value="' . $value . '"' . $checked . '>
@@ -3657,24 +3550,26 @@ function dapfforwc_render_filter_option($sub_option, $title, $value, $checked, $
 
         case 'image':
         case 'image_no_border':
-            $brand_image_url = dapfforwc_get_wc_brand_image_by_slug($value);
             $style_term_key = is_scalar($style_value) && trim((string) $style_value) !== '' ? (string) $style_value : (string) $value;
             $stored_image_url = function_exists('dapfforwc_get_term_style_option_value')
                 ? dapfforwc_get_term_style_option_value($dapfforwc_styleoptions, (string) $attribute, 'images', $style_term_key, '')
                 : ($dapfforwc_styleoptions[$attribute]['images'][$style_term_key] ?? '');
-            $image_url = $stored_image_url !== '' ? $stored_image_url : (isset($brand_image_url) && !empty($brand_image_url) ? $brand_image_url : 'default-image.jpg');
+            // The brand's own image is only a fallback, so skip its term/meta lookups when an image is configured.
+            $brand_image_url = $stored_image_url === '' ? dapfforwc_get_wc_brand_image_by_slug($value) : '';
+            $image_url = $stored_image_url !== '' ? $stored_image_url : (!empty($brand_image_url) ? $brand_image_url : 'default-image.jpg');
             $border_class = ($sub_option === 'image_no_border') ? 'no-border' : '';
             $output .= '<label class="image-option ' . $border_class . '">
             <span class="image-title"><span class="option_title">' . $title . ($count != 0 ? ' <span class="option_count"><span>(</span>' . $count . '<span>)</span></span>' : '') . '</span></span>
     <input ' . ($disable_unselected && !$checked ? "disabled" : "") . ' type="' . ($singlevalueSelect === "yes" ? 'radio' : 'checkbox') . '" class="filter-image" name="' . $name . '[]"  title="' . $title . '" value="' . $value . '"' . $checked . '>';
 
             if ($image_url !== 'default-image.jpg') {
-                $attachment_id = attachment_url_to_postid($image_url);
-                if ($attachment_id) {
-                    $output .= wp_get_attachment_image($attachment_id, 'thumbnail', false, array('alt' => esc_attr($title)));
+                $attachment_id = dapfforwc_get_image_attachment_id($image_url);
+                $attachment_image = $attachment_id ? wp_get_attachment_image($attachment_id, 'thumbnail', false, array('alt' => esc_attr($title))) : '';
+                if ($attachment_image !== '') {
+                    $output .= $attachment_image;
                 } else {
-                    // generate svg with name
-                    $output .= dapfforwc_generatePremiumBadge($title);
+                    // CDN, offloaded, resized or external images are not in the media library but are still valid images.
+                    $output .= '<img src="' . esc_url($image_url) . '" alt="' . esc_attr(wp_strip_all_tags($title)) . '" loading="lazy" decoding="async">';
                 }
             } else {
                 // generate svg with name
@@ -3690,49 +3585,51 @@ function dapfforwc_render_filter_option($sub_option, $title, $value, $checked, $
         case "checkbox_dropdown":
         case "modern_dropdown":
         case "chip_dropdown":
-            $output .= '<option  ' . ($disable_unselected && !$checked ? "disabled" : "") . ' class="filter-option"  title="' . $title . '" value="' . $value . '"' . $checked . '> <span class="option_title">' . $title . ($count != 0 ? ' <span class="option_count"><span>(</span>' . $count . '<span>)</span></span>' : '') . '</span></option>';
+            // <option> may only contain text: the count goes into the text and data-count (kept up to date by filter.min.js).
+            // data-count is only printed when the count is shown, like the old .option_count span.
+            $output .= '<option  ' . ($disable_unselected && !$checked ? "disabled" : "") . ' class="filter-option"  title="' . $title . '" value="' . $value . '"' . (is_numeric($count) && $count != 0 ? ' data-count="' . esc_attr($count) . '"' : '') . $checked . '>' . $title . ($count != 0 ? ' (' . esc_html($count) . ')' : '') . '</option>';
             break;
         case 'slider':
-            $min_label = isset($dapfforwc_styleoptions["input_label"]["price"]["min"]) && !empty($dapfforwc_styleoptions["input_label"]["price"]["min"]) ? $dapfforwc_styleoptions["input_label"]["price"]["min"] : "Min Price:";
-            $min_placeholder = isset($dapfforwc_styleoptions["input_placeholder"]["price"]["min"]) && !empty($dapfforwc_styleoptions["input_placeholder"]["price"]["min"]) ? $dapfforwc_styleoptions["input_placeholder"]["price"]["min"] : "Min";
-            $max_placeholder = isset($dapfforwc_styleoptions["input_placeholder"]["price"]["max"]) && !empty($dapfforwc_styleoptions["input_placeholder"]["price"]["max"]) ? $dapfforwc_styleoptions["input_placeholder"]["price"]["max"] : "Max";
-            $max_label = isset($dapfforwc_styleoptions["input_label"]["price"]["max"]) && !empty($dapfforwc_styleoptions["input_label"]["price"]["max"]) ? $dapfforwc_styleoptions["input_label"]["price"]["max"] : "Max Price:";
+            $min_label = isset($dapfforwc_styleoptions["input_label"]["price"]["min"]) && !empty($dapfforwc_styleoptions["input_label"]["price"]["min"]) ? $dapfforwc_styleoptions["input_label"]["price"]["min"] : __('Min Price:', 'dynamic-ajax-product-filters-for-woocommerce');
+            $min_placeholder = isset($dapfforwc_styleoptions["input_placeholder"]["price"]["min"]) && !empty($dapfforwc_styleoptions["input_placeholder"]["price"]["min"]) ? $dapfforwc_styleoptions["input_placeholder"]["price"]["min"] : __('Min', 'dynamic-ajax-product-filters-for-woocommerce');
+            $max_placeholder = isset($dapfforwc_styleoptions["input_placeholder"]["price"]["max"]) && !empty($dapfforwc_styleoptions["input_placeholder"]["price"]["max"]) ? $dapfforwc_styleoptions["input_placeholder"]["price"]["max"] : __('Max', 'dynamic-ajax-product-filters-for-woocommerce');
+            $max_label = isset($dapfforwc_styleoptions["input_label"]["price"]["max"]) && !empty($dapfforwc_styleoptions["input_label"]["price"]["max"]) ? $dapfforwc_styleoptions["input_label"]["price"]["max"] : __('Max Price:', 'dynamic-ajax-product-filters-for-woocommerce');
 
             $output .= '<div class="price-input">
         <div class="field">
-          <span>' . $min_label . '</span>
-          <input  type="number" id="min-price" name="mn_price" class="input-min" min="' . $default_min_price . '" max="' . $default_max_price . '" value="' . $min_price . '">
+          <span>' . esc_html($min_label) . '</span>
+          <input  type="number" id="min-price" name="mn_price" class="input-min" min="' . esc_attr($default_min_price) . '" max="' . esc_attr($default_max_price) . '"' . $get_control_label_attr($min_label) . ' value="' . esc_attr($clamped_min_price_value) . '">
         </div>
         <div class="separator">-</div>
         <div class="field">
-          <span>' . $max_label . '</span>
-          <input  type="number" id="max-price" name="mx_price" min="' . $default_min_price . '" max="' . $default_max_price . '" class="input-max" value="' . $max_price . '">
+          <span>' . esc_html($max_label) . '</span>
+          <input  type="number" id="max-price" name="mx_price" min="' . esc_attr($default_min_price) . '" max="' . esc_attr($default_max_price) . '" class="input-max"' . $get_control_label_attr($max_label) . ' value="' . esc_attr($clamped_max_price_value) . '">
         </div>
       </div>
       <div class="plugincy_slider">
         <div class="plugrogress" style="' . esc_attr($price_progress_style) . '"></div>
       </div>
       <div class="range-input">
-        <input  type="range" id="price-range-min" class="range-min" min="' . $default_min_price . '" max="' . $default_max_price . '" value="' . $min_price . '" >
-        <input  type="range" id="price-range-max" class="range-max" min="' . $default_min_price . '" max="' . $default_max_price . '" value="' . $max_price . '">
+        <input  type="range" id="price-range-min" class="range-min" min="' . esc_attr($default_min_price) . '" max="' . esc_attr($default_max_price) . '"' . $get_control_label_attr($min_price_label) . ' value="' . esc_attr($clamped_min_price_value) . '" >
+        <input  type="range" id="price-range-max" class="range-max" min="' . esc_attr($default_min_price) . '" max="' . esc_attr($default_max_price) . '"' . $get_control_label_attr($max_price_label) . ' value="' . esc_attr($clamped_max_price_value) . '">
       </div>';
             break;
         case 'slider2':
             $output .= '<div class="price-input plugincy-align-center">
         <div class="field">
-          <input  type="number" id="min-price" name="mn_price" class="input-min" min="' . $default_min_price . '" max="' . $default_max_price . '" value="' . $min_price . '">
+          <input  type="number" id="min-price" name="mn_price" class="input-min" min="' . esc_attr($default_min_price) . '" max="' . esc_attr($default_max_price) . '"' . $get_control_label_attr($min_price_label) . ' value="' . esc_attr($clamped_min_price_value) . '">
         </div>
         <div class="separator">-</div>
         <div class="field">
-          <input  type="number" id="max-price" name="mx_price" min="' . $default_min_price . '" max="' . $default_max_price . '" class="input-max" value="' . $max_price . '">
+          <input  type="number" id="max-price" name="mx_price" min="' . esc_attr($default_min_price) . '" max="' . esc_attr($default_max_price) . '" class="input-max"' . $get_control_label_attr($max_price_label) . ' value="' . esc_attr($clamped_max_price_value) . '">
         </div>
       </div>
       <div class="plugincy_slider">
         <div class="plugrogress" style="' . esc_attr($price_progress_style) . '"></div>
       </div>
       <div class="range-input">
-        <input  type="range" id="price-range-min" class="range-min" min="' . $default_min_price . '" max="' . $default_max_price . '" value="' . $min_price . '" >
-        <input  type="range" id="price-range-max" class="range-max" min="' . $default_min_price . '" max="' . $default_max_price . '" value="' . $max_price . '">
+        <input  type="range" id="price-range-min" class="range-min" min="' . esc_attr($default_min_price) . '" max="' . esc_attr($default_max_price) . '"' . $get_control_label_attr($min_price_label) . ' value="' . esc_attr($clamped_min_price_value) . '" >
+        <input  type="range" id="price-range-max" class="range-max" min="' . esc_attr($default_min_price) . '" max="' . esc_attr($default_max_price) . '"' . $get_control_label_attr($max_price_label) . ' value="' . esc_attr($clamped_max_price_value) . '">
       </div>';
             break;
         case 'price':
@@ -3742,25 +3639,26 @@ function dapfforwc_render_filter_option($sub_option, $title, $value, $checked, $
         case "price-range-card":
             $output .= '<div class="price-input" style="visibility: hidden; margin: 0;">
         <div class="field">
-            <input  type="number" id="min-price" name="mn_price" class="input-min" min="' . $default_min_price . '" max="' . $default_max_price . '" value="' . $min_price . '">
+            <input  type="number" id="min-price" name="mn_price" class="input-min" min="' . esc_attr($default_min_price) . '" max="' . esc_attr($default_max_price) . '"' . $get_control_label_attr($min_price_label) . ' value="' . esc_attr($clamped_min_price_value) . '">
         </div>
         <div class="separator">-</div>
         <div class="field">
-            <input  type="number" id="max-price" name="mx_price" min="' . $default_min_price . '" max="' . $default_max_price . '" class="input-max" value="' . $max_price . '">
+            <input  type="number" id="max-price" name="mx_price" min="' . esc_attr($default_min_price) . '" max="' . esc_attr($default_max_price) . '" class="input-max"' . $get_control_label_attr($max_price_label) . ' value="' . esc_attr($clamped_max_price_value) . '">
         </div>
         </div>
         <div class="plugincy_slider">
         <div class="plugrogress plugrogress-percentage" style="' . esc_attr($price_progress_style) . '"></div>
       </div>
         <div class="range-input">
-        <input  type="range" id="price-range-min" class="range-min" min="' . $default_min_price . '" max="' . $default_max_price . '" value="' . $min_price . '">
-        <input  type="range" id="price-range-max" class="range-max" min="' . $default_min_price . '" max="' . $default_max_price . '" value="' . $max_price . '">
+        <input  type="range" id="price-range-min" class="range-min" min="' . esc_attr($default_min_price) . '" max="' . esc_attr($default_max_price) . '"' . $get_control_label_attr($min_price_label) . ' value="' . esc_attr($clamped_min_price_value) . '">
+        <input  type="range" id="price-range-max" class="range-max" min="' . esc_attr($default_min_price) . '" max="' . esc_attr($default_max_price) . '"' . $get_control_label_attr($max_price_label) . ' value="' . esc_attr($clamped_max_price_value) . '">
         </div>';
             break;
         case 'rating-text':
-            $additional_txt_upto_4 = isset($dapfforwc_styleoptions["additional_text"]["rating"]) && !empty($dapfforwc_styleoptions["additional_text"]["rating"]) ? $dapfforwc_styleoptions["additional_text"]["rating"] : 'Stars & Up';
-            $additional_txt_1 = isset($dapfforwc_styleoptions["additional_text_1"]["rating"]) && !empty($dapfforwc_styleoptions["additional_text_1"]["rating"]) ? $dapfforwc_styleoptions["additional_text_1"]["rating"] : 'Star & Up';
-            $additional_txt_5 = isset($dapfforwc_styleoptions["additional_text_5"]["rating"]) && !empty($dapfforwc_styleoptions["additional_text_5"]["rating"]) ? $dapfforwc_styleoptions["additional_text_5"]["rating"] : 'Star';
+            // Translatable defaults; a saved label of "0" is kept (only an empty label falls back to the default).
+            $additional_txt_upto_4 = isset($dapfforwc_styleoptions["additional_text"]["rating"]) && $dapfforwc_styleoptions["additional_text"]["rating"] !== '' ? $dapfforwc_styleoptions["additional_text"]["rating"] : __('Stars & Up', 'dynamic-ajax-product-filters-for-woocommerce');
+            $additional_txt_1 = isset($dapfforwc_styleoptions["additional_text_1"]["rating"]) && $dapfforwc_styleoptions["additional_text_1"]["rating"] !== '' ? $dapfforwc_styleoptions["additional_text_1"]["rating"] : __('Star & Up', 'dynamic-ajax-product-filters-for-woocommerce');
+            $additional_txt_5 = isset($dapfforwc_styleoptions["additional_text_5"]["rating"]) && $dapfforwc_styleoptions["additional_text_5"]["rating"] !== '' ? $dapfforwc_styleoptions["additional_text_5"]["rating"] : __('Star', 'dynamic-ajax-product-filters-for-woocommerce');
             $output .= '<label><input ' . ($disable_unselected && !in_array("5", $checked) ? "disabled" : "") . ' type="checkbox" name="rating[]" value="5" ' . (in_array("5", $checked) ? ' checked' : '') . '> 5 ' . esc_html($additional_txt_5) . ' 
     </label>
         <label><input ' . ($disable_unselected && !in_array("4", $checked) ? "disabled" : "") . ' type="checkbox" name="rating[]" value="4" ' . (in_array("4", $checked) ? ' checked' : '') . '> 4 ' . esc_html($additional_txt_upto_4) . '</label>
@@ -3772,9 +3670,11 @@ function dapfforwc_render_filter_option($sub_option, $title, $value, $checked, $
         case 'dynamic-rating':
         case 'rating-slider':
             for ($i = 5; $i >= 1; $i--) {
-                $star = '<svg xmlns="https://www.w3.org/2000/svg" viewBox="0 0 576 512" role="graphics-symbol" aria-hidden="false" aria-label=""><path d="M381.2 150.3L524.9 171.5C536.8 173.2 546.8 181.6 550.6 193.1C554.4 204.7 551.3 217.3 542.7 225.9L438.5 328.1L463.1 474.7C465.1 486.7 460.2 498.9 450.2 506C440.3 513.1 427.2 514 416.5 508.3L288.1 439.8L159.8 508.3C149 514 135.9 513.1 126 506C116.1 498.9 111.1 486.7 113.2 474.7L137.8 328.1L33.58 225.9C24.97 217.3 21.91 204.7 25.69 193.1C29.46 181.6 39.43 173.2 51.42 171.5L195 150.3L259.4 17.97C264.7 6.954 275.9-.0391 288.1-.0391C300.4-.0391 311.6 6.954 316.9 17.97L381.2 150.3z"></path></svg>';
+                $star = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" role="graphics-symbol" aria-hidden="false" aria-label=""><path d="M381.2 150.3L524.9 171.5C536.8 173.2 546.8 181.6 550.6 193.1C554.4 204.7 551.3 217.3 542.7 225.9L438.5 328.1L463.1 474.7C465.1 486.7 460.2 498.9 450.2 506C440.3 513.1 427.2 514 416.5 508.3L288.1 439.8L159.8 508.3C149 514 135.9 513.1 126 506C116.1 498.9 111.1 486.7 113.2 474.7L137.8 328.1L33.58 225.9C24.97 217.3 21.91 204.7 25.69 193.1C29.46 181.6 39.43 173.2 51.42 171.5L195 150.3L259.4 17.97C264.7 6.954 275.9-.0391 288.1-.0391C300.4-.0391 311.6 6.954 316.9 17.97L381.2 150.3z"></path></svg>';
                 $output .= '<label>';
-                $output .= '<input ' . ($disable_unselected && !in_array($i, $checked) ? "disabled" : "") . ' type="checkbox" name="rating[]" value="' . esc_attr($i) . '" ' . (in_array($i, $checked) ? ' checked' : '') . '>';
+                /* translators: %d: number of stars */
+                $star_label = sprintf(_n('%d star', '%d stars', $i, 'dynamic-ajax-product-filters-for-woocommerce'), $i);
+                $output .= '<input ' . ($disable_unselected && !in_array($i, $checked) ? "disabled" : "") . ' type="checkbox" name="rating[]" value="' . esc_attr($i) . '"' . $get_control_label_attr($star_label) . ' ' . (in_array($i, $checked) ? ' checked' : '') . '>';
                 $output .= '<span class="plugincy-stars" style="display:flex;flex-direction: row;">';
                 for ($j = 1; $j <= $i; $j++) {
                     $output .= $star;
@@ -3808,10 +3708,47 @@ function dapfforwc_get_child_categories($categories, $parent_id)
                 $child_categories[] = $category;
             }
         }
+        // Array-shaped terms (cached or filtered data) are children too.
+        elseif (is_array($category)) {
+            if (isset($category['parent']) && (int) $category['parent'] === (int) $parent_id) {
+                $child_categories[] = $category;
+            }
+        }
     }
 
     return $child_categories;
 }
+
+if (!function_exists('dapfforwc_index_child_categories')) {
+    /**
+     * Index terms by parent ID in one pass (same matching rules as dapfforwc_get_child_categories(): WP_Term and
+     * stdClass objects), so the hierarchy renderers look children up directly instead of scanning the whole list
+     * for every node (O(n^2)).
+     */
+    function dapfforwc_index_child_categories($categories): array
+    {
+        $index = [];
+        foreach ((array) $categories as $category) {
+            // Array-shaped terms (cached or filtered data) are children too, like in dapfforwc_get_child_categories().
+            if (is_array($category)) {
+                if (isset($category['parent'])) {
+                    $index[(int) $category['parent']][] = $category;
+                }
+                continue;
+            }
+            if (!($category instanceof WP_Term) && !(is_object($category) && $category instanceof stdClass)) {
+                continue;
+            }
+            if (!isset($category->parent)) {
+                continue;
+            }
+            $index[(int) $category->parent][] = $category;
+        }
+
+        return $index;
+    }
+}
+
 // Recursive function to render categories
 function dapfforwc_render_category_hierarchy(
     $categories,
@@ -3823,34 +3760,36 @@ function dapfforwc_render_category_hierarchy(
     $use_anchor,
     $use_filters_word,
     $hierarchical,
-    $child_category
+    $child_category,
+    $children_index = null,
+    $depth = 0
 ) {
+    if (!is_array($children_index)) {
+        $children_index = dapfforwc_index_child_categories($child_category);
+    }
     $categoryHierarchyOutput = "";
     foreach ($categories as $category) {
-        if (is_object($category)) {
-            $term_id = (int) ($category->term_id ?? 0);
-            $value = esc_attr($category->slug);
-            $title = esc_html($category->name);
-        } elseif (is_array($category)) {
-            $term_id = (int) ($category['term_id'] ?? 0);
-            $value = esc_attr($category['slug']);
-            $title = esc_html($category['name']);
+        if (is_object($category) || is_array($category)) {
+            // Same field reads for object and array terms; missing fields fall back to empty values.
+            $term_id = (int) dapfforwc_get_term_item_field($category, 'term_id', 0);
+            $value = esc_attr((string) dapfforwc_get_term_item_field($category, 'slug', ''));
+            $title = esc_html((string) dapfforwc_get_term_item_field($category, 'name', ''));
         } else {
             // Handle cases where $category is neither an object nor an array
             $term_id = 0;
             $value = '';
             $title = '';
         }
-        $count = $show_count === 'yes' ? (is_object($category) ? $category->count : $category["count"]) : 0;
+        $count = $show_count === 'yes' ? (is_object($category) ? ($category->count ?? 0) : (is_array($category) ? ($category["count"] ?? 0) : 0)) : 0;
         $is_select_mode = ($sub_option === 'select' || str_contains($sub_option, 'pluginy_select2') || $sub_option === 'select2_classic');
         $checked = in_array($value, $selected_categories, true) ? ($is_select_mode ? ' selected' : ' checked') : '';
         $anchorlink = $use_filters_word === 'on' ? "filters/$value" : "?filters=$value";
         $style_value = function_exists('dapfforwc_get_term_style_storage_key') ? dapfforwc_get_term_style_storage_key($category) : $value;
 
         // Fetch child categories
-        $child_categories = dapfforwc_get_child_categories($child_category, $term_id);
+        $child_categories = isset($children_index[(int) $term_id]) ? $children_index[(int) $term_id] : [];
         $toggle_control = (!empty($child_categories) && $hierarchical === 'enable_hide_child' && !$is_select_mode)
-            ? '<span class="show-sub-cata" style="cursor:pointer;" role="button" tabindex="0" aria-expanded="false">+</span>'
+            ? '<span class="show-sub-cata" style="cursor:pointer;" role="button" tabindex="0" aria-expanded="false" aria-label="' . esc_attr(sprintf(/* translators: %s: parent term name. */ __('Show subcategories of %s', 'dynamic-ajax-product-filters-for-woocommerce'), wp_strip_all_tags(html_entity_decode((string) $title, ENT_QUOTES, 'UTF-8')))) . '">+</span>'
             : '';
         $node_open = !$is_select_mode ? '<div class="dapfforwcpro-hierarchy-node">' : '';
         $node_close = !$is_select_mode ? '</div>' : '';
@@ -3870,15 +3809,17 @@ function dapfforwc_render_category_hierarchy(
 
         // Render child categories
         if (!empty($child_categories)) {
-            $categoryHierarchyOutput .= $sub_option !== 'select' && !str_contains($sub_option, 'pluginy_select2') ? '<div class="child-categories" style="display:' . ($hierarchical === 'enable_hide_child' ? 'none;' : 'block;') . '">' : '';
-            if ($sub_option === 'select' || $sub_option === 'pluginy_select2' || $sub_option === 'select2_classic') {
+            $categoryHierarchyOutput .= !$is_select_mode ? '<div class="child-categories" style="display:' . ($hierarchical === 'enable_hide_child' ? 'none;' : 'block;') . '">' : '';
+            // <optgroup> cannot be nested: only top-level parents open a group, deeper levels stay inside it.
+            $open_optgroup = $is_select_mode && 0 === (int) $depth;
+            if ($open_optgroup) {
                 $categoryHierarchyOutput .= '<optgroup label="' . esc_attr($title) . '">';
             }
-            $categoryHierarchyOutput .= dapfforwc_render_category_hierarchy($child_categories, $selected_categories, $sub_option, $dapfforwc_styleoptions, $singlevaluecataSelect, $show_count, $use_anchor, $use_filters_word, $hierarchical, $child_category);
-            if ($sub_option === 'select' || $sub_option === 'pluginy_select2' || $sub_option === 'select2_classic') {
+            $categoryHierarchyOutput .= dapfforwc_render_category_hierarchy($child_categories, $selected_categories, $sub_option, $dapfforwc_styleoptions, $singlevaluecataSelect, $show_count, $use_anchor, $use_filters_word, $hierarchical, $child_category, $children_index, (int) $depth + 1);
+            if ($open_optgroup) {
                 $categoryHierarchyOutput .= '</optgroup>';
             }
-            $categoryHierarchyOutput .= $sub_option !== 'select' && !str_contains($sub_option, 'pluginy_select2') ? '</div>' : '';
+            $categoryHierarchyOutput .= !$is_select_mode ? '</div>' : '';
         }
         $categoryHierarchyOutput .= $node_close;
     }
@@ -3894,16 +3835,24 @@ function dapfforwc_product_filter_shortcode_single($atts)
             'name' => '', // Default attribute name
         ),
         $atts,
-        'get_terms_by_attribute'
+        'plugincy_filters_single'
     );
 
     // Check if the name is provided
     if (empty($atts['name'])) {
+        // Configuration hint for site managers only; visitors get nothing.
+        if (!current_user_can('manage_options')) {
+            return '';
+        }
         return '<p style="background:red;background: red;text-align: center;color: #fff;">' . esc_html__('Please provide an attribute slug.', 'dynamic-ajax-product-filters-for-woocommerce') . '</p>';
     }
 
     $all_data = dapfforwc_get_woocommerce_attributes_with_terms();
     $name = esc_attr($atts['name']);
+    // Attribute groups are keyed by slug without "pa_"; accept the taxonomy name too.
+    if (!isset($all_data['attributes'][$name]) && strpos($name, 'pa_') === 0 && isset($all_data['attributes'][substr($name, 3)])) {
+        $name = substr($name, 3);
+    }
     $terms = [];
 
     if (isset($all_data['categories']) && $name === 'product_cat') {
@@ -3935,14 +3884,18 @@ function dapfforwc_product_filter_shortcode_single($atts)
     }
 
     // Generate the output
-    $output = '<form class="rfilterbuttons" id="' . esc_attr($atts['name']) . '"><ul>';
+    // The id tells the script which main filter group these buttons mirror, so it uses the resolved name.
+    $output = '<form class="rfilterbuttons" id="' . esc_attr($name) . '"><ul>';
+    // Input ids are unique per shortcode instance, so two instances or attributes sharing a term slug (e.g. "red") do not collide.
+    $input_id_prefix = wp_unique_id('dapfforwc-single-' . sanitize_html_class($name) . '-');
     // Show all terms by default
     foreach ($terms as $term) {
         $term_id = esc_attr(isset($term['slug']) ? $term['slug'] : $term['term_id']);
         $term_name = esc_html($term['name']);
+        $input_id = esc_attr($input_id_prefix . '-' . sanitize_html_class((string) (isset($term['term_id']) ? $term['term_id'] : $term_id)));
         $output .= '<li>
-            <input id="term_' . $term_id . '" type="checkbox" value="' . $term_id . '">
-            <label for="term_' . $term_id . '">' . $term_name . '</label>
+            <input id="' . $input_id . '" type="checkbox" value="' . $term_id . '">
+            <label for="' . $input_id . '">' . $term_name . '</label>
         </li>';
     }
     $output .= '</ul></form>';
@@ -3961,6 +3914,30 @@ function dapfforwc_product_filter_shortcode_selected()
     return $output;
 }
 add_shortcode('plugincy_filters_selected', 'dapfforwc_product_filter_shortcode_selected');
+
+// Selected option slugs per option group, read from the form state built for the shortcode.
+function dapfforwc_get_selected_filter_option_slugs($form_state)
+{
+    $form_state = is_array($form_state) ? $form_state : array();
+    $selected = array(
+        'categories' => (array) ($form_state['product-category[]'] ?? array()),
+        'tags' => (array) ($form_state['tag[]'] ?? array()),
+        'brands' => (array) ($form_state['rplurand[]'] ?? array()),
+        'authors' => (array) ($form_state['rpluthor[]'] ?? array()),
+        'stock_status' => (array) ($form_state['rplutock_status[]'] ?? array()),
+        'sale_status' => (array) ($form_state['rpn_sale[]'] ?? array()),
+        'attributes' => array(),
+        'custom_fields' => array(),
+    );
+    $nested_groups = array('attribute' => 'attributes', 'custom_meta' => 'custom_fields');
+    foreach ($form_state as $field_name => $values) {
+        if (is_string($field_name) && preg_match('/^(attribute|custom_meta)\[(.+)\]\[\]$/', $field_name, $matches)) {
+            $selected[$nested_groups[$matches[1]]][$matches[2]] = (array) $values;
+        }
+    }
+
+    return $selected;
+}
 
 function dapfforwc_get_updated_filters($product_ids, $all_data = [], $context = [])
 {
@@ -3984,6 +3961,20 @@ function dapfforwc_get_updated_filters($product_ids, $all_data = [], $context = 
         return dapfforwc_get_lightweight_updated_filters($all_data);
     }
 
+    // Selected options stay listed (with count 0) when the current result has no product for them, so the
+    // visitor still sees them checked and can remove them instead of the selection being silently lost.
+    $selected = isset($context['selected']) && is_array($context['selected']) ? $context['selected'] : array();
+    $is_selected = static function ($group, $slug, $sub_group = null) use ($selected) {
+        $values = $sub_group === null ? ($selected[$group] ?? array()) : ($selected[$group][$sub_group] ?? array());
+        return is_array($values) && in_array((string) $slug, array_map('strval', $values), true);
+    };
+    $has_selected = false;
+    array_walk_recursive($selected, static function ($value) use (&$has_selected) {
+        if ((string) $value !== '') {
+            $has_selected = true;
+        }
+    });
+
     $ids_for_categories = $context['categories'] ?? $product_ids;
     $ids_for_tags       = $context['tags'] ?? $product_ids;
     $ids_for_brands     = $context['brands'] ?? $product_ids;
@@ -4004,7 +3995,7 @@ function dapfforwc_get_updated_filters($product_ids, $all_data = [], $context = 
     $stock_status = [];
     $sale_status = [];
 
-    if (!empty($product_ids)) {
+    if (!empty($product_ids) || $has_selected) {
         // Get attributes with terms
         if (empty($all_data)) {
             $all_data = dapfforwc_get_woocommerce_attributes_with_terms();
@@ -4014,7 +4005,7 @@ function dapfforwc_get_updated_filters($product_ids, $all_data = [], $context = 
         // Categories
         if (is_array($all_data['categories'] ?? []) || is_object($all_data['categories'] ?? [])) {
             foreach ($all_data['categories'] ?? [] as $term_id => $category) {
-                if (!empty(array_intersect($ids_for_categories, $category['products']))) {
+                if (!empty(array_intersect($ids_for_categories, $category['products'])) || $is_selected('categories', $category['slug'])) {
                     $categories[$term_id] = (object) [
                         'term_id' => $term_id,
                         'name'    => $category['name'],
@@ -4030,7 +4021,7 @@ function dapfforwc_get_updated_filters($product_ids, $all_data = [], $context = 
         // Tags
         if (is_array($all_data['tags'] ?? []) || is_object($all_data['tags'] ?? [])) {
             foreach ($all_data['tags'] ?? [] as $term_id => $tag) {
-                if (!empty(array_intersect($ids_for_tags, $tag['products']))) {
+                if (!empty(array_intersect($ids_for_tags, $tag['products'])) || $is_selected('tags', $tag['slug'])) {
                     $tags[$term_id] = (object) [
                         'term_id' => $term_id,
                         'name'    => $tag['name'],
@@ -4046,7 +4037,7 @@ function dapfforwc_get_updated_filters($product_ids, $all_data = [], $context = 
         // Brands
         if (is_array($all_data['brands'] ?? []) || is_object($all_data['brands'] ?? [])) {
             foreach ($all_data['brands'] ?? [] as $term_id => $brand) {
-                if (!empty(array_intersect($ids_for_brands, $brand['products']))) {
+                if (!empty(array_intersect($ids_for_brands, $brand['products'])) || $is_selected('brands', $brand['slug'])) {
                     $brands[$term_id] = (object) [
                         'term_id' => $term_id,
                         'name'    => $brand['name'],
@@ -4061,7 +4052,7 @@ function dapfforwc_get_updated_filters($product_ids, $all_data = [], $context = 
         // Authors
         if (is_array($all_data['authors'] ?? []) || is_object($all_data['authors'] ?? [])) {
             foreach ($all_data['authors'] ?? [] as $author_id => $author) {
-                if (!empty(array_intersect($ids_for_authors, $author['products']))) {
+                if (!empty(array_intersect($ids_for_authors, $author['products'])) || $is_selected('authors', $author['slug'])) {
                     $authors[$author_id] = (object) [
                         'term_id' => $author_id,
                         'name' => $author['name'],
@@ -4075,7 +4066,7 @@ function dapfforwc_get_updated_filters($product_ids, $all_data = [], $context = 
         // Stock Status
         if (is_array($all_data['stock_status'] ?? []) || is_object($all_data['stock_status'] ?? [])) {
             foreach ($all_data['stock_status'] ?? [] as $status_id => $status) {
-                if (!empty(array_intersect($ids_for_stock_status, $status['products']))) {
+                if (!empty(array_intersect($ids_for_stock_status, $status['products'])) || $is_selected('stock_status', $status['slug'])) {
                     $stock_status[$status_id] = (object) [
                         'term_id' => $status_id,
                         'name'    => $status['name'],
@@ -4090,7 +4081,7 @@ function dapfforwc_get_updated_filters($product_ids, $all_data = [], $context = 
         // Sale Status
         if (is_array($all_data['sale_status'] ?? []) || is_object($all_data['sale_status'] ?? [])) {
             foreach ($all_data['sale_status'] ?? [] as $status_id => $status) {
-                if (!empty(array_intersect($ids_for_sale_status, $status['products']))) {
+                if (!empty(array_intersect($ids_for_sale_status, $status['products'])) || $is_selected('sale_status', $status['slug'])) {
                     $sale_status[$status_id] = (object) [
                         'term_id' => $status_id,
                         'name'    => $status['name'],
@@ -4114,7 +4105,7 @@ function dapfforwc_get_updated_filters($product_ids, $all_data = [], $context = 
                 if (is_array($terms) || is_object($terms)) {
                     foreach ($terms as $term) {
                         // Check if the term's products match the provided product IDs
-                        if (!empty(array_intersect($pool, $term['products']))) {
+                        if (!empty(array_intersect($pool, $term['products'])) || $is_selected('attributes', $term['slug'], $attribute_name)) {
                             $attributes[$attribute_name][] = [
                                 'term_id' => $term['term_id'],
                                 'attribute_label' => $attribute_label,
@@ -4139,7 +4130,7 @@ function dapfforwc_get_updated_filters($product_ids, $all_data = [], $context = 
                 if (is_array($terms) || is_object($terms)) {
                     foreach ($terms as $term) {
                         // Check if the term's products match the provided product IDs
-                        if (!empty(array_intersect($pool, $term['products']))) {
+                        if (!empty(array_intersect($pool, $term['products'])) || $is_selected('custom_fields', $term['slug'], $field_name)) {
                             $custom_fields[$field_name][] = [
                                 'field_name' => $field_name,
                                 'field_label' => $field_label,
@@ -4193,6 +4184,35 @@ function dapfforwc_should_limit_filters_to_instock()
         && in_array($settings['remove_outofStock'], ['on', '1', 1, true], true);
 }
 
+/**
+ * Published products whose stock status is "onbackorder" (variable parents carry the synced status), keyed by ID.
+ *
+ * The filter data has only "instock" and "outofstock" buckets and backorder products sit in the "outofstock" one,
+ * but "Remove out of stock" keeps them in the listings, so the option pruning needs to know them.
+ */
+function dapfforwc_get_backorder_product_id_lookup()
+{
+    global $wpdb;
+    static $lookup = null;
+    static $lookup_version = null;
+
+    // Saving a product bumps the posts "last_changed" value, so long-running requests (background batches) re-read.
+    $version = wp_cache_get_last_changed('posts');
+    if ($lookup !== null && $lookup_version === $version) {
+        return $lookup;
+    }
+    $lookup_version = $version;
+
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Static read-only lookup, cached until products change.
+    $ids = $wpdb->get_col(
+        "SELECT p.ID FROM {$wpdb->posts} p
+        INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = '_stock_status'
+        WHERE p.post_type = 'product' AND p.post_status = 'publish' AND pm.meta_value = 'onbackorder'"
+    );
+
+    return $lookup = array_fill_keys(array_map('intval', (array) $ids), true);
+}
+
 function dapfforwc_get_instock_filter_product_id_lookup($data)
 {
     $lookup = [];
@@ -4201,15 +4221,25 @@ function dapfforwc_get_instock_filter_product_id_lookup($data)
         return $lookup;
     }
 
+    $backorder_ids = null;
     foreach ($data['stock_status'] as $status) {
         $slug = is_array($status) ? ($status['slug'] ?? '') : (is_object($status) ? ($status->slug ?? '') : '');
-        if ($slug !== 'instock') {
+        if ($slug !== 'instock' && $slug !== 'outofstock' && $slug !== 'onbackorder') {
             continue;
+        }
+
+        // Backorder products stay purchasable and stay in the listings, so they count as available.
+        if ($slug === 'outofstock' && $backorder_ids === null) {
+            $backorder_ids = dapfforwc_get_backorder_product_id_lookup();
         }
 
         $products = is_array($status) ? ($status['products'] ?? []) : (is_object($status) ? ($status->products ?? []) : []);
         foreach ((array) $products as $product_id) {
-            $lookup[(int) $product_id] = true;
+            $product_id = (int) $product_id;
+            if ($slug === 'outofstock' && !isset($backorder_ids[$product_id])) {
+                continue;
+            }
+            $lookup[$product_id] = true;
         }
     }
 
@@ -4266,6 +4296,20 @@ function dapfforwc_prune_filter_items_to_instock_products($items, $allowed_ids)
 function dapfforwc_filter_data_for_instock_only($data)
 {
     if (!dapfforwc_should_limit_filters_to_instock() || !is_array($data)) {
+        return $data;
+    }
+
+    // Database-safe data (large catalogues, or while the background cache builds) has counts but no product lists,
+    // so pruning by product would remove every option. The listing query still hides out-of-stock products;
+    // here only the "Out of Stock" choice is dropped.
+    if (function_exists('dapfforwc_filter_data_uses_database_mode') && dapfforwc_filter_data_uses_database_mode($data)) {
+        if (isset($data['stock_status']) && is_array($data['stock_status'])) {
+            $data['stock_status'] = array_values(array_filter($data['stock_status'], static function ($status) {
+                $slug = is_array($status) ? ($status['slug'] ?? '') : (is_object($status) ? ($status->slug ?? '') : '');
+                return $slug === 'instock';
+            }));
+        }
+
         return $data;
     }
 
@@ -4328,8 +4372,16 @@ function dapfforwc_filter_product_details_for_instock_only($data)
         return $data;
     }
 
-    $data['products'] = array_values(array_filter($data['products'], static function ($product) {
-        return is_array($product) && ($product['product_stock'] ?? 'instock') === 'instock';
+    // Only out-of-stock products are removed; backorder products stay, as in the listings. Variable products
+    // report "outofstock" when no variation is in stock, so their synced backorder status is checked too.
+    $backorder_ids = dapfforwc_get_backorder_product_id_lookup();
+    $data['products'] = array_values(array_filter($data['products'], static function ($product) use ($backorder_ids) {
+        if (!is_array($product)) {
+            return false;
+        }
+
+        return ($product['product_stock'] ?? 'instock') !== 'outofstock'
+            || isset($backorder_ids[(int) ($product['ID'] ?? 0)]);
     }));
 
     return $data;
@@ -4346,8 +4398,17 @@ function dapfforwc_normalize_decimal_string($value)
         return '';
     }
 
+    // Comma decimals ("1,5") are read as "1.5".
+    if (strpos($value, '.') === false && preg_match('/^-?\d*,\d+$/', $value)) {
+        $value = str_replace(',', '.', $value);
+    }
+
     if (strpos($value, '.') !== false) {
         $value = rtrim(rtrim($value, '0'), '.');
+        // ".0" or "0.00" is zero, not a missing value.
+        if ($value === '' || $value === '-') {
+            $value = '0';
+        }
     }
 
     return $value;
@@ -4562,7 +4623,7 @@ function dapfforwc_get_woocommerce_filter_data_for_database_mode($args = [])
         return $cached_result;
     }
 
-    $cache_key = 'dapfforwc_filter_options_light_cache_v1';
+    $cache_key = 'dapfforwc_filter_options_light_cache_v2';
     $cached = get_transient($cache_key);
     if (!$force && is_array($cached) && ($cached['_dapfforwc_enabled_signature'] ?? '') === $cache_signature) {
         $cached_signature = $cache_signature;
@@ -4686,13 +4747,13 @@ function dapfforwc_get_woocommerce_filter_data_for_database_mode($args = [])
     if ($enabled_filter_options['authors']) {
         $authors_results = $wpdb->get_results(
             "
-            SELECT p.post_author, u.display_name, u.user_login, COUNT(p.ID) AS product_count
+            SELECT p.post_author, u.display_name, u.user_nicename, COUNT(p.ID) AS product_count
             FROM {$wpdb->prefix}posts p
-            INNER JOIN {$wpdb->prefix}users u ON p.post_author = u.ID
+            INNER JOIN {$wpdb->users} u ON p.post_author = u.ID
             WHERE p.post_type = 'product'
               AND p.post_status = 'publish'
               AND p.post_author > 0
-            GROUP BY p.post_author, u.display_name, u.user_login
+            GROUP BY p.post_author, u.display_name, u.user_nicename
             ORDER BY u.display_name
             ",
             ARRAY_A
@@ -4702,7 +4763,7 @@ function dapfforwc_get_woocommerce_filter_data_for_database_mode($args = [])
             $author_id = (int) $row['post_author'];
             $data['authors'][$author_id] = [
                 'name' => $row['display_name'],
-                'slug' => $row['user_login'],
+                'slug' => $row['user_nicename'],
                 'products' => [],
                 'count' => (int) $row['product_count'],
             ];
@@ -4733,6 +4794,9 @@ function dapfforwc_get_woocommerce_filter_data_for_database_mode($args = [])
     }
 
     if ($enabled_filter_options['sale_status']) {
+        // Scheduled sales count only inside their date window; variations use their own dates.
+        $variation_sale_window_sql = dapfforwc_get_active_sale_window_sql('v_sale_from', 'v_sale_to');
+        $parent_sale_window_sql = dapfforwc_get_active_sale_window_sql('p_sale_from', 'p_sale_to');
         $sale_counts = $wpdb->get_row(
             "
             SELECT
@@ -4740,12 +4804,15 @@ function dapfforwc_get_woocommerce_filter_data_for_database_mode($args = [])
                     (p_sale.meta_value IS NOT NULL AND p_sale.meta_value != '' AND p_sale.meta_value != '0'
                         AND p_regular.meta_value IS NOT NULL AND p_regular.meta_value != ''
                         AND CAST(p_sale.meta_value AS DECIMAL(20,6)) > 0
-                        AND CAST(p_sale.meta_value AS DECIMAL(20,6)) < CAST(p_regular.meta_value AS DECIMAL(20,6)))
+                        AND CAST(p_sale.meta_value AS DECIMAL(20,6)) < CAST(p_regular.meta_value AS DECIMAL(20,6))
+                        AND {$parent_sale_window_sql})
                     OR EXISTS (
                         SELECT 1
                         FROM {$wpdb->prefix}posts v
                         INNER JOIN {$wpdb->prefix}postmeta v_sale ON v.ID = v_sale.post_id AND v_sale.meta_key = '_sale_price'
                         INNER JOIN {$wpdb->prefix}postmeta v_regular ON v.ID = v_regular.post_id AND v_regular.meta_key = '_regular_price'
+                        LEFT JOIN {$wpdb->prefix}postmeta v_sale_from ON v.ID = v_sale_from.post_id AND v_sale_from.meta_key = '_sale_price_dates_from'
+                        LEFT JOIN {$wpdb->prefix}postmeta v_sale_to ON v.ID = v_sale_to.post_id AND v_sale_to.meta_key = '_sale_price_dates_to'
                         WHERE v.post_parent = p.ID
                           AND v.post_type = 'product_variation'
                           AND v.post_status = 'publish'
@@ -4756,18 +4823,22 @@ function dapfforwc_get_woocommerce_filter_data_for_database_mode($args = [])
                           AND v_regular.meta_value != ''
                           AND CAST(v_sale.meta_value AS DECIMAL(20,6)) > 0
                           AND CAST(v_sale.meta_value AS DECIMAL(20,6)) < CAST(v_regular.meta_value AS DECIMAL(20,6))
+                          AND {$variation_sale_window_sql}
                     )
                 ) THEN 1 ELSE 0 END) AS onsale_count,
                 SUM(CASE WHEN (
                     (p_sale.meta_value IS NOT NULL AND p_sale.meta_value != '' AND p_sale.meta_value != '0'
                         AND p_regular.meta_value IS NOT NULL AND p_regular.meta_value != ''
                         AND CAST(p_sale.meta_value AS DECIMAL(20,6)) > 0
-                        AND CAST(p_sale.meta_value AS DECIMAL(20,6)) < CAST(p_regular.meta_value AS DECIMAL(20,6)))
+                        AND CAST(p_sale.meta_value AS DECIMAL(20,6)) < CAST(p_regular.meta_value AS DECIMAL(20,6))
+                        AND {$parent_sale_window_sql})
                     OR EXISTS (
                         SELECT 1
                         FROM {$wpdb->prefix}posts v
                         INNER JOIN {$wpdb->prefix}postmeta v_sale ON v.ID = v_sale.post_id AND v_sale.meta_key = '_sale_price'
                         INNER JOIN {$wpdb->prefix}postmeta v_regular ON v.ID = v_regular.post_id AND v_regular.meta_key = '_regular_price'
+                        LEFT JOIN {$wpdb->prefix}postmeta v_sale_from ON v.ID = v_sale_from.post_id AND v_sale_from.meta_key = '_sale_price_dates_from'
+                        LEFT JOIN {$wpdb->prefix}postmeta v_sale_to ON v.ID = v_sale_to.post_id AND v_sale_to.meta_key = '_sale_price_dates_to'
                         WHERE v.post_parent = p.ID
                           AND v.post_type = 'product_variation'
                           AND v.post_status = 'publish'
@@ -4778,11 +4849,14 @@ function dapfforwc_get_woocommerce_filter_data_for_database_mode($args = [])
                           AND v_regular.meta_value != ''
                           AND CAST(v_sale.meta_value AS DECIMAL(20,6)) > 0
                           AND CAST(v_sale.meta_value AS DECIMAL(20,6)) < CAST(v_regular.meta_value AS DECIMAL(20,6))
+                          AND {$variation_sale_window_sql}
                     )
                 ) THEN 0 ELSE 1 END) AS notonsale_count
             FROM {$wpdb->prefix}posts p
             LEFT JOIN {$wpdb->prefix}postmeta p_sale ON p.ID = p_sale.post_id AND p_sale.meta_key = '_sale_price'
             LEFT JOIN {$wpdb->prefix}postmeta p_regular ON p.ID = p_regular.post_id AND p_regular.meta_key = '_regular_price'
+            LEFT JOIN {$wpdb->prefix}postmeta p_sale_from ON p.ID = p_sale_from.post_id AND p_sale_from.meta_key = '_sale_price_dates_from'
+            LEFT JOIN {$wpdb->prefix}postmeta p_sale_to ON p.ID = p_sale_to.post_id AND p_sale_to.meta_key = '_sale_price_dates_to'
             WHERE p.post_type = 'product'
               AND p.post_status = 'publish'
             ",
@@ -4913,8 +4987,10 @@ function dapfforwc_get_database_mode_min_max_price()
         ARRAY_A
     );
 
-    $min = isset($bounds['min_price']) && is_numeric($bounds['min_price']) ? floor((float) $bounds['min_price']) : null;
-    $max = isset($bounds['max_price']) && is_numeric($bounds['max_price']) ? ceil((float) $bounds['max_price']) : null;
+    // The slider shows the shopper's currency (currency switchers).
+    $currency_rate = dapfforwc_get_price_filter_currency_rate();
+    $min = isset($bounds['min_price']) && is_numeric($bounds['min_price']) ? floor((float) $bounds['min_price'] * $currency_rate) : null;
+    $max = isset($bounds['max_price']) && is_numeric($bounds['max_price']) ? ceil((float) $bounds['max_price'] * $currency_rate) : null;
 
     // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
     return ['min' => $min, 'max' => $max];
@@ -5064,7 +5140,7 @@ function dapfforwc_get_woocommerce_attributes_with_terms($args = [])
         );
     }
 
-    $cache_key = 'dapfforwc_attributes_cache_v2';
+    $cache_key = DAPFFORWC_FILTER_CACHE_DATA_KEY;
     $cached = get_transient($cache_key);
     if (!$manual_build && $cached !== false && is_array($cached)) {
         return $cached_result = dapfforwc_apply_attributes_with_terms_filters($cached);
@@ -5184,6 +5260,9 @@ function dapfforwc_get_woocommerce_attributes_with_terms($args = [])
     // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query is prepared above with fixed taxonomy placeholders.
     $results = $wpdb->get_results($query, ARRAY_A);
 
+    // isset() maps instead of in_array() on the growing product lists: de-duplication stays linear on large catalogs.
+    $seen_products = array();
+
     if (!empty($results)) {
         foreach ($results as $row) {
             $term_id = $row['term_id'];
@@ -5199,7 +5278,8 @@ function dapfforwc_get_woocommerce_attributes_with_terms($args = [])
                     'products' => []
                 ];
 
-                if ($row['object_id'] && !in_array($row['object_id'], $data['categories'][$term_id]['products'])) {
+                if ($row['object_id'] && !isset($seen_products['categories'][$term_id][$row['object_id']])) {
+                    $seen_products['categories'][$term_id][$row['object_id']] = true;
                     $data['categories'][$term_id]['products'][] = $row['object_id'];
                 }
             } elseif ($taxonomy === 'product_tag') {
@@ -5211,7 +5291,8 @@ function dapfforwc_get_woocommerce_attributes_with_terms($args = [])
                     'products' => []
                 ];
 
-                if ($row['object_id'] && !in_array($row['object_id'], $data['tags'][$term_id]['products'])) {
+                if ($row['object_id'] && !isset($seen_products['tags'][$term_id][$row['object_id']])) {
+                    $seen_products['tags'][$term_id][$row['object_id']] = true;
                     $data['tags'][$term_id]['products'][] = $row['object_id'];
                 }
             } elseif ($taxonomy === 'product_brand') {
@@ -5223,7 +5304,8 @@ function dapfforwc_get_woocommerce_attributes_with_terms($args = [])
                     'products' => []
                 ];
 
-                if ($row['object_id'] && !in_array($row['object_id'], $data['brands'][$term_id]['products'])) {
+                if ($row['object_id'] && !isset($seen_products['brands'][$term_id][$row['object_id']])) {
+                    $seen_products['brands'][$term_id][$row['object_id']] = true;
                     $data['brands'][$term_id]['products'][] = $row['object_id'];
                 }
             } elseif (!empty($row['attribute_name'])) {
@@ -5242,7 +5324,8 @@ function dapfforwc_get_woocommerce_attributes_with_terms($args = [])
                     'products' => []
                 ];
 
-                if ($row['object_id'] && !in_array($row['object_id'], $data['attributes'][$attr_name]['terms'][$term_id]['products'])) {
+                if ($row['object_id'] && !isset($seen_products['attributes'][$attr_name][$term_id][$row['object_id']])) {
+                    $seen_products['attributes'][$attr_name][$term_id][$row['object_id']] = true;
                     $data['attributes'][$attr_name]['terms'][$term_id]['products'][] = $row['object_id'];
                 }
             }
@@ -5359,9 +5442,9 @@ function dapfforwc_get_woocommerce_attributes_with_terms($args = [])
 
     // Separate query for authors (post_author)
     $authors_query = "
-        SELECT p.post_author, u.display_name, u.user_login, p.ID as product_id
+        SELECT p.post_author, u.display_name, u.user_nicename, p.ID as product_id
         FROM {$wpdb->prefix}posts p
-        INNER JOIN {$wpdb->prefix}users u ON p.post_author = u.ID
+        INNER JOIN {$wpdb->users} u ON p.post_author = u.ID
         WHERE p.post_type = 'product' 
         AND p.post_status = 'publish'
         AND p.post_author > 0
@@ -5378,78 +5461,29 @@ function dapfforwc_get_woocommerce_attributes_with_terms($args = [])
 
             $data['authors'][$author_id] = $data['authors'][$author_id] ?? [
                 'name' => $row['display_name'],
-                'slug' => $row['user_login'],
+                'slug' => $row['user_nicename'],
                 'products' => []
             ];
 
-            if (!in_array($product_id, $data['authors'][$author_id]['products'])) {
+            if (!isset($seen_products['authors'][$author_id][$product_id])) {
+                $seen_products['authors'][$author_id][$product_id] = true;
                 $data['authors'][$author_id]['products'][] = $product_id;
             }
         }
     }
 
     // Improved Query for Stock Status and Sale Status (handling variable products correctly)
+    list($dapfforwc_product_type_join_sql, $dapfforwc_actual_product_type_sql) = dapfforwc_get_product_type_sql_parts();
     $stock_sale_query = "
         SELECT DISTINCT 
             p.ID as product_id,
             p.post_title,
             -- Get actual product type
-            COALESCE(p_type.meta_value, 
-                CASE WHEN EXISTS (
-                    SELECT 1 FROM {$wpdb->prefix}posts v 
-                    WHERE v.post_parent = p.ID AND v.post_type = 'product_variation' AND v.post_status = 'publish'
-                ) THEN 'variable' ELSE 'simple' END
-            ) as actual_product_type,
+            {$dapfforwc_actual_product_type_sql} as actual_product_type,
             p_stock.meta_value as parent_stock_status,
-            p_sale.meta_value as parent_sale_price,  
-            p_regular.meta_value as parent_regular_price,
-            -- Check if any variation has sale price for variable products
-            CASE 
-                WHEN COALESCE(p_type.meta_value, 
-                    CASE WHEN EXISTS (
-                        SELECT 1 FROM {$wpdb->prefix}posts v 
-                        WHERE v.post_parent = p.ID AND v.post_type = 'product_variation' AND v.post_status = 'publish'
-                    ) THEN 'variable' ELSE 'simple' END
-                ) = 'variable' THEN
-                    CASE 
-                        WHEN EXISTS (
-                            SELECT 1 FROM {$wpdb->prefix}posts v
-                            INNER JOIN {$wpdb->prefix}postmeta v_sale ON v.ID = v_sale.post_id AND v_sale.meta_key = '_sale_price'
-                            INNER JOIN {$wpdb->prefix}postmeta v_regular ON v.ID = v_regular.post_id AND v_regular.meta_key = '_regular_price'
-                            WHERE v.post_parent = p.ID 
-                            AND v.post_type = 'product_variation' 
-                            AND v.post_status = 'publish'
-                            AND v_sale.meta_value IS NOT NULL 
-                            AND v_sale.meta_value != ''
-                            AND v_sale.meta_value != '0'
-                            AND CAST(v_sale.meta_value AS DECIMAL(10,2)) > 0
-                            AND v_regular.meta_value IS NOT NULL
-                            AND v_regular.meta_value != ''
-                            AND CAST(v_sale.meta_value AS DECIMAL(10,2)) < CAST(v_regular.meta_value AS DECIMAL(10,2))
-                        ) THEN 1
-                        ELSE 0
-                    END
-                ELSE
-                    CASE 
-                        WHEN p_sale.meta_value IS NOT NULL 
-                            AND p_sale.meta_value != '' 
-                            AND p_sale.meta_value != '0'
-                            AND CAST(p_sale.meta_value AS DECIMAL(10,2)) > 0
-                            AND p_regular.meta_value IS NOT NULL
-                            AND p_regular.meta_value != ''
-                            AND CAST(p_sale.meta_value AS DECIMAL(10,2)) < CAST(p_regular.meta_value AS DECIMAL(10,2))
-                        THEN 1
-                        ELSE 0
-                    END
-            END as is_on_sale,
             -- Check stock status for variable products
             CASE 
-                WHEN COALESCE(p_type.meta_value, 
-                    CASE WHEN EXISTS (
-                        SELECT 1 FROM {$wpdb->prefix}posts v 
-                        WHERE v.post_parent = p.ID AND v.post_type = 'product_variation' AND v.post_status = 'publish'
-                    ) THEN 'variable' ELSE 'simple' END
-                ) = 'variable' THEN
+                WHEN {$dapfforwc_actual_product_type_sql} = 'variable' THEN
                     CASE 
                         WHEN EXISTS (
                             SELECT 1 FROM {$wpdb->prefix}posts v
@@ -5465,9 +5499,7 @@ function dapfforwc_get_woocommerce_attributes_with_terms($args = [])
             END as final_stock_status
         FROM {$wpdb->prefix}posts p
         LEFT JOIN {$wpdb->prefix}postmeta p_stock ON p.ID = p_stock.post_id AND p_stock.meta_key = '_stock_status'
-        LEFT JOIN {$wpdb->prefix}postmeta p_sale ON p.ID = p_sale.post_id AND p_sale.meta_key = '_sale_price'
-        LEFT JOIN {$wpdb->prefix}postmeta p_regular ON p.ID = p_regular.post_id AND p_regular.meta_key = '_regular_price'
-        LEFT JOIN {$wpdb->prefix}postmeta p_type ON p.ID = p_type.post_id AND p_type.meta_key = '_product_type'
+        {$dapfforwc_product_type_join_sql}
         WHERE p.post_type = 'product' 
         AND p.post_status = 'publish'
     ";
@@ -5488,13 +5520,17 @@ function dapfforwc_get_woocommerce_attributes_with_terms($args = [])
         1 => ['name' => ($dapfforwc_styleoptions["sale_status_text"]["notonsale"] ?? 'Not on Sale'), 'slug' => 'notonsale', 'products' => []]
     ];
 
+    // On-sale state comes from WooCommerce's lookup (scheduled sales, variations), the same source the on-sale
+    // filter uses, so option counts and filter results agree.
+    $on_sale_lookup = !empty($stock_sale_results) && function_exists('dapfforwc_get_on_sale_product_ids') ? array_fill_keys(dapfforwc_get_on_sale_product_ids(), true) : [];
+
     if (!empty($stock_sale_results)) {
         foreach ($stock_sale_results as $row) {
             $product_id = $row['product_id'];
             $product_title = $row['post_title'];
             $actual_type = $row['actual_product_type'];
             $stock_status = $row['final_stock_status'];
-            $is_on_sale = intval($row['is_on_sale']);
+            $is_on_sale = isset($on_sale_lookup[(int) $product_id]) ? 1 : 0;
 
             // Determine stock status
             if ($stock_status === 'instock') {
@@ -5556,11 +5592,14 @@ function dapfforwc_get_woocommerce_attributes_with_terms($args = [])
             ];
 
             // Add product to this custom field term if not already present
-            if (!in_array($product_id, $data['custom_fields'][$meta_key]['terms'][$value_slug]['products'])) {
+            if (!isset($seen_products['custom_fields'][$meta_key][$value_slug][$product_id])) {
+                $seen_products['custom_fields'][$meta_key][$value_slug][$product_id] = true;
                 $data['custom_fields'][$meta_key]['terms'][$value_slug]['products'][] = $product_id;
             }
         }
     }
+
+    unset($seen_products);
 
     // Convert associative term arrays to indexed arrays
     foreach ($data['attributes'] as $key => $attr) {
@@ -5747,9 +5786,9 @@ function dapfforwc_build_woocommerce_attributes_with_terms_batched()
 
         $authors_query = $wpdb->prepare(
             "
-            SELECT p.post_author, u.display_name, u.user_login, p.ID as product_id
+            SELECT p.post_author, u.display_name, u.user_nicename, p.ID as product_id
             FROM {$wpdb->prefix}posts p
-            INNER JOIN {$wpdb->prefix}users u ON p.post_author = u.ID
+            INNER JOIN {$wpdb->users} u ON p.post_author = u.ID
             WHERE p.ID IN ($placeholders)
               AND p.post_author > 0
             ORDER BY u.display_name
@@ -5766,7 +5805,7 @@ function dapfforwc_build_woocommerce_attributes_with_terms_batched()
 
             $data['authors'][$author_id] = $data['authors'][$author_id] ?? [
                 'name' => $row['display_name'],
-                'slug' => $row['user_login'],
+                'slug' => $row['user_nicename'],
                 'products' => [],
             ];
 
@@ -5775,61 +5814,14 @@ function dapfforwc_build_woocommerce_attributes_with_terms_batched()
             }
         }
 
+        list($dapfforwc_product_type_join_sql, $dapfforwc_actual_product_type_sql) = dapfforwc_get_product_type_sql_parts();
         $stock_sale_query = $wpdb->prepare(
             "
             SELECT DISTINCT
                 p.ID as product_id,
-                COALESCE(p_type.meta_value,
-                    CASE WHEN EXISTS (
-                        SELECT 1 FROM {$wpdb->prefix}posts v
-                        WHERE v.post_parent = p.ID AND v.post_type = 'product_variation' AND v.post_status = 'publish'
-                    ) THEN 'variable' ELSE 'simple' END
-                ) as actual_product_type,
+                {$dapfforwc_actual_product_type_sql} as actual_product_type,
                 CASE
-                    WHEN COALESCE(p_type.meta_value,
-                        CASE WHEN EXISTS (
-                            SELECT 1 FROM {$wpdb->prefix}posts v
-                            WHERE v.post_parent = p.ID AND v.post_type = 'product_variation' AND v.post_status = 'publish'
-                        ) THEN 'variable' ELSE 'simple' END
-                    ) = 'variable' THEN
-                        CASE
-                            WHEN EXISTS (
-                                SELECT 1 FROM {$wpdb->prefix}posts v
-                                INNER JOIN {$wpdb->prefix}postmeta v_sale ON v.ID = v_sale.post_id AND v_sale.meta_key = '_sale_price'
-                                INNER JOIN {$wpdb->prefix}postmeta v_regular ON v.ID = v_regular.post_id AND v_regular.meta_key = '_regular_price'
-                                WHERE v.post_parent = p.ID
-                                  AND v.post_type = 'product_variation'
-                                  AND v.post_status = 'publish'
-                                  AND v_sale.meta_value IS NOT NULL
-                                  AND v_sale.meta_value != ''
-                                  AND v_sale.meta_value != '0'
-                                  AND CAST(v_sale.meta_value AS DECIMAL(10,2)) > 0
-                                  AND v_regular.meta_value IS NOT NULL
-                                  AND v_regular.meta_value != ''
-                                  AND CAST(v_sale.meta_value AS DECIMAL(10,2)) < CAST(v_regular.meta_value AS DECIMAL(10,2))
-                            ) THEN 1
-                            ELSE 0
-                        END
-                    ELSE
-                        CASE
-                            WHEN p_sale.meta_value IS NOT NULL
-                              AND p_sale.meta_value != ''
-                              AND p_sale.meta_value != '0'
-                              AND CAST(p_sale.meta_value AS DECIMAL(10,2)) > 0
-                              AND p_regular.meta_value IS NOT NULL
-                              AND p_regular.meta_value != ''
-                              AND CAST(p_sale.meta_value AS DECIMAL(10,2)) < CAST(p_regular.meta_value AS DECIMAL(10,2))
-                            THEN 1
-                            ELSE 0
-                        END
-                END as is_on_sale,
-                CASE
-                    WHEN COALESCE(p_type.meta_value,
-                        CASE WHEN EXISTS (
-                            SELECT 1 FROM {$wpdb->prefix}posts v
-                            WHERE v.post_parent = p.ID AND v.post_type = 'product_variation' AND v.post_status = 'publish'
-                        ) THEN 'variable' ELSE 'simple' END
-                    ) = 'variable' THEN
+                    WHEN {$dapfforwc_actual_product_type_sql} = 'variable' THEN
                         CASE
                             WHEN EXISTS (
                                 SELECT 1 FROM {$wpdb->prefix}posts v
@@ -5845,9 +5837,7 @@ function dapfforwc_build_woocommerce_attributes_with_terms_batched()
                 END as final_stock_status
             FROM {$wpdb->prefix}posts p
             LEFT JOIN {$wpdb->prefix}postmeta p_stock ON p.ID = p_stock.post_id AND p_stock.meta_key = '_stock_status'
-            LEFT JOIN {$wpdb->prefix}postmeta p_sale ON p.ID = p_sale.post_id AND p_sale.meta_key = '_sale_price'
-            LEFT JOIN {$wpdb->prefix}postmeta p_regular ON p.ID = p_regular.post_id AND p_regular.meta_key = '_regular_price'
-            LEFT JOIN {$wpdb->prefix}postmeta p_type ON p.ID = p_type.post_id AND p_type.meta_key = '_product_type'
+            {$dapfforwc_product_type_join_sql}
             WHERE p.ID IN ($placeholders)
             ",
             $product_ids
@@ -5855,6 +5845,10 @@ function dapfforwc_build_woocommerce_attributes_with_terms_batched()
 
         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query is prepared above with sanitized product ID placeholders.
         $stock_sale_results = $wpdb->get_results($stock_sale_query, ARRAY_A);
+
+        // On-sale state comes from WooCommerce's lookup (scheduled sales, variations), the same source the on-sale
+        // filter uses, so option counts and filter results agree.
+        $on_sale_lookup = !empty($stock_sale_results) && function_exists('dapfforwc_get_on_sale_product_ids') ? array_fill_keys(dapfforwc_get_on_sale_product_ids(), true) : [];
 
         foreach ($stock_sale_results as $row) {
             $product_id = (int) $row['product_id'];
@@ -5869,7 +5863,7 @@ function dapfforwc_build_woocommerce_attributes_with_terms_batched()
                 $data['stock_status'][1]['products'][$product_id] = $product_id;
             }
 
-            if ((int) $row['is_on_sale'] === 1) {
+            if (isset($on_sale_lookup[$product_id])) {
                 $data['sale_status'][0]['products'][$product_id] = $product_id;
             } else {
                 $data['sale_status'][1]['products'][$product_id] = $product_id;
@@ -6240,9 +6234,9 @@ function dapfforwc_merge_filter_cache_product_batch(&$data, $product_ids)
 
     $authors_query = $wpdb->prepare(
         "
-        SELECT p.post_author, u.display_name, u.user_login, p.ID as product_id
+        SELECT p.post_author, u.display_name, u.user_nicename, p.ID as product_id
         FROM {$wpdb->prefix}posts p
-        INNER JOIN {$wpdb->prefix}users u ON p.post_author = u.ID
+        INNER JOIN {$wpdb->users} u ON p.post_author = u.ID
         WHERE p.ID IN ($placeholders)
           AND p.post_author > 0
         ORDER BY u.display_name
@@ -6259,7 +6253,7 @@ function dapfforwc_merge_filter_cache_product_batch(&$data, $product_ids)
 
         $data['authors'][$author_id] = $data['authors'][$author_id] ?? [
             'name' => $row['display_name'],
-            'slug' => $row['user_login'],
+            'slug' => $row['user_nicename'],
             'products' => [],
         ];
 
@@ -6268,61 +6262,14 @@ function dapfforwc_merge_filter_cache_product_batch(&$data, $product_ids)
         }
     }
 
+    list($dapfforwc_product_type_join_sql, $dapfforwc_actual_product_type_sql) = dapfforwc_get_product_type_sql_parts();
     $stock_sale_query = $wpdb->prepare(
         "
         SELECT DISTINCT
             p.ID as product_id,
-            COALESCE(p_type.meta_value,
-                CASE WHEN EXISTS (
-                    SELECT 1 FROM {$wpdb->prefix}posts v
-                    WHERE v.post_parent = p.ID AND v.post_type = 'product_variation' AND v.post_status = 'publish'
-                ) THEN 'variable' ELSE 'simple' END
-            ) as actual_product_type,
+            {$dapfforwc_actual_product_type_sql} as actual_product_type,
             CASE
-                WHEN COALESCE(p_type.meta_value,
-                    CASE WHEN EXISTS (
-                        SELECT 1 FROM {$wpdb->prefix}posts v
-                        WHERE v.post_parent = p.ID AND v.post_type = 'product_variation' AND v.post_status = 'publish'
-                    ) THEN 'variable' ELSE 'simple' END
-                ) = 'variable' THEN
-                    CASE
-                        WHEN EXISTS (
-                            SELECT 1 FROM {$wpdb->prefix}posts v
-                            INNER JOIN {$wpdb->prefix}postmeta v_sale ON v.ID = v_sale.post_id AND v_sale.meta_key = '_sale_price'
-                            INNER JOIN {$wpdb->prefix}postmeta v_regular ON v.ID = v_regular.post_id AND v_regular.meta_key = '_regular_price'
-                            WHERE v.post_parent = p.ID
-                              AND v.post_type = 'product_variation'
-                              AND v.post_status = 'publish'
-                              AND v_sale.meta_value IS NOT NULL
-                              AND v_sale.meta_value != ''
-                              AND v_sale.meta_value != '0'
-                              AND CAST(v_sale.meta_value AS DECIMAL(10,2)) > 0
-                              AND v_regular.meta_value IS NOT NULL
-                              AND v_regular.meta_value != ''
-                              AND CAST(v_sale.meta_value AS DECIMAL(10,2)) < CAST(v_regular.meta_value AS DECIMAL(10,2))
-                        ) THEN 1
-                        ELSE 0
-                    END
-                ELSE
-                    CASE
-                        WHEN p_sale.meta_value IS NOT NULL
-                          AND p_sale.meta_value != ''
-                          AND p_sale.meta_value != '0'
-                          AND CAST(p_sale.meta_value AS DECIMAL(10,2)) > 0
-                          AND p_regular.meta_value IS NOT NULL
-                          AND p_regular.meta_value != ''
-                          AND CAST(p_sale.meta_value AS DECIMAL(10,2)) < CAST(p_regular.meta_value AS DECIMAL(10,2))
-                        THEN 1
-                        ELSE 0
-                    END
-            END as is_on_sale,
-            CASE
-                WHEN COALESCE(p_type.meta_value,
-                    CASE WHEN EXISTS (
-                        SELECT 1 FROM {$wpdb->prefix}posts v
-                        WHERE v.post_parent = p.ID AND v.post_type = 'product_variation' AND v.post_status = 'publish'
-                    ) THEN 'variable' ELSE 'simple' END
-                ) = 'variable' THEN
+                WHEN {$dapfforwc_actual_product_type_sql} = 'variable' THEN
                     CASE
                         WHEN EXISTS (
                             SELECT 1 FROM {$wpdb->prefix}posts v
@@ -6338,9 +6285,7 @@ function dapfforwc_merge_filter_cache_product_batch(&$data, $product_ids)
             END as final_stock_status
         FROM {$wpdb->prefix}posts p
         LEFT JOIN {$wpdb->prefix}postmeta p_stock ON p.ID = p_stock.post_id AND p_stock.meta_key = '_stock_status'
-        LEFT JOIN {$wpdb->prefix}postmeta p_sale ON p.ID = p_sale.post_id AND p_sale.meta_key = '_sale_price'
-        LEFT JOIN {$wpdb->prefix}postmeta p_regular ON p.ID = p_regular.post_id AND p_regular.meta_key = '_regular_price'
-        LEFT JOIN {$wpdb->prefix}postmeta p_type ON p.ID = p_type.post_id AND p_type.meta_key = '_product_type'
+        {$dapfforwc_product_type_join_sql}
         WHERE p.ID IN ($placeholders)
         ",
         $product_ids
@@ -6348,6 +6293,10 @@ function dapfforwc_merge_filter_cache_product_batch(&$data, $product_ids)
 
     // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query is prepared above with sanitized product ID placeholders.
     $stock_sale_results = $wpdb->get_results($stock_sale_query, ARRAY_A);
+
+    // On-sale state comes from WooCommerce's lookup (scheduled sales, variations), the same source the on-sale
+    // filter uses, so option counts and filter results agree.
+    $on_sale_lookup = !empty($stock_sale_results) && function_exists('dapfforwc_get_on_sale_product_ids') ? array_fill_keys(dapfforwc_get_on_sale_product_ids(), true) : [];
 
     foreach ($stock_sale_results as $row) {
         $product_id = (int) $row['product_id'];
@@ -6362,7 +6311,7 @@ function dapfforwc_merge_filter_cache_product_batch(&$data, $product_ids)
             $data['stock_status'][1]['products'][$product_id] = $product_id;
         }
 
-        if ((int) $row['is_on_sale'] === 1) {
+        if (isset($on_sale_lookup[$product_id])) {
             $data['sale_status'][0]['products'][$product_id] = $product_id;
         } else {
             $data['sale_status'][1]['products'][$product_id] = $product_id;
@@ -6590,6 +6539,17 @@ function dapfforwc_process_filter_cache_batch($build_id = '')
         return;
     }
 
+    // A build queued by an older release collects data in another format: finishing it would mix both formats
+    // in the cache, so start one new build instead (its new build ID also ends the old queued batches).
+    if (!isset($state['cache_key']) || $state['cache_key'] !== DAPFFORWC_FILTER_CACHE_DATA_KEY) {
+        delete_option(DAPFFORWC_FILTER_CACHE_BUILD_DATA_OPTION);
+        delete_option('dapfforwc_filter_cache_build_lock');
+        if (function_exists('dapfforwc_schedule_filter_cache_rebuild')) {
+            dapfforwc_schedule_filter_cache_rebuild('cache_format_change', true);
+        }
+        return;
+    }
+
     if (function_exists('dapfforwc_use_large_catalog_database_mode') && dapfforwc_use_large_catalog_database_mode()) {
         delete_option(DAPFFORWC_FILTER_CACHE_BUILD_DATA_OPTION);
         delete_option('dapfforwc_filter_cache_build_lock');
@@ -6627,7 +6587,7 @@ function dapfforwc_process_filter_cache_batch($build_id = '')
             }
 
             $data = dapfforwc_finalize_filter_cache_data($data);
-            set_transient('dapfforwc_attributes_cache_v2', $data, 12 * HOUR_IN_SECONDS);
+            set_transient(DAPFFORWC_FILTER_CACHE_DATA_KEY, $data, 12 * HOUR_IN_SECONDS);
             delete_option(DAPFFORWC_FILTER_CACHE_BUILD_DATA_OPTION);
             delete_option('dapfforwc_filter_cache_build_lock');
 
@@ -6730,6 +6690,8 @@ function dapfforwc_build_woocommerce_product_details_data($last_id = 0, $limit =
                    MAX(CASE WHEN pm.meta_key = '_price' THEN pm.meta_value END) AS price,
                    MAX(CASE WHEN pm.meta_key = '_sale_price' THEN pm.meta_value END) AS sale_price,
                    MAX(CASE WHEN pm.meta_key = '_regular_price' THEN pm.meta_value END) AS regular_price,
+                   MAX(CASE WHEN pm.meta_key = '_sale_price_dates_from' THEN pm.meta_value END) AS sale_price_dates_from,
+                   MAX(CASE WHEN pm.meta_key = '_sale_price_dates_to' THEN pm.meta_value END) AS sale_price_dates_to,
                    MAX(CASE WHEN pm.meta_key = '_min_variation_price' THEN pm.meta_value END) AS min_variation_price,
                    MAX(CASE WHEN pm.meta_key = '_max_variation_price' THEN pm.meta_value END) AS max_variation_price,
                    MAX(CASE WHEN pm.meta_key = '_min_variation_regular_price' THEN pm.meta_value END) AS min_variation_regular_price,
@@ -6749,6 +6711,8 @@ function dapfforwc_build_woocommerce_product_details_data($last_id = 0, $limit =
                     '_price',
                     '_sale_price',
                     '_regular_price',
+                    '_sale_price_dates_from',
+                    '_sale_price_dates_to',
                     '_min_variation_price',
                     '_max_variation_price',
                     '_min_variation_regular_price',
@@ -6762,7 +6726,7 @@ function dapfforwc_build_woocommerce_product_details_data($last_id = 0, $limit =
                     '_weight',
                     '_thumbnail_id'
                 )
-            LEFT JOIN {$wpdb->prefix}users u ON p.post_author = u.ID
+            LEFT JOIN {$wpdb->users} u ON p.post_author = u.ID
             LEFT JOIN {$wpdb->prefix}term_relationships ptr ON ptr.object_id = p.ID
             LEFT JOIN {$wpdb->prefix}term_taxonomy ptt ON ptr.term_taxonomy_id = ptt.term_taxonomy_id AND ptt.taxonomy = 'product_type'
             LEFT JOIN {$wpdb->prefix}terms pt ON pt.term_id = ptt.term_id
@@ -6785,6 +6749,8 @@ function dapfforwc_build_woocommerce_product_details_data($last_id = 0, $limit =
                    MAX(CASE WHEN pm.meta_key = '_price' THEN pm.meta_value END) AS price,
                    MAX(CASE WHEN pm.meta_key = '_sale_price' THEN pm.meta_value END) AS sale_price,
                    MAX(CASE WHEN pm.meta_key = '_regular_price' THEN pm.meta_value END) AS regular_price,
+                   MAX(CASE WHEN pm.meta_key = '_sale_price_dates_from' THEN pm.meta_value END) AS sale_price_dates_from,
+                   MAX(CASE WHEN pm.meta_key = '_sale_price_dates_to' THEN pm.meta_value END) AS sale_price_dates_to,
                    MAX(CASE WHEN pm.meta_key = '_min_variation_price' THEN pm.meta_value END) AS min_variation_price,
                    MAX(CASE WHEN pm.meta_key = '_max_variation_price' THEN pm.meta_value END) AS max_variation_price,
                    MAX(CASE WHEN pm.meta_key = '_min_variation_regular_price' THEN pm.meta_value END) AS min_variation_regular_price,
@@ -6804,6 +6770,8 @@ function dapfforwc_build_woocommerce_product_details_data($last_id = 0, $limit =
                     '_price',
                     '_sale_price',
                     '_regular_price',
+                    '_sale_price_dates_from',
+                    '_sale_price_dates_to',
                     '_min_variation_price',
                     '_max_variation_price',
                     '_min_variation_regular_price',
@@ -6817,7 +6785,7 @@ function dapfforwc_build_woocommerce_product_details_data($last_id = 0, $limit =
                     '_weight',
                     '_thumbnail_id'
                 )
-            LEFT JOIN {$wpdb->prefix}users u ON p.post_author = u.ID
+            LEFT JOIN {$wpdb->users} u ON p.post_author = u.ID
             LEFT JOIN {$wpdb->prefix}term_relationships ptr ON ptr.object_id = p.ID
             LEFT JOIN {$wpdb->prefix}term_taxonomy ptt ON ptr.term_taxonomy_id = ptt.term_taxonomy_id AND ptt.taxonomy = 'product_type'
             LEFT JOIN {$wpdb->prefix}terms pt ON pt.term_id = ptt.term_id
@@ -6842,6 +6810,8 @@ function dapfforwc_build_woocommerce_product_details_data($last_id = 0, $limit =
     $placeholders = implode(',', array_fill(0, count($product_ids), '%d'));
 
     $variation_lookup = [];
+    // Scheduled variation sales count only inside their own date window.
+    $variation_sale_window_sql = dapfforwc_get_active_sale_window_sql('v_sale_from', 'v_sale_to');
     $variation_query = $wpdb->prepare(
         "
         SELECT v.post_parent AS product_id,
@@ -6850,7 +6820,8 @@ function dapfforwc_build_woocommerce_product_details_data($last_id = 0, $limit =
                MAX(CASE WHEN v_price.meta_value IS NOT NULL AND v_price.meta_value != '' AND CAST(v_price.meta_value AS DECIMAL(20,6)) > 0 THEN CAST(v_price.meta_value AS DECIMAL(20,6)) END) AS max_price,
                MIN(CASE WHEN v_regular.meta_value IS NOT NULL AND v_regular.meta_value != '' AND CAST(v_regular.meta_value AS DECIMAL(20,6)) > 0 THEN CAST(v_regular.meta_value AS DECIMAL(20,6)) END) AS min_regular_price,
                MIN(CASE
-                   WHEN v_sale.meta_value IS NOT NULL
+                   WHEN {$variation_sale_window_sql}
+                       AND v_sale.meta_value IS NOT NULL
                        AND v_sale.meta_value != ''
                        AND CAST(v_sale.meta_value AS DECIMAL(20,6)) > 0
                        AND v_regular.meta_value IS NOT NULL
@@ -6859,7 +6830,8 @@ function dapfforwc_build_woocommerce_product_details_data($last_id = 0, $limit =
                    THEN CAST(v_sale.meta_value AS DECIMAL(20,6))
                END) AS min_sale_price,
                MAX(CASE
-                   WHEN v_sale.meta_value IS NOT NULL
+                   WHEN {$variation_sale_window_sql}
+                       AND v_sale.meta_value IS NOT NULL
                        AND v_sale.meta_value != ''
                        AND CAST(v_sale.meta_value AS DECIMAL(20,6)) > 0
                        AND v_regular.meta_value IS NOT NULL
@@ -6869,7 +6841,8 @@ function dapfforwc_build_woocommerce_product_details_data($last_id = 0, $limit =
                    ELSE 0
                END) AS has_sale,
                MAX(CASE
-                   WHEN v_sale.meta_value IS NOT NULL
+                   WHEN {$variation_sale_window_sql}
+                       AND v_sale.meta_value IS NOT NULL
                        AND v_sale.meta_value != ''
                        AND v_regular.meta_value IS NOT NULL
                        AND v_regular.meta_value != ''
@@ -6884,6 +6857,8 @@ function dapfforwc_build_woocommerce_product_details_data($last_id = 0, $limit =
         LEFT JOIN {$wpdb->prefix}postmeta v_regular ON v.ID = v_regular.post_id AND v_regular.meta_key = '_regular_price'
         LEFT JOIN {$wpdb->prefix}postmeta v_sale ON v.ID = v_sale.post_id AND v_sale.meta_key = '_sale_price'
         LEFT JOIN {$wpdb->prefix}postmeta v_stock ON v.ID = v_stock.post_id AND v_stock.meta_key = '_stock_status'
+        LEFT JOIN {$wpdb->prefix}postmeta v_sale_from ON v.ID = v_sale_from.post_id AND v_sale_from.meta_key = '_sale_price_dates_from'
+        LEFT JOIN {$wpdb->prefix}postmeta v_sale_to ON v.ID = v_sale_to.post_id AND v_sale_to.meta_key = '_sale_price_dates_to'
         WHERE v.post_parent IN ($placeholders)
           AND v.post_type = 'product_variation'
           AND v.post_status = 'publish'
@@ -6947,67 +6922,8 @@ function dapfforwc_build_woocommerce_product_details_data($last_id = 0, $limit =
         $variation_dimension_lookup[$product_id] = array_values($dimension_rows);
     }
 
-    $category_lookup = [];
-    $brand_lookup = [];
-    $taxonomy_query = $wpdb->prepare(
-        "
-        SELECT tr.object_id AS product_id, tt.taxonomy, t.name, t.slug
-        FROM {$wpdb->prefix}term_relationships tr
-        INNER JOIN {$wpdb->prefix}term_taxonomy tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
-        INNER JOIN {$wpdb->prefix}terms t ON t.term_id = tt.term_id
-        WHERE tr.object_id IN ($placeholders)
-          AND tt.taxonomy IN ('product_cat', 'product_brand')
-        ORDER BY tr.object_id, tt.taxonomy, t.name
-        ",
-        $product_ids
-    );
-    // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query is prepared above with sanitized product ID placeholders.
-    $taxonomy_results = $wpdb->get_results($taxonomy_query, ARRAY_A);
-    foreach ($taxonomy_results as $taxonomy_row) {
-        $product_id = intval($taxonomy_row['product_id']);
-        $taxonomy = $taxonomy_row['taxonomy'];
-        if ($taxonomy === 'product_cat') {
-            $slug = rawurldecode($taxonomy_row['slug']);
-            $category_lookup[$product_id][$slug] = [
-                'name' => $taxonomy_row['name'],
-                'slug' => $slug,
-            ];
-        } elseif ($taxonomy === 'product_brand') {
-            $brand_lookup[$product_id][$taxonomy_row['name']] = $taxonomy_row['name'];
-        }
-    }
-
-    foreach ($category_lookup as $product_id => $categories) {
-        $category_lookup[$product_id] = array_values($categories);
-    }
-    foreach ($brand_lookup as $product_id => $brands) {
-        $brand_lookup[$product_id] = array_values($brands);
-    }
-
-    $custom_meta_lookup = [];
-    $custom_meta_query = $wpdb->prepare(
-        "
-        SELECT post_id, meta_key, meta_value
-        FROM {$wpdb->prefix}postmeta
-        WHERE post_id IN ($placeholders)
-          AND meta_key NOT LIKE %s
-          AND meta_key NOT IN ('_edit_lock', '_edit_last')
-          AND meta_value IS NOT NULL
-          AND meta_value != ''
-        ORDER BY post_id
-        ",
-        array_merge($product_ids, [$wpdb->esc_like('_') . '%'])
-    );
-    // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Query is prepared above with sanitized product IDs and internal meta-key LIKE pattern.
-    $custom_meta_results = $wpdb->get_results($custom_meta_query, ARRAY_A);
-    foreach ($custom_meta_results as $meta_row) {
-        $product_id = intval($meta_row['post_id']);
-        if (!isset($custom_meta_lookup[$product_id])) {
-            $custom_meta_lookup[$product_id] = [];
-        }
-
-        $custom_meta_lookup[$product_id][$meta_row['meta_key']] = $meta_row['meta_value'];
-    }
+    // Categories, brands and every non-underscore postmeta row per product were cached here but never read
+    // (filters read terms and custom fields elsewhere); the product type already comes from the main query.
 
     $thumbnail_ids = [];
     foreach ($results as $row) {
@@ -7067,7 +6983,11 @@ function dapfforwc_build_woocommerce_product_details_data($last_id = 0, $limit =
             }
             $max_price = $price;
 
-            $sale_active = $sale_price !== '' && $regular_price !== '' && floatval($sale_price) > 0 && floatval($sale_price) < floatval($regular_price);
+            // Scheduled sales count only inside their date window, like WC_Product::is_on_sale().
+            $sale_from = isset($row['sale_price_dates_from']) ? (int) $row['sale_price_dates_from'] : 0;
+            $sale_to = isset($row['sale_price_dates_to']) ? (int) $row['sale_price_dates_to'] : 0;
+            $sale_in_window = ($sale_from <= 0 || $sale_from <= time()) && ($sale_to <= 0 || $sale_to >= time());
+            $sale_active = $sale_in_window && $sale_price !== '' && $regular_price !== '' && floatval($sale_price) > 0 && floatval($sale_price) < floatval($regular_price);
             if ($sale_active) {
                 $discount_percentage = round(((floatval($regular_price) - floatval($sale_price)) / floatval($regular_price)) * 100, 2);
             }
@@ -7104,8 +7024,6 @@ function dapfforwc_build_woocommerce_product_details_data($last_id = 0, $limit =
             'product_sku' => $row['sku'] ?: '',
             'product_stock' => $stock_status,
             'product_type' => $product_type,
-            'product_category' => $category_lookup[$product_id] ?? [],
-            'product_brand' => !empty($brand_lookup[$product_id]) ? implode(', ', $brand_lookup[$product_id]) : '',
             'author' => $row['author_name'] ?: '',
             'author_id' => intval($row['post_author']),
             'length' => $row['length'] ?: '',
@@ -7113,7 +7031,6 @@ function dapfforwc_build_woocommerce_product_details_data($last_id = 0, $limit =
             'height' => $row['height'] ?: '',
             'weight' => $row['weight'] ?: '',
             'dimension_rows' => $dimension_rows,
-            'custom_meta' => $custom_meta_lookup[$product_id] ?? [],
             'thumbnail' => $thumbnail,
         ];
     }
@@ -7166,7 +7083,7 @@ function dapfforwc_process_product_details_cache_batch($build_id = '')
                 return;
             }
 
-            set_transient('dapfforwc_product_details_cache_v4', $data, 12 * HOUR_IN_SECONDS);
+            set_transient('dapfforwc_product_details_cache_f5', $data, 12 * HOUR_IN_SECONDS);
             delete_option(DAPFFORWC_PRODUCT_DETAILS_CACHE_BUILD_DATA_OPTION);
 
             $state['status'] = 'complete';
@@ -7262,7 +7179,7 @@ function dapfforwc_get_woocommerce_product_details($args = [])
         return $cached_result = dapfforwc_apply_product_details_filters(['products' => []]);
     }
 
-    $cache_key = 'dapfforwc_product_details_cache_v4';
+    $cache_key = 'dapfforwc_product_details_cache_f5';
     $cached = get_transient($cache_key);
     if (!$manual_build && $cached !== false && is_array($cached)) {
         return $cached_result = dapfforwc_apply_product_details_filters($cached);
@@ -7365,20 +7282,20 @@ add_action('updated_post_meta', function ($meta_id, $post_id, $meta_key, $meta_v
             '_product_attributes'
         ];
 
-        if (in_array($meta_key, $important_meta_keys) || strpos($meta_key, '_') === 0) {
+        if ((in_array($meta_key, $important_meta_keys) || strpos($meta_key, '_') === 0) && !dapfforwc_is_cache_neutral_meta_key($meta_key)) {
             dapfforwc_clear_woocommerce_caches();
         }
     }
 }, 10, 4);
 
 add_action('added_post_meta', function ($meta_id, $post_id, $meta_key, $meta_value) {
-    if (get_post_type($post_id) === 'product' || get_post_type($post_id) === 'product_variation') {
+    if (!dapfforwc_is_cache_neutral_meta_key($meta_key) && (get_post_type($post_id) === 'product' || get_post_type($post_id) === 'product_variation')) {
         dapfforwc_clear_woocommerce_caches();
     }
 }, 10, 4);
 
 add_action('deleted_post_meta', function ($meta_ids, $post_id, $meta_key, $meta_value) {
-    if (get_post_type($post_id) === 'product' || get_post_type($post_id) === 'product_variation') {
+    if (!dapfforwc_is_cache_neutral_meta_key($meta_key) && (get_post_type($post_id) === 'product' || get_post_type($post_id) === 'product_variation')) {
         dapfforwc_clear_woocommerce_caches();
     }
 }, 10, 4);
@@ -7450,7 +7367,8 @@ function dapfforwc_is_woocommerce_taxonomy($taxonomy)
 function dapfforwc_get_shortcode_attributes_from_page($content, $shortcode)
 {
     // Use regex to match the shortcode and capture its attributes
-    preg_match_all('/\[' . preg_quote($shortcode, '/') . '([^]]*)\]/', $content, $matches);
+    // The lookahead stops [products] from also matching [products_slider] or [product_categories].
+    preg_match_all('/\[' . preg_quote($shortcode, '/') . '(?=[\s\]\/])([^\]]*)\]/', $content, $matches);
 
     $attributes_list = [];
     foreach ($matches[1] as $shortcode_instance) {
@@ -7516,7 +7434,8 @@ if (!function_exists('dapfforwc_get_elementor_product_attributes')) {
             return [];
         }
 
-        $data = json_decode($elementor_data, true);
+        // Normally a JSON string; some plugins store it already decoded.
+        $data = is_array($elementor_data) ? $elementor_data : (is_string($elementor_data) ? json_decode($elementor_data, true) : null);
         if (!is_array($data)) {
             return [];
         }
@@ -7681,7 +7600,7 @@ if (!function_exists('dapfforwc_parse_elementor_elements')) {
                 if (!empty($attributes_data) && is_array($attributes_data)) {
                     foreach ($attributes_data as $attr_data) {
                         if (!empty($attr_data['taxonomy']) && !empty($attr_data['terms'])) {
-                            $taxonomy = str_replace('pa_', '', $attr_data['taxonomy']);
+                            $taxonomy = strpos((string) $attr_data['taxonomy'], 'pa_') === 0 ? substr((string) $attr_data['taxonomy'], 3) : (string) $attr_data['taxonomy'];
                             $terms = is_array($attr_data['terms']) ? $attr_data['terms'] : explode(',', $attr_data['terms']);
 
                             $term_slugs = [];
@@ -7768,7 +7687,7 @@ if (!function_exists('dapfforwc_get_wpbakery_product_attributes')) {
         ];
 
         foreach ($shortcodes as $shortcode) {
-            preg_match_all('/\[' . preg_quote($shortcode, '/') . '([^\]]*)\]/', $content, $matches);
+            preg_match_all('/\[' . preg_quote($shortcode, '/') . '(?=[\s\]\/])([^\]]*)\]/', $content, $matches);
 
             foreach ($matches[1] as $shortcode_attrs) {
                 $attrs = shortcode_parse_atts(trim($shortcode_attrs));
@@ -7836,6 +7755,96 @@ if (!function_exists('dapfforwc_get_gutenberg_product_attributes')) {
         }
 
         return $attributes;
+    }
+}
+
+if (!function_exists('dapfforwc_gutenberg_attribute_terms_to_shortcode_args')) {
+    /**
+     * taxonomy => term IDs (attribute taxonomies) to the shortcode's attribute/terms arguments. The [products]
+     * shortcode takes one attribute, so the first taxonomy with existing terms is used, with all its terms.
+     */
+    function dapfforwc_gutenberg_attribute_terms_to_shortcode_args(array $attribute_terms): array
+    {
+        foreach ($attribute_terms as $taxonomy => $term_ids) {
+            $taxonomy = sanitize_key((string) $taxonomy);
+            if (strpos($taxonomy, 'pa_') !== 0 || !taxonomy_exists($taxonomy)) {
+                continue;
+            }
+            $term_slugs = array();
+            foreach (array_unique(array_map('absint', (array) $term_ids)) as $term_id) {
+                $term = $term_id > 0 ? get_term($term_id, $taxonomy) : null;
+                if ($term && !is_wp_error($term)) {
+                    $term_slugs[] = $term->slug;
+                }
+            }
+            if (!empty($term_slugs)) {
+                return array('attribute' => substr($taxonomy, 3), 'terms' => implode(',', $term_slugs));
+            }
+        }
+
+        return array();
+    }
+}
+
+if (!function_exists('dapfforwc_parse_gutenberg_product_query_block')) {
+    /**
+     * Product Collection / All Products / core Query Loop (products) settings as shortcode-style arguments.
+     */
+    function dapfforwc_parse_gutenberg_product_query_block(array $block): array
+    {
+        $attrs = $block['attrs'] ?? array();
+        $query = isset($attrs['query']) && is_array($attrs['query']) ? $attrs['query'] : array();
+        $normalized = array();
+
+        if (!empty($attrs['columns'])) {
+            $normalized['columns'] = intval($attrs['columns']);
+        } elseif (!empty($attrs['displayLayout']['columns'])) {
+            $normalized['columns'] = intval($attrs['displayLayout']['columns']);
+        }
+        if (!empty($attrs['rows'])) {
+            $normalized['rows'] = intval($attrs['rows']);
+        }
+        if (!empty($query['perPage'])) {
+            $normalized['limit'] = $normalized['per_page'] = intval($query['perPage']);
+        }
+        if (!empty($query['orderBy'])) {
+            $normalized['orderby'] = sanitize_text_field((string) $query['orderBy']);
+        }
+        if (!empty($query['order'])) {
+            $normalized['order'] = sanitize_text_field((string) $query['order']);
+        }
+        if (!empty($query['woocommerceOnSale'])) {
+            $normalized['on_sale'] = 'true';
+        }
+
+        $tax_query = isset($query['taxQuery']) && is_array($query['taxQuery']) ? $query['taxQuery'] : array();
+        foreach (array('product_cat' => 'category', 'product_tag' => 'tag') as $taxonomy => $shortcode_key) {
+            if (empty($tax_query[$taxonomy])) {
+                continue;
+            }
+            $slugs = array();
+            foreach ((array) $tax_query[$taxonomy] as $term_id) {
+                $term = get_term(absint($term_id), $taxonomy);
+                if ($term && !is_wp_error($term)) {
+                    $slugs[] = $term->slug;
+                }
+            }
+            if (!empty($slugs)) {
+                $normalized[$shortcode_key] = implode(',', $slugs);
+            }
+        }
+
+        if (!empty($query['woocommerceAttributes']) && is_array($query['woocommerceAttributes'])) {
+            $attribute_terms = array();
+            foreach ($query['woocommerceAttributes'] as $attribute_item) {
+                if (is_array($attribute_item) && !empty($attribute_item['taxonomy']) && !empty($attribute_item['termId'])) {
+                    $attribute_terms[sanitize_key($attribute_item['taxonomy'])][] = absint($attribute_item['termId']);
+                }
+            }
+            $normalized = array_merge($normalized, dapfforwc_gutenberg_attribute_terms_to_shortcode_args($attribute_terms));
+        }
+
+        return !empty($normalized) ? array($normalized) : array();
     }
 }
 
@@ -7914,34 +7923,37 @@ if (!function_exists('dapfforwc_parse_gutenberg_block')) {
                 }
             }
 
-            // Attribute filters
-            if (!empty($attrs['attributes'])) {
-                $attr_data = $attrs['attributes'];
-                if (is_array($attr_data) && !empty($attr_data[0])) {
-                    $first_attr = $attr_data[0];
-                    if (!empty($first_attr['id']) && !empty($first_attr['terms'])) {
-                        $taxonomy = 'pa_' . $first_attr['id'];
-                        $term_ids = is_array($first_attr['terms']) ? $first_attr['terms'] : [$first_attr['terms']];
-
-                        $term_slugs = [];
-                        foreach ($term_ids as $term_id) {
-                            $term = get_term($term_id, $taxonomy);
-                            if ($term && !is_wp_error($term)) {
-                                $term_slugs[] = $term->slug;
-                            }
-                        }
-
-                        if (!empty($term_slugs)) {
-                            $normalized['attribute'] = $first_attr['id'];
-                            $normalized['terms'] = implode(',', $term_slugs);
+            // Attribute filters: products-by-attribute stores one entry per selected term
+            // ({id: term ID, attr_slug: "pa_color"}); older content used {id: attribute, terms: [...]}.
+            if (!empty($attrs['attributes']) && is_array($attrs['attributes'])) {
+                $attribute_terms = [];
+                foreach ($attrs['attributes'] as $attr_item) {
+                    if (!is_array($attr_item)) {
+                        continue;
+                    }
+                    if (!empty($attr_item['attr_slug']) && !empty($attr_item['id'])) {
+                        $attribute_terms[sanitize_key($attr_item['attr_slug'])][] = absint($attr_item['id']);
+                    } elseif (!empty($attr_item['id']) && !empty($attr_item['terms'])) {
+                        $legacy_taxonomy = 'pa_' . sanitize_key((string) $attr_item['id']);
+                        foreach ((array) $attr_item['terms'] as $legacy_term_id) {
+                            $attribute_terms[$legacy_taxonomy][] = absint($legacy_term_id);
                         }
                     }
                 }
+                $normalized = array_merge($normalized, dapfforwc_gutenberg_attribute_terms_to_shortcode_args($attribute_terms));
             }
 
             if (!empty($normalized)) {
                 $attributes[] = $normalized;
             }
+        }
+
+        // Product Collection (WooCommerce's default product grid since 8.x), the All Products block and a core
+        // Query Loop showing products keep their settings under attrs.query.
+        $is_product_query_loop = $block['blockName'] === 'core/query'
+            && (($block['attrs']['query']['postType'] ?? '') === 'product');
+        if (in_array($block['blockName'], ['woocommerce/product-collection', 'woocommerce/all-products'], true) || $is_product_query_loop) {
+            $attributes = array_merge($attributes, dapfforwc_parse_gutenberg_product_query_block($block));
         }
 
         // Recursively check inner blocks
@@ -7987,7 +7999,7 @@ if (!function_exists('dapfforwc_get_divi_product_attributes')) {
         ];
 
         foreach ($divi_shortcodes as $shortcode) {
-            preg_match_all('/\[' . preg_quote($shortcode, '/') . '([^\]]*)\]/', $content, $matches);
+            preg_match_all('/\[' . preg_quote($shortcode, '/') . '(?=[\s\]\/])([^\]]*)\]/', $content, $matches);
 
             foreach ($matches[1] as $shortcode_attrs) {
                 $attrs = shortcode_parse_atts(trim($shortcode_attrs));
@@ -8078,16 +8090,22 @@ if (!function_exists('dapfforwc_get_oxygen_product_attributes')) {
      */
     function dapfforwc_get_oxygen_product_attributes($post_id)
     {
-        $shortcodes = get_post_meta($post_id, 'ct_builder_shortcodes', true);
+        // Oxygen keeps its element tree as JSON in ct_builder_json; ct_builder_shortcodes holds shortcode text,
+        // which is only used when it happens to contain JSON (older exports).
+        $raw_tree = get_post_meta($post_id, 'ct_builder_json', true);
+        if (empty($raw_tree)) {
+            $raw_tree = get_post_meta($post_id, 'ct_builder_shortcodes', true);
+        }
 
-        if (empty($shortcodes)) {
+        if (empty($raw_tree)) {
             return [];
         }
 
-        $attributes = [];
-
-        // Oxygen stores data as JSON
-        $data = json_decode($shortcodes, true);
+        $data = is_array($raw_tree) ? $raw_tree : (is_string($raw_tree) ? json_decode($raw_tree, true) : null);
+        // The tree root is a single node object ({"id":0,"name":"root","children":[...]}), not a list of nodes.
+        if (isset($data['children']) || isset($data['name'])) {
+            $data = array($data);
+        }
 
         if (!is_array($data)) {
             return [];

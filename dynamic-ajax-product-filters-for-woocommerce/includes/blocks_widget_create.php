@@ -3,20 +3,44 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+if (!function_exists('dapfforwc_esc_shortcode_selector_attr')) {
+    // Selector values are placed inside a generated shortcode string: a raw "]" would end the shortcode early.
+    function dapfforwc_esc_shortcode_selector_attr($value)
+    {
+        return str_replace(array('[', ']'), array('&#91;', '&#93;'), esc_attr((string) $value));
+    }
+}
+
+if (!function_exists('dapfforwc_register_dynamic_ajax_filter_block_script')) {
+    /**
+     * Register the block editor script once, with the packages block.min.js really uses (wp.blockEditor,
+     * wp.data, wp.i18n ...). It was registered here and enqueued again elsewhere with a different list that
+     * missed those and loaded the deprecated wp-editor package instead.
+     */
+    function dapfforwc_register_dynamic_ajax_filter_block_script()
+    {
+        if (wp_script_is('dapfforwc-filter-block', 'registered')) {
+            return;
+        }
+        wp_register_script(
+            'dapfforwc-filter-block',
+            plugins_url('block.min.js', __FILE__),
+            array('wp-blocks', 'wp-element', 'wp-block-editor', 'wp-components', 'wp-data', 'wp-i18n', 'wp-api-fetch'),
+            filemtime(plugin_dir_path(__FILE__) . 'block.min.js'),
+            true
+        );
+        wp_set_script_translations('dapfforwc-filter-block', 'dynamic-ajax-product-filters-for-woocommerce', plugin_dir_path(dirname(__FILE__)) . 'languages');
+    }
+}
+
 // creating blocks for gutenberg
 
 function dapfforwc_register_dynamic_ajax_filter_block()
 {
-    wp_register_script(
-        'dynamic-ajax-filter-block',
-        plugins_url('block.min.js', __FILE__),
-        array('wp-blocks', 'wp-element', 'wp-editor', 'wp-components'),
-        filemtime(plugin_dir_path(__FILE__) . 'block.min.js'),
-        true
-    );
+    dapfforwc_register_dynamic_ajax_filter_block_script();
 
     register_block_type('plugin/dynamic-ajax-filter', array(
-        'editor_script' => 'dynamic-ajax-filter-block',
+        'editor_script' => 'dapfforwc-filter-block',
         'render_callback' => 'dapfforwc_render_dynamic_ajax_filter_block',
         'attributes' => array(
             'filterType' => array(
@@ -72,120 +96,175 @@ function dapfforwc_register_dynamic_ajax_filter_block()
 }
 add_action('init', 'dapfforwc_register_dynamic_ajax_filter_block');
 
-function dapfforwc_generate_css($styles, $device = 'desktop', $hover = false, $active = false, $sliderProgress = false, $sliderthumb = false, $slidertooltip = false)
+/**
+ * Sanitise one block style value for a CSS declaration: it must not leave its declaration or the style element.
+ */
+function dapfforwc_block_css_value($value)
+{
+    if (is_int($value) || is_float($value)) {
+        return (string) $value;
+    }
+    if (!is_string($value)) {
+        return '';
+    }
+    $value = trim(sanitize_text_field($value));
+    if ($value === '' || preg_match('/[;{}<>\\\\]|expression\s*\(|javascript:|url\s*\(/i', $value)) {
+        return '';
+    }
+    return $value;
+}
+
+/**
+ * Block range controls store plain numbers (pixels); the font size picker may store a value with its own unit.
+ */
+function dapfforwc_block_css_length($value)
+{
+    if (is_numeric($value)) {
+        return ((float) $value) . 'px';
+    }
+    return dapfforwc_block_css_value($value);
+}
+
+/**
+ * Box controls store {top, right, bottom, left} in pixels; their "Reset" button stores a ready CSS string.
+ */
+function dapfforwc_block_css_box($value)
+{
+    if (!is_array($value)) {
+        return dapfforwc_block_css_value($value);
+    }
+    $sides = array();
+    foreach (array('top', 'right', 'bottom', 'left') as $side) {
+        $sides[] = (isset($value[$side]) && is_numeric($value[$side]) ? (float) $value[$side] : 0) . 'px';
+    }
+    return implode(' ', $sides);
+}
+
+/**
+ * Block style attributes are objects; anything else (old or malformed block markup) means "no styles".
+ */
+function dapfforwc_get_block_style_attribute($attributes, $name)
+{
+    return isset($attributes[$name]) && is_array($attributes[$name]) ? $attributes[$name] : array();
+}
+
+function dapfforwc_generate_css($styles, $device = 'desktop', $hover = false, $active = false, $sliderProgress = false, $sliderthumb = false, $slidertooltip = false, $device_values = false)
 {
     $css = '';
-    if (isset($styles['display'])) {
-        $css .= "display: {$styles['display']};";
+    if (isset($styles['display']) && is_scalar($styles['display']) && '' !== sanitize_key($styles['display'])) {
+        $css .= 'display: ' . sanitize_key($styles['display']) . ';';
     }
     if (isset($styles) && is_array($styles)) {
+        // A state call (hover, active, slider parts) prints only its own keys; the other calls skip those keys.
+        $state_keys = array(
+            'hoverBackground' => $hover,
+            'hoverColor' => $hover,
+            'hoverfillColor' => $hover,
+            'activeColor' => $active,
+            'activefillColor' => $active,
+            'plugrogress-border-radius' => $sliderProgress,
+            'progressBackground' => $sliderProgress,
+            'progressmargin' => $sliderProgress,
+            'thumbBackground' => $sliderthumb,
+            'thumbSize' => $sliderthumb,
+            'tooltipBackground' => $slidertooltip,
+        );
+        $is_state_call = $hover || $active || $sliderProgress || $sliderthumb || $slidertooltip;
+        // Values that are not stored per device belong to the base (desktop) rule only, not to every media query.
+        $is_base_call = $device_values || $device === 'desktop' || $device === '';
+
         foreach ($styles as $key => $value) {
-            if (!is_array($value) || empty($value)) {
-                continue; // Skip empty values
+            if ($value === '' || $value === null || $value === array() || $key === 'display') {
+                continue; // Skip empty values (display is printed above)
+            }
+
+            if (in_array($key, array('desktop', 'tablet', 'mobile', 'smartphone'), true)) {
+                if ($key === $device && is_array($value) && !$device_values) {
+                    $css .= dapfforwc_generate_css($value, $device, $hover, $active, $sliderProgress, $sliderthumb, $slidertooltip, true);
+                }
+                continue;
+            }
+
+            if (array_key_exists($key, $state_keys) ? !$state_keys[$key] : $is_state_call) {
+                continue;
+            }
+
+            if (!$is_base_call && !in_array($key, array('background', 'height'), true)) {
+                continue;
             }
 
             switch ($key) {
                 case 'font-size':
                 case 'width':
                 case 'gap':
-                    $css .= "$key: {$value}px;";
+                    $length = dapfforwc_block_css_length($value);
+                    if ($length !== '') {
+                        $css .= "$key: {$length};";
+                    }
                     break;
 
                 case 'height':
-                    if (is_array($value) && isset($value[$device]) && is_array($value[$device])) {
-                        $css .= $key . ": " . $value[$device]['value'] . ($value[$device]['unit'] ?? 'px') . ";";
+                    if (is_array($value) && isset($value[$device]) && is_array($value[$device]) && !empty($value[$device]['value']) && is_numeric($value[$device]['value'])) {
+                        $unit = isset($value[$device]['unit']) && in_array($value[$device]['unit'], array('px', '%', 'em', 'rem', 'vh', 'vw'), true) ? $value[$device]['unit'] : 'px';
+                        $css .= $key . ": " . ((float) $value[$device]['value']) . $unit . ";";
                     }
                     break;
 
                 case 'padding':
                 case 'margin':
                 case 'border-radius':
-                    $css .= "$key: {$value['top']}px {$value['right']}px {$value['bottom']}px {$value['left']}px;";
-                    break;
-
                 case 'plugrogress-border-radius':
-                    if ($sliderProgress) {
-                        $css .= "border-radius: {$value['top']}px {$value['right']}px {$value['bottom']}px {$value['left']}px;";
-                    }
-                    break;
-                case 'progressBackground':
-                    if ($sliderProgress) {
-                        $css .= "background: {$value};";
-                    }
-                    break;
-
                 case 'progressmargin':
-                    if ($sliderProgress) {
-                        $css .= "margin: {$value['top']}px {$value['right']}px {$value['bottom']}px {$value['left']}px;";
-                    }
-                    break;
-
-                case 'thumbBackground':
-                    if ($sliderthumb) {
-                        $css .= "background: {$value};";
+                    $box = dapfforwc_block_css_box($value);
+                    if ($box !== '') {
+                        $property = $key === 'progressmargin' ? 'margin' : ($key === 'plugrogress-border-radius' ? 'border-radius' : $key);
+                        $css .= "$property: {$box};";
                     }
                     break;
 
                 case 'thumbSize':
-                    if ($sliderthumb) {
-                        $css .= "width: {$value}px; height: {$value}px;";
+                    $length = dapfforwc_block_css_length($value);
+                    if ($length !== '') {
+                        $css .= "width: {$length}; height: {$length};";
                     }
-                    break;
-                case 'tooltipBackground':
-                    if ($slidertooltip) {
-                        $css .= "background: {$value};";
-                    }
-                    break;
-                case 'background':
-                    if (is_array($value) && isset($value[$device])) {
-                        $css .= "background: {$value[$device]};";
-                    }
-                    break;
-                case $device:
-                    $css .= dapfforwc_generate_css($value, $key);
                     break;
 
-                case 'desktop':
-                case 'tablet':
-                case 'mobile':
-                case 'smartphone':
+                case 'background':
+                    $background = dapfforwc_block_css_value(is_array($value) ? (isset($value[$device]) ? $value[$device] : '') : $value);
+                    if ($background !== '') {
+                        $css .= "background: {$background};";
+                    }
                     break;
 
                 case 'text-align':
-                    $css .= "$key: $value; justify-content: $value;";
-                    break;
-
-                case 'hoverBackground':
-                    if ($hover) {
-                        $css .= "background: $value !important;";
-                    }
-                    break;
-
-                case 'hoverColor':
-                    if ($hover) {
-                        $css .= "color: $value !important;";
-                    }
-                    break;
-
-                case 'activeColor':
-                    if ($active) {
-                        $css .= "color: $value !important;";
-                    }
-                    break;
-
-                case 'activefillColor':
-                    if ($active) {
-                        $css .= "fill: $value !important;";
-                    }
-                    break;
-                case 'hoverfillColor':
-                    if ($hover) {
-                        $css .= "fill: $value !important;";
+                    $align = dapfforwc_block_css_value($value);
+                    if ($align !== '') {
+                        // "space-between" only exists for justify-content (the title is a flex container).
+                        if (in_array($align, array('left', 'center', 'right', 'justify', 'start', 'end'), true)) {
+                            $css .= "$key: $align;";
+                        }
+                        $css .= "justify-content: $align;";
                     }
                     break;
 
                 default:
-                    $css .= "$key: $value !important;";
+                    $state_properties = array(
+                        'hoverBackground' => 'background',
+                        'hoverColor' => 'color',
+                        'hoverfillColor' => 'fill',
+                        'activeColor' => 'color',
+                        'activefillColor' => 'fill',
+                        'progressBackground' => 'background',
+                        'thumbBackground' => 'background',
+                        'tooltipBackground' => 'background',
+                    );
+                    $property = isset($state_properties[$key]) ? $state_properties[$key] : $key;
+                    $css_value = is_array($value) ? '' : dapfforwc_block_css_value($value);
+                    if ($css_value === '' || !preg_match('/^[a-z][a-z-]*$/', (string) $property)) {
+                        break;
+                    }
+                    $important = in_array($key, array('progressBackground', 'thumbBackground', 'tooltipBackground'), true) ? '' : ' !important';
+                    $css .= "$property: {$css_value}{$important};";
                     break;
             }
         }
@@ -202,33 +281,40 @@ function dapfforwc_render_dynamic_ajax_filter_block($attributes)
     $filter_layout = isset($attributes['filterLayout']) ? sanitize_key($attributes['filterLayout']) : '';
     $use_custom_design = isset($attributes['usecustomdesign']) ? sanitize_key($attributes['usecustomdesign']) : '';
     $perPage = isset($attributes['perPage']) ? intval(sanitize_key($attributes['perPage'])) : 12;
-    $filter_options_manage = isset($attributes['filterOptions']) ? $attributes['filterOptions'] : [];
-    $mobile_style = isset($attributes['mobileStyle']) ? sanitize_key($attributes['mobileStyle']) : "style_1";
+    $filter_options_manage = isset($attributes['filterOptions']) && is_array($attributes['filterOptions']) ? $attributes['filterOptions'] : [];
+    // Empty ("Use global setting", the default) = the global Mobile Filter Style (left empty for the shortcode to
+    // resolve, so the form knows it came from the setting), else the block's own default style_1.
+    $mobile_style = isset($attributes['mobileStyle']) && is_scalar($attributes['mobileStyle']) ? sanitize_key((string) $attributes['mobileStyle']) : '';
+    if (!dapfforwc_is_mobile_responsive_style($mobile_style)) {
+        $mobile_style = dapfforwc_get_global_mobile_responsive_style() !== '' ? '' : 'style_1';
+    }
     $mobile_breakpoint = dapfforwc_get_mobile_breakpoint();
     $mobile_breakpoint_css = intval($mobile_breakpoint);
     $output = '';
 
     // Extract styles
-    $form_style = sanitize_key(isset($attributes['formStyle']) ? $attributes['formStyle'] : []);
-    $container_style = sanitize_key(isset($attributes['containerStyle']) ? $attributes['containerStyle'] : []);
-    $widget_title_style = sanitize_key(isset($attributes['widgetTitleStyle']) ? $attributes['widgetTitleStyle'] : []);
-    $widget_items_style = sanitize_key(isset($attributes['widgetItemsStyle']) ? $attributes['widgetItemsStyle'] : []);
-    $button_style = sanitize_key(isset($attributes['buttonStyle']) ? $attributes['buttonStyle'] : []);
-    $rating_style = sanitize_key(isset($attributes['ratingStyle']) ? $attributes['ratingStyle'] : []);
-    $reset_button_style = sanitize_key(isset($attributes['resetButtonStyle']) ? $attributes['resetButtonStyle'] : []);
-    $input_style = sanitize_key(isset($attributes['inputStyle']) ? $attributes['inputStyle'] : []);
-    $slider_style = sanitize_key(isset($attributes['sliderStyle']) ? $attributes['sliderStyle'] : []);
-    $filter_word_mobile = isset($attributes['filterWordMobile']) ? $attributes['filterWordMobile'] : '';
-    $custom_css = sanitize_key(isset($attributes['customCSS']) ? $attributes['customCSS'] : '');
+    $form_style = dapfforwc_get_block_style_attribute($attributes, 'formStyle');
+    $container_style = dapfforwc_get_block_style_attribute($attributes, 'containerStyle');
+    $widget_title_style = dapfforwc_get_block_style_attribute($attributes, 'widgetTitleStyle');
+    $widget_items_style = dapfforwc_get_block_style_attribute($attributes, 'widgetItemsStyle');
+    $button_style = dapfforwc_get_block_style_attribute($attributes, 'buttonStyle');
+    $rating_style = dapfforwc_get_block_style_attribute($attributes, 'ratingStyle');
+    $reset_button_style = dapfforwc_get_block_style_attribute($attributes, 'resetButtonStyle');
+    $input_style = dapfforwc_get_block_style_attribute($attributes, 'inputStyle');
+    $slider_style = dapfforwc_get_block_style_attribute($attributes, 'sliderStyle');
+    // The editor only toggles display (block/none); anything else would be printed inside <style>.
+    $filter_word_mobile_display = isset($attributes['filterWordMobile']['display']) && is_scalar($attributes['filterWordMobile']['display']) ? sanitize_key($attributes['filterWordMobile']['display']) : '';
+    $filter_word_mobile = in_array($filter_word_mobile_display, array('block', 'none'), true) ? array('display' => $filter_word_mobile_display) : array();
+    $custom_css = isset($attributes['customCSS']) && is_string($attributes['customCSS']) ? wp_strip_all_tags($attributes['customCSS']) : '';
     $raw_class_name = isset($attributes['className']) ? (string) $attributes['className'] : '';
     $class_parts = preg_split('/\s+/', $raw_class_name, -1, PREG_SPLIT_NO_EMPTY);
     $class_parts = array_map('sanitize_html_class', $class_parts);
     $class_name  = trim(implode(' ', array_filter($class_parts)));
 
-    $single_filter_inactive_style = sanitize_key(isset($attributes['singleFilterInactiveStyle']) ? $attributes['singleFilterInactiveStyle'] : []);
-    $single_filter_container_style = sanitize_key(isset($attributes['singleFilterContainerStyle']) ? $attributes['singleFilterContainerStyle'] : []);
-    $single_filter_active_style = sanitize_key(isset($attributes['singleFilterActiveStyle']) ? $attributes['singleFilterActiveStyle'] : []);
-    $single_filter_hover_style = sanitize_key(isset($attributes['singleFilterHoverStyle']) ? $attributes['singleFilterHoverStyle'] : []);
+    $single_filter_inactive_style = dapfforwc_get_block_style_attribute($attributes, 'singleFilterInactiveStyle');
+    $single_filter_container_style = dapfforwc_get_block_style_attribute($attributes, 'singleFilterContainerStyle');
+    $single_filter_active_style = dapfforwc_get_block_style_attribute($attributes, 'singleFilterActiveStyle');
+    $single_filter_hover_style = dapfforwc_get_block_style_attribute($attributes, 'singleFilterHoverStyle');
 
 
     // Generate CSS for desktop, tablet, and smartphone
@@ -271,7 +357,9 @@ function dapfforwc_render_dynamic_ajax_filter_block($attributes)
     $slider_style_css = dapfforwc_generate_css($slider_style);
     $slider_sm_style_css = dapfforwc_generate_css($slider_style, 'smartphone');
     $slider_md_style_css = dapfforwc_generate_css($slider_style, 'tablet');
-    $slider_progress_style_css = dapfforwc_generate_css($slider_style, '', false, false, true);
+    $slider_progress_style_css = dapfforwc_generate_css($slider_style, 'desktop', false, false, true);
+    $slider_progress_sm_style_css = dapfforwc_generate_css($slider_style, 'smartphone', false, false, true);
+    $slider_progress_md_style_css = dapfforwc_generate_css($slider_style, 'tablet', false, false, true);
     $slider_thumb_style_css = dapfforwc_generate_css($slider_style, '', false, false, false, true);
     $slider_tooltip_style_css = dapfforwc_generate_css($slider_style, '', false, false, false, false, true);
 
@@ -291,6 +379,11 @@ function dapfforwc_render_dynamic_ajax_filter_block($attributes)
             if ($filter_options_manage) {
                 $filter_ordering_css = 'form#product-filter { display: flex ; flex-direction: column; }form#product-filter .plugincy-filter-group {order: 999;}';
                 foreach ($filter_options_manage as $options) {
+                    // Saved block data is not schema-checked: skip items without a usable id.
+                    if (!is_array($options) || !isset($options['id']) || !is_scalar($options['id']) || '' === (string) $options['id']) {
+                        continue;
+                    }
+                    $options['id'] = (string) $options['id'];
                     if ($options["id"] == "product-category" && !isset($dapfforwc_options["show_categories"])) {
                         continue;
                     }
@@ -319,7 +412,7 @@ function dapfforwc_render_dynamic_ajax_filter_block($attributes)
                         continue;
                     }
 
-                    $is_visible = $options["visible"] ? "flex" : "none";
+                    $is_visible = !empty($options["visible"]) ? "flex" : "none";
                     $filter_ordering_css .= '.' . sanitize_html_class($options["id"]) . '{
                     order: ' . $index . '!important;
                     display:' . $is_visible . '!important;
@@ -330,12 +423,12 @@ function dapfforwc_render_dynamic_ajax_filter_block($attributes)
                 }
                 dapfforwc_add_inline_style($filter_ordering_css, dapfforwc_get_frontend_style_handle());
             }
-            $product_selector = isset($attributes['productSelector']) ? esc_attr($attributes['productSelector']) : '';
-            $pagination_selector = isset($attributes['paginationSelector']) ? esc_attr($attributes['paginationSelector']) : '';
-            $db_categories = isset($attributes['category']) ? sanitize_key($attributes['category']) : '';
-            $db_tags = isset($attributes['tag']) ? sanitize_key($attributes['tag']) : '';
-            $db_attribute = isset($attributes['attribute']) ? sanitize_key($attributes['attribute']) : '';
-            $db_attribute_terms = isset($attributes['attributeTerms']) ? sanitize_key($attributes['attributeTerms']) : '';
+            $product_selector = isset($attributes['productSelector']) ? dapfforwc_esc_shortcode_selector_attr($attributes['productSelector']) : '';
+            $pagination_selector = isset($attributes['paginationSelector']) ? dapfforwc_esc_shortcode_selector_attr($attributes['paginationSelector']) : '';
+            $db_categories = isset($attributes['category']) ? esc_attr(strtolower(sanitize_text_field($attributes['category']))) : '';
+            $db_tags = isset($attributes['tag']) ? esc_attr(strtolower(sanitize_text_field($attributes['tag']))) : '';
+            $db_attribute = isset($attributes['attribute']) ? esc_attr(strtolower(sanitize_text_field($attributes['attribute']))) : '';
+            $db_attribute_terms = isset($attributes['attributeTerms']) ? esc_attr(strtolower(sanitize_text_field($attributes['attributeTerms']))) : '';
             $block_css = '';
             if ($form_style_css) {
                 $block_css .= 'form#product-filter {' . $form_style_css . '}';
@@ -392,13 +485,19 @@ function dapfforwc_render_dynamic_ajax_filter_block($attributes)
                 $block_css .= 'form#product-filter button {' . $button_sm_style_css . '}';
             }
             if ($rating_sm_style_css) {
-                $block_css .= 'form#product-filter i {' . $rating_sm_style_css . '}';
+                $block_css .= 'form#product-filter svg {' . $rating_sm_style_css . '} .dynamic-rating label{' . $rating_sm_style_css . '}';
             }
             if ($reset_button_sm_style_css) {
                 $block_css .= 'form#product-filter span.reset-value {' . $reset_button_sm_style_css . '}';
             }
             if ($input_sm_style_css) {
                 $block_css .= 'form#product-filter input[type="search"], form#product-filter input[type="number"] {' . $input_sm_style_css . '}';
+            }
+            if ($slider_sm_style_css) {
+                $block_css .= 'form#product-filter .slider {' . $slider_sm_style_css . '}';
+            }
+            if ($slider_progress_sm_style_css) {
+                $block_css .= 'form#product-filter .plugincy_slider .plugrogress {' . $slider_progress_sm_style_css . '}';
             }
             if ($filter_word_mobile_css) {
                 $block_css .= 'form#product-filter:before {' . $filter_word_mobile_css . '}';
@@ -423,13 +522,19 @@ function dapfforwc_render_dynamic_ajax_filter_block($attributes)
                 $block_css .= 'form#product-filter button {' . $button_md_style_css . '}';
             }
             if ($rating_md_style_css) {
-                $block_css .= 'form#product-filter i {' . $rating_md_style_css . '}';
+                $block_css .= 'form#product-filter svg {' . $rating_md_style_css . '} .dynamic-rating label{' . $rating_md_style_css . '}';
             }
             if ($reset_button_md_style_css) {
                 $block_css .= 'form#product-filter span.reset-value {' . $reset_button_md_style_css . '}';
             }
             if ($input_md_style_css) {
                 $block_css .= 'form#product-filter input[type="search"], form#product-filter input[type="number"] {' . $input_md_style_css . '}';
+            }
+            if ($slider_md_style_css) {
+                $block_css .= 'form#product-filter .slider {' . $slider_md_style_css . '}';
+            }
+            if ($slider_progress_md_style_css) {
+                $block_css .= 'form#product-filter .plugincy_slider .plugrogress {' . $slider_progress_md_style_css . '}';
             }
             $block_css .= '}
             
@@ -537,6 +642,7 @@ function dapfforwc_register_dynamic_ajax_filter_widget_elementor()
 
         public function get_attribute()
         {
+            global $dapfforwc_advance_settings;
             // Ensure WooCommerce functions are available
             if (! function_exists('wc_get_attribute_taxonomies')) {
                 return [];
@@ -544,7 +650,7 @@ function dapfforwc_register_dynamic_ajax_filter_widget_elementor()
 
             $all_data = dapfforwc_get_woocommerce_attributes_with_terms();
             $all_attributes = isset($all_data['attributes']) ? $all_data['attributes'] : [];
-            $exclude_attributes = isset($dapfforwc_advance_settings['exclude_attributes']) ? explode(',', $dapfforwc_advance_settings['exclude_attributes']) : [];
+            $exclude_attributes = isset($dapfforwc_advance_settings['exclude_attributes']) ? array_map('trim', explode(',', $dapfforwc_advance_settings['exclude_attributes'])) : [];
             $attributes = [];
             foreach ($all_attributes as $attribute) {
                 if (in_array($attribute['attribute_name'], $exclude_attributes)) {
@@ -571,25 +677,17 @@ function dapfforwc_register_dynamic_ajax_filter_widget_elementor()
                 'date_filter' => esc_html__('Date Filter', 'dynamic-ajax-product-filters-for-woocommerce'),
             ];
 
-            // Add attributes to options
+            // Add attributes to options. Elementor prints select option labels unescaped, so escape them like the fixed labels above.
             foreach ($attributes as $attribute) {
-                $options[$attribute->attribute_name] = $attribute->attribute_label;
+                $options[$attribute->attribute_name] = esc_html($attribute->attribute_label);
             }
 
             $default = [];
 
-            // add $options
+            // One row per option; $options already contains every attribute.
             foreach ($options as $key => $label) {
                 $default[] = [
                     'element_type' => $key,
-                    'element_visible' => 'yes',
-                ];
-            }
-
-            // Add attributes to default
-            foreach ($attributes as $attribute) {
-                $default[] = [
-                    'element_type' => $attribute->attribute_name,
                     'element_visible' => 'yes',
                 ];
             }
@@ -617,7 +715,7 @@ function dapfforwc_register_dynamic_ajax_filter_widget_elementor()
             return ['plugincy'];
         }
 
-        protected function _register_controls()
+        protected function register_controls()
         {
 
             // Content Tab: Filter Options
@@ -859,7 +957,8 @@ function dapfforwc_register_dynamic_ajax_filter_widget_elementor()
                         ],
                     ],
                     'default' => $allattribute['default'],
-                    'title_field' => '{{{ element_type }}}',
+                    // Show the option label (already escaped above) instead of the raw key; unknown keys are printed escaped.
+                    'title_field' => '<# var dapfforwcElementLabels = ' . wp_json_encode($allattribute['options']) . '; #>{{{ dapfforwcElementLabels[element_type] || "" }}}{{ dapfforwcElementLabels[element_type] ? "" : element_type }}',
                 ]
             );
 
@@ -880,13 +979,12 @@ function dapfforwc_register_dynamic_ajax_filter_widget_elementor()
                 [
                     'label'   => esc_html__('Choose style', 'dynamic-ajax-product-filters-for-woocommerce'),
                     'type'    => \Elementor\Controls_Manager::SELECT,
-                    'options' => [
-                        'style_1' => esc_html__('Style 1', 'dynamic-ajax-product-filters-for-woocommerce'),
-                        'style_2' => esc_html__('Style 2', 'dynamic-ajax-product-filters-for-woocommerce'),
-                        'style_3' => esc_html__('Style 3', 'dynamic-ajax-product-filters-for-woocommerce'),
-                        'style_4' => esc_html__('Style 4', 'dynamic-ajax-product-filters-for-woocommerce'),
-                    ],
-                    'default' => 'style_4',
+                    // '' = the global Mobile Filter Style setting (Advanced settings), else style_4.
+                    'options' => array_merge(
+                        ['' => esc_html__('Use global setting', 'dynamic-ajax-product-filters-for-woocommerce')],
+                        dapfforwc_get_mobile_responsive_styles()
+                    ),
+                    'default' => '',
                 ]
             );
 
@@ -903,7 +1001,7 @@ function dapfforwc_register_dynamic_ajax_filter_widget_elementor()
                     'tab'   => \Elementor\Controls_Manager::TAB_STYLE,
                     'condition' => [
                         'filter_type' => 'all',
-                        'mobile_responsive_style' => 'style_1'
+                        'mobile_responsive_style' => ['', 'style_1'],
                     ],
                 ]
             );
@@ -1192,8 +1290,15 @@ function dapfforwc_register_dynamic_ajax_filter_widget_elementor()
                             'icon' => 'eicon-text-align-right',
                         ],
                     ],
+                    // The title is a flex container: justify-content does the alignment. "space-between" is not a text-align value.
+                    'selectors_dictionary' => [
+                        'left' => 'text-align: left !important; justify-content: left !important;',
+                        'center' => 'text-align: center !important; justify-content: center !important;',
+                        'space-between' => 'justify-content: space-between !important;',
+                        'right' => 'text-align: right !important; justify-content: right !important;',
+                    ],
                     'selectors' => [
-                        '{{WRAPPER}} .plugincy-filter-group .plugincy_title' => 'text-align: {{VALUE}} !important; justify-content: {{VALUE}} !important;',
+                        '{{WRAPPER}} .plugincy-filter-group .plugincy_title' => '{{VALUE}}',
                     ],
                 ]
             );
@@ -2264,15 +2369,16 @@ function dapfforwc_register_dynamic_ajax_filter_widget_elementor()
 
             switch ($settings['filter_type']) {
                 case 'all':
-                    $product_selector = esc_attr($settings['product_selector']);
-                    $pagination_selector = esc_attr($settings['pagination_selector']);
+                    $product_selector = dapfforwc_esc_shortcode_selector_attr($settings['product_selector']);
+                    $pagination_selector = dapfforwc_esc_shortcode_selector_attr($settings['pagination_selector']);
                     $db_categories = esc_attr($settings['category']);
                     $db_tags = esc_attr($settings['tag']);
                     $db_attribute = esc_attr($settings['attribute']);
                     $db_attributeTerms = esc_attr($settings['attributeTerms']);
                     $use_custom_template_design = isset($settings['use_custom_template_design']) ? esc_attr($settings['use_custom_template_design']) : '';
                     $per_page =  isset($settings['per_page']) ? esc_attr($settings['per_page']) : '';
-                    $mobile_responsive_style = esc_attr($settings['mobile_responsive_style']);
+                    // '' (Use global setting) is resolved by the shortcode: global Mobile Filter Style, else style_4.
+                    $mobile_responsive_style = isset($settings['mobile_responsive_style']) ? esc_attr($settings['mobile_responsive_style']) : '';
                     $filter_layout = esc_attr($settings['filter_layout']);
                     $output .= do_shortcode("[plugincy_filters layout=\"$filter_layout\" use_custom_template_design=\"$use_custom_template_design\" mobile_responsive=\"$mobile_responsive_style\"  product_selector=\"$product_selector\" pagination_selector=\"$pagination_selector\" per_page=\"$per_page\"  category=\"$db_categories\" tag=\"$db_tags\" attribute=\"$db_attribute\" terms=\"$db_attributeTerms\"]");
                     break;
@@ -2287,7 +2393,7 @@ function dapfforwc_register_dynamic_ajax_filter_widget_elementor()
                     break;
             }
 
-            echo wp_kses($output, $dapfforwc_allowed_tags);
+            echo dapfforwc_kses($output, $dapfforwc_allowed_tags); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- dapfforwc_kses() is wp_kses() with the plugin allow-list.
         }
     }
 

@@ -4,6 +4,27 @@
 if (!defined('ABSPATH')) {
     exit;
 }
+
+if (!function_exists('dapfforwc_admin_pro_badge_label')) {
+    function dapfforwc_admin_pro_badge_markup()
+    {
+        return sprintf(
+            '<span class="dapfforwc-inline-pro-badge" aria-label="%1$s"><span class="dapfforwc-pro-badge-lock" aria-hidden="true">&#128274;</span>%2$s</span>',
+            esc_attr__('Pro feature', 'dynamic-ajax-product-filters-for-woocommerce'),
+            esc_html__('PRO', 'dynamic-ajax-product-filters-for-woocommerce')
+        );
+    }
+
+    function dapfforwc_admin_pro_badge_label($label)
+    {
+        return sprintf(
+            '%1$s %2$s',
+            esc_html($label),
+            dapfforwc_admin_pro_badge_markup()
+        );
+    }
+}
+
 function dapfforwc_settings_init()
 {
     $default_dapfforwc_options = [
@@ -71,7 +92,8 @@ function dapfforwc_settings_init()
         ],
         'show_custom_taxonomies' => [
             'label' => esc_html__('Show Custom Taxonomies', 'dynamic-ajax-product-filters-for-woocommerce'),
-            'description' => esc_html__('Enable this option to show selected custom product taxonomies in the filter.', 'dynamic-ajax-product-filters-for-woocommerce')
+            'description' => esc_html__('Enable this option to show selected custom product taxonomies in the filter.', 'dynamic-ajax-product-filters-for-woocommerce'),
+            'pro' => true
         ],
         'show_price_range' => [
             'label' => esc_html__('Show Price Range', 'dynamic-ajax-product-filters-for-woocommerce'),
@@ -103,7 +125,8 @@ function dapfforwc_settings_init()
         ],
         'show_featured' => [
             'label' => esc_html__('Show Featured Products', 'dynamic-ajax-product-filters-for-woocommerce'),
-            'description' => esc_html__('Enable this option to show featured product filter.', 'dynamic-ajax-product-filters-for-woocommerce')
+            'description' => esc_html__('Enable this option to show featured product filter.', 'dynamic-ajax-product-filters-for-woocommerce'),
+            'pro' => true
         ],
         'show_dimension' => [
             'label' => esc_html__('Show Dimensions', 'dynamic-ajax-product-filters-for-woocommerce'),
@@ -123,7 +146,8 @@ function dapfforwc_settings_init()
         ],
         'show_custom_fields' => [
             'label' => esc_html__('Show Custom Fields Filter', 'dynamic-ajax-product-filters-for-woocommerce'),
-            'description' => esc_html__('Enable this option to show custom fields filter.', 'dynamic-ajax-product-filters-for-woocommerce')
+            'description' => esc_html__('Enable this option to show custom fields filter.', 'dynamic-ajax-product-filters-for-woocommerce'),
+            'pro' => true
         ],
         'use_url_filter' => [
             'label' => esc_html__('Use URL-Based Filter', 'dynamic-ajax-product-filters-for-woocommerce'),
@@ -144,7 +168,8 @@ function dapfforwc_settings_init()
     ];
 
     foreach ($fields as $key => $field) {
-        add_settings_field($key, '<p>' . $field['label'] . '</p><p class="admin-description">' . $field['description'] . '</p>', "dapfforwc_{$key}_render", 'dapfforwc-admin', 'dapfforwc_section');
+        $field_label = !empty($field['pro']) ? dapfforwc_admin_pro_badge_label($field['label']) : $field['label'];
+        add_settings_field($key, '<p>' . $field_label . '</p><p class="admin-description">' . $field['description'] . '</p>', "dapfforwc_{$key}_render", 'dapfforwc-admin', 'dapfforwc_section');
     }
 
     // custom code template
@@ -197,15 +222,20 @@ function dapfforwc_settings_init()
         'allow_data_share' => "off",
         'sidebar_on_top' => "on",
         'mobile_breakpoint' => 768,
+        'mobile_responsive_default' => '',
         'default_value_selected' => 0,
         'exclude_attributes' => "",
         'exclude_custom_fields' => "",
         'no_products_text' => 'No products were found matching your selection.',
         'select2_placeholder' => 'Select Options',
+        'delete_data_on_uninstall' => 'off',
     ];
     $Advance_options = get_option('dapfforwc_advance_options', false);
     if ($Advance_options === false || !is_array($Advance_options)) {
         $Advance_options = $default_advance_options;
+        // New installs only: keep WooCommerce's public sales counter out of custom field (URL) filtering.
+        // Existing installs keep their stored exclusion list unchanged.
+        $Advance_options['exclude_custom_fields'] = 'total_sales';
         add_option('dapfforwc_advance_options', $Advance_options);
     } else {
         $Advance_options = wp_parse_args($Advance_options, $default_advance_options);
@@ -220,7 +250,7 @@ function dapfforwc_settings_init()
         'dapfforwc_advance_settings_section',
         '<p class="page-title">' . esc_html__('Advanced Settings', 'dynamic-ajax-product-filters-for-woocommerce') . '</p>',
         function () {
-            echo '<p style="padding-bottom: 20px; border-bottom: 2px solid #f1f5f9;">' . esc_html__('You can handle advanced settings for your product filters here.', 'dynamic-ajax-product-filters-for-woocommerce') . '</p>';
+            echo '<p style="margin-bottom: 30px;">' . esc_html__('You can handle advanced settings for your product filters here.', 'dynamic-ajax-product-filters-for-woocommerce') . '</p>';
         },
         'dapfforwc-advance-settings'
     );
@@ -273,18 +303,20 @@ function dapfforwc_settings_init()
         'dapfforwcpro_advance_settings_section'
     );
 
-    add_settings_field('wait_cursor_on_filtering', esc_html__('Wait Cursor on Filtering', 'dynamic-ajax-product-filters-for-woocommerce'), "dapfforwc_wait_cursor_on_filtering_render", 'dapfforwc-advance-settings', 'dapfforwc_advance_settings_section');
-    add_settings_field('use_overlay', esc_html__('Use Overlay', 'dynamic-ajax-product-filters-for-woocommerce'), "dapfforwc_use_overlay_render", 'dapfforwc-advance-settings', 'dapfforwc_advance_settings_section');
-    add_settings_field('smart_auto_scroll', esc_html__('Smart Auto Scroll', 'dynamic-ajax-product-filters-for-woocommerce'), "dapfforwc_smart_auto_scroll_render", 'dapfforwc-advance-settings', 'dapfforwc_advance_settings_section');
-    add_settings_field('pagination_via_ajax', esc_html__('Pagination via AJAX', 'dynamic-ajax-product-filters-for-woocommerce'), "dapfforwc_pagination_via_ajax_render", 'dapfforwc-advance-settings', 'dapfforwc_advance_settings_section');
-    add_settings_field('sorting_via_ajax', esc_html__('Product Sorting via AJAX', 'dynamic-ajax-product-filters-for-woocommerce'), "dapfforwc_sorting_via_ajax_render", 'dapfforwc-advance-settings', 'dapfforwc_advance_settings_section');
-    add_settings_field('browser_history_step_navigation', esc_html__('Browser History Step Navigation', 'dynamic-ajax-product-filters-for-woocommerce'), "dapfforwc_browser_history_step_navigation_render", 'dapfforwc-advance-settings', 'dapfforwc_advance_settings_section');
+    add_settings_field('wait_cursor_on_filtering', dapfforwc_admin_pro_badge_label(__('Wait Cursor on Filtering', 'dynamic-ajax-product-filters-for-woocommerce')), "dapfforwc_wait_cursor_on_filtering_render", 'dapfforwc-advance-settings', 'dapfforwc_advance_settings_section');
+    add_settings_field('use_overlay', dapfforwc_admin_pro_badge_label(__('Use Overlay', 'dynamic-ajax-product-filters-for-woocommerce')), "dapfforwc_use_overlay_render", 'dapfforwc-advance-settings', 'dapfforwc_advance_settings_section');
+    add_settings_field('smart_auto_scroll', dapfforwc_admin_pro_badge_label(__('Smart Auto Scroll', 'dynamic-ajax-product-filters-for-woocommerce')), "dapfforwc_smart_auto_scroll_render", 'dapfforwc-advance-settings', 'dapfforwc_advance_settings_section');
+    add_settings_field('pagination_via_ajax', dapfforwc_admin_pro_badge_label(__('Pagination via AJAX', 'dynamic-ajax-product-filters-for-woocommerce')), "dapfforwc_pagination_via_ajax_render", 'dapfforwc-advance-settings', 'dapfforwc_advance_settings_section');
+    add_settings_field('sorting_via_ajax', dapfforwc_admin_pro_badge_label(__('Product Sorting via AJAX', 'dynamic-ajax-product-filters-for-woocommerce')), "dapfforwc_sorting_via_ajax_render", 'dapfforwc-advance-settings', 'dapfforwc_advance_settings_section');
+    add_settings_field('browser_history_step_navigation', dapfforwc_admin_pro_badge_label(__('Browser History Step Navigation', 'dynamic-ajax-product-filters-for-woocommerce')), "dapfforwc_browser_history_step_navigation_render", 'dapfforwc-advance-settings', 'dapfforwc_advance_settings_section');
     add_settings_field('remove_outofStock', esc_html__('Remove out of stock product', 'dynamic-ajax-product-filters-for-woocommerce'), "dapfforwc_remove_outofStock_render", 'dapfforwc-advance-settings', 'dapfforwc_advance_settings_section');
     add_settings_field('product_exclusion_rules', esc_html__('Exclude Products From Results', 'dynamic-ajax-product-filters-for-woocommerce'), "dapfforwc_product_exclusion_rules_render", 'dapfforwc-advance-settings', 'dapfforwc_advance_settings_section');
     add_settings_field('allow_data_share', esc_html__('Contribute to Plugincy', 'dynamic-ajax-product-filters-for-woocommerce'), "dapfforwc_allow_data_share_render", 'dapfforwc-advance-settings', 'dapfforwc_advance_settings_section');
     add_settings_field('sidebar_on_top', esc_html__('Sidebar Top (Mobile only)', 'dynamic-ajax-product-filters-for-woocommerce'), "dapfforwc_side_bar_top_render", 'dapfforwc-advance-settings', 'dapfforwc_advance_settings_section');
     add_settings_field('mobile_breakpoint', esc_html__('Mobile Breakpoint', 'dynamic-ajax-product-filters-for-woocommerce'), "dapfforwc_mobile_breakpoint_render", 'dapfforwc-advance-settings', 'dapfforwc_advance_settings_section');
+    add_settings_field('mobile_responsive_default', esc_html__('Mobile Filter Style', 'dynamic-ajax-product-filters-for-woocommerce'), "dapfforwc_mobile_responsive_default_render", 'dapfforwc-advance-settings', 'dapfforwc_advance_settings_section');
     add_settings_field('default_value_selected', esc_html__('Make Default Options Selected', 'dynamic-ajax-product-filters-for-woocommerce'), "dapfforwc_default_value_selected_render", 'dapfforwc-advance-settings', 'dapfforwc_advance_settings_section');
+    add_settings_field('delete_data_on_uninstall', esc_html__('Delete all plugin data on uninstall', 'dynamic-ajax-product-filters-for-woocommerce'), "dapfforwc_delete_data_on_uninstall_render", 'dapfforwc-advance-settings', 'dapfforwc_advance_settings_section');
 
     $exclude_attributes = isset($Advance_options['exclude_attributes']) ? explode(',', $Advance_options['exclude_attributes']) : [];
     $attributes = function_exists('dapfforwc_get_registered_attribute_prefix_options')
@@ -315,13 +347,7 @@ function dapfforwc_settings_init()
                     'attribute' => !empty($attributes) ? array_reduce($attributes, function ($carry, $attr) {
                         $carry[$attr->attribute_name] = $attr->attribute_name;
                         return $carry;
-                    }, []) : [
-                        'color' => 'color',
-                        'size' => 'size',
-                        'brand' => 'brand',
-                        'material' => 'material',
-                        'style' => 'style',
-                    ],
+                    }, []) : [], // Only the store's real attributes: invented placeholders (color, size, brand...) were saved as prefixes, and 'brand' collided with the brand filter prefix.
                     'custom' => [],
                     'price' => 'price',
                     'rating' => 'rating',
@@ -362,7 +388,7 @@ function dapfforwc_settings_init()
     register_setting(
         'dapfforwc_seo_permalinks_settings',
         'dapfforwc_seo_permalinks_options',
-        'dapfforwc_sanitize_options'
+        'dapfforwc_sanitize_seo_permalinks_options'
     );
 
     add_settings_section(
@@ -377,7 +403,7 @@ function dapfforwc_settings_init()
     // add_settings_field('use_filters_word_in_permalinks', esc_html__('Use Filters Word in Permalinks', 'dynamic-ajax-product-filters-for-woocommerce'), "dapfforwc_use_filters_word_in_permalinks_render", 'dapfforwc-seo-permalinks', 'dapfforwc_seo_permalinks_section');
     if (isset($dapfforwc_options["use_url_filter"]) && $dapfforwc_options["use_url_filter"] !== "ajax") {
         add_settings_field('use_attribute_type_in_permalinks', esc_html__('Use Attribute Type in Permalinks', 'dynamic-ajax-product-filters-for-woocommerce'), "dapfforwc_use_attribute_type_in_permalinks_render", 'dapfforwc-seo-permalinks', 'dapfforwc_seo_permalinks_section');
-        add_settings_field('filters_word_in_permalinks', esc_html__('Filters Word in Permalinks', 'dynamic-ajax-product-filters-for-woocommerce'), "dapfforwc_filters_word_in_permalinks_render", 'dapfforwc-seo-permalinks', 'dapfforwc_seo_permalinks_section');
+        add_settings_field('filters_word_in_permalinks', dapfforwc_admin_pro_badge_label(__('Filters Word in Permalinks', 'dynamic-ajax-product-filters-for-woocommerce')), "dapfforwc_filters_word_in_permalinks_render", 'dapfforwc-seo-permalinks', 'dapfforwc_seo_permalinks_section');
         add_settings_field('permalinks_prefix', esc_html__('Permalinks Prefix', 'dynamic-ajax-product-filters-for-woocommerce'), "dapfforwc_permalinks_prefix_render", 'dapfforwc-seo-permalinks', 'dapfforwc_seo_permalinks_section');
     }
     // Add the "SEO Setup" section
@@ -392,12 +418,12 @@ function dapfforwc_settings_init()
         // add Enable SEO option
         add_settings_field('enable_seo', esc_html__('Enable SEO', 'dynamic-ajax-product-filters-for-woocommerce'), "dapfforwc_enable_seo_render", 'dapfforwc-seo-permalinks', 'dapfforwc_seo_section');
     }
-    add_settings_field('use_anchor', esc_html__('Make filter link indexable for best SEO', 'dynamic-ajax-product-filters-for-woocommerce'), "dapfforwc_use_anchor_render", 'dapfforwc-seo-permalinks', 'dapfforwc_seo_section');
+    add_settings_field('use_anchor', dapfforwc_admin_pro_badge_label(__('Make filter link indexable for best SEO', 'dynamic-ajax-product-filters-for-woocommerce')), "dapfforwc_use_anchor_render", 'dapfforwc-seo-permalinks', 'dapfforwc_seo_section');
     if (isset($dapfforwc_options["use_url_filter"]) && $dapfforwc_options["use_url_filter"] !== "ajax") {
         // Add the "SEO Title" field
         add_settings_field(
             'seo_title',
-            esc_html__('SEO Title', 'dynamic-ajax-product-filters-for-woocommerce'),
+            dapfforwc_admin_pro_badge_label(__('SEO Title', 'dynamic-ajax-product-filters-for-woocommerce')),
             'dapfforwc_seo_title_callback',
             'dapfforwc-seo-permalinks',
             'dapfforwc_seo_section'
@@ -406,7 +432,7 @@ function dapfforwc_settings_init()
 
         add_settings_field(
             'seo_description',
-            esc_html__('SEO Description', 'dynamic-ajax-product-filters-for-woocommerce'),
+            dapfforwc_admin_pro_badge_label(__('SEO Description', 'dynamic-ajax-product-filters-for-woocommerce')),
             'dapfforwc_seo_description_callback',
             'dapfforwc-seo-permalinks',
             'dapfforwc_seo_section'
@@ -416,7 +442,7 @@ function dapfforwc_settings_init()
 
         add_settings_field(
             'seo_keywords',
-            esc_html__('SEO Keywords', 'dynamic-ajax-product-filters-for-woocommerce'),
+            dapfforwc_admin_pro_badge_label(__('SEO Keywords', 'dynamic-ajax-product-filters-for-woocommerce')),
             'dapfforwc_seo_keywords_callback',
             'dapfforwc-seo-permalinks',
             'dapfforwc_seo_section'
@@ -447,7 +473,7 @@ add_action('admin_init', 'dapfforwc_settings_init');
  */
 function dapfforwc_sanitize_template_color($color)
 {
-    $color = trim(sanitize_text_field(wp_unslash($color)));
+    $color = is_scalar($color) ? trim(sanitize_text_field((string) $color)) : '';
     $opaque_color = sanitize_hex_color($color);
 
     if ($opaque_color !== null) {
@@ -465,61 +491,40 @@ function dapfforwc_sanitize_template_options($input)
     $sanitized = array();
 
     if (isset($input['active_template'])) {
-        $sanitized['active_template'] = sanitize_text_field(wp_unslash($input['active_template']));
+        $sanitized['active_template'] = sanitize_text_field($input['active_template']);
     }
 
-    if (isset($input['background_color'])) {
-        $sanitized['background_color'] = dapfforwc_sanitize_template_color($input['background_color']);
-    }
-
-    if (isset($input['primary_color'])) {
-        $sanitized['primary_color'] = dapfforwc_sanitize_template_color($input['primary_color']);
-    }
-
-    if (isset($input['secondary_color'])) {
-        $sanitized['secondary_color'] = dapfforwc_sanitize_template_color($input['secondary_color']);
-    }
-
-    if (isset($input['border_color'])) {
-        $sanitized['border_color'] = dapfforwc_sanitize_template_color($input['border_color']);
-    }
-
-    if (isset($input['text_color'])) {
-        $sanitized['text_color'] = dapfforwc_sanitize_template_color($input['text_color']);
+    // An invalid color keeps the stored one instead of being saved as null.
+    $stored_template_options = get_option('dapfforwc_template_options');
+    foreach (array('background_color', 'primary_color', 'secondary_color', 'border_color', 'text_color') as $color_key) {
+        if (!isset($input[$color_key])) {
+            continue;
+        }
+        $color = dapfforwc_sanitize_template_color($input[$color_key]);
+        if ($color === null && is_array($stored_template_options) && isset($stored_template_options[$color_key])) {
+            $color = dapfforwc_sanitize_template_color($stored_template_options[$color_key]);
+        }
+        if ($color !== null) {
+            $sanitized[$color_key] = $color;
+        }
     }
 
     return $sanitized;
 }
 
 
-function dapfforwc_sanitize_options($input)
+/**
+ * Sanitizes the values of a settings array (recursively for nested arrays).
+ * Option-level rules (values that are not posted) live in the option callbacks below.
+ */
+function dapfforwc_sanitize_option_values($input)
 {
-    if (isset($input["product_selector"]) && !isset($input["allow_data_share"])) {
-        $input["allow_data_share"] = "off";
-    }
-    if (isset($input["product_selector"]) && !isset($input["sidebar_on_top"])) {
-        $input["sidebar_on_top"] = "off";
-    }
     // If input is not an array, make it one
     if (!is_array($input)) {
         return array();
     }
 
     $sanitized = array();
-    $is_seo_permalinks_submission =
-        array_key_exists('dapfforwc_permalinks_prefix_options', $input) ||
-        array_key_exists('seo_title', $input) ||
-        array_key_exists('seo_description', $input) ||
-        array_key_exists('seo_keywords', $input) ||
-        array_key_exists('enable_seo', $input) ||
-        array_key_exists('use_attribute_type_in_permalinks', $input);
-
-    if ($is_seo_permalinks_submission) {
-        // Unchecked checkboxes are omitted from POST; keep an explicit off-state
-        // so the SEO permalink defaults logic does not turn this back on.
-        $sanitized['use_attribute_type_in_permalinks'] =
-            isset($input['use_attribute_type_in_permalinks']) && $input['use_attribute_type_in_permalinks'] === 'on' ? 'on' : '';
-    }
 
     // Loop through each element of the array
     foreach ($input as $key => $value) {
@@ -530,13 +535,13 @@ function dapfforwc_sanitize_options($input)
         // Sanitize based on what type of data this is
         if (is_array($value)) {
             // Recursively sanitize nested arrays
-            $sanitized[$key] = dapfforwc_sanitize_options($value);
+            $sanitized[$key] = dapfforwc_sanitize_option_values($value);
         } else {
             // Determine the right sanitization based on the key or value type
             switch ($key) {
                 // Examples for different types of fields
                 case 'custom_template_code':
-                    $sanitized[$key] = wp_kses_post($value);
+                    $sanitized[$key] = dapfforwc_kses($value, 'post');
                     break;
 
                 case 'url_field':
@@ -553,23 +558,155 @@ function dapfforwc_sanitize_options($input)
 
                 case 'mobile_breakpoint':
                     $bp = absint($value);
-                    $sanitized[$key] = $bp > 0 ? $bp : 768;
+                    // Same range as the field (min="320"): smaller values are raised to 320, empty/invalid falls back to 768.
+                    $sanitized[$key] = $bp > 0 ? max(320, $bp) : 768;
                     break;
 
                 default:
                     // Default sanitization for text fields
-                    $sanitized[$key] = sanitize_text_field(wp_unslash($value));
-                    if ($key === 'use_attribute_type_in_permalinks' && $value === 'on') {
-                        update_option('woocommerce_slug_check_dismissed_time', time() + (100 * DAY_IN_SECONDS));
-                        break;
-                    }
+                    $sanitized[$key] = sanitize_text_field($value);
             }
         }
     }
 
-    if (isset($input['seo_title']) && isset($input['seo_description']) && !isset($input['use_attribute_type_in_permalinks'])) {
-        update_option('woocommerce_slug_check_dismissed_time', false);
+    return $sanitized;
+}
+
+/**
+ * Keeps stored values that the submitted form did not post.
+ *
+ * Free's forms never post Pro-only settings (they are rendered locked or not at all), and some fields are
+ * disabled in the page, so rebuilding the option from the posted fields alone would erase them (for example
+ * after a Pro to free downgrade). Keys in $cleared_when_missing are checkboxes rendered by the form: they are
+ * only absent when unchecked, so they are not restored.
+ *
+ * @param array $sanitized            Sanitized posted values.
+ * @param array $input                Raw posted values.
+ * @param mixed $existing             Stored option value.
+ * @param array $cleared_when_missing Keys that mean "off" when they are not posted.
+ * @param array $merge_nested         Nested map keys whose not-posted sub keys are kept too.
+ * @return array
+ */
+function dapfforwc_keep_unposted_option_values(array $sanitized, array $input, $existing, array $cleared_when_missing = array(), array $merge_nested = array())
+{
+    if (!is_array($existing)) {
+        return $sanitized;
     }
+
+    foreach ($existing as $key => $value) {
+        if (!array_key_exists($key, $input)) {
+            if (!in_array($key, $cleared_when_missing, true) && !array_key_exists($key, $sanitized)) {
+                $sanitized[$key] = $value;
+            }
+            continue;
+        }
+
+        if (in_array($key, $merge_nested, true) && is_array($value) && is_array($input[$key])) {
+            $nested = isset($sanitized[$key]) && is_array($sanitized[$key]) ? $sanitized[$key] : array();
+            foreach ($value as $sub_key => $sub_value) {
+                if (!array_key_exists($sub_key, $input[$key])) {
+                    $nested[$sub_key] = $sub_value;
+                } elseif (is_array($sub_value) && is_array($input[$key][$sub_key])) {
+                    $nested[$sub_key] = dapfforwc_keep_unposted_option_values(
+                        isset($nested[$sub_key]) && is_array($nested[$sub_key]) ? $nested[$sub_key] : array(),
+                        $input[$key][$sub_key],
+                        $sub_value
+                    );
+                }
+            }
+            $sanitized[$key] = $nested;
+        }
+    }
+
+    return $sanitized;
+}
+
+function dapfforwc_sanitize_options($input)
+{
+    if (isset($input["product_selector"]) && !isset($input["allow_data_share"])) {
+        $input["allow_data_share"] = "off";
+    }
+    if (isset($input["product_selector"]) && !isset($input["sidebar_on_top"])) {
+        $input["sidebar_on_top"] = "off";
+    }
+    // If input is not an array, make it one
+    if (!is_array($input)) {
+        return array();
+    }
+
+    $sanitized = dapfforwc_sanitize_option_values($input);
+
+    // Checkboxes rendered (unlocked) on the Form Manage tab are only absent when unchecked. Every other stored
+    // key (Pro-only filters, the loader HTML/CSS, a "permalinks" URL mode set by Pro...) is not posted by
+    // free's form and keeps its stored value.
+    $form_manage_checkboxes = array(
+        'show_categories',
+        'show_attributes',
+        'show_tags',
+        'show_price_range',
+        'show_rating',
+        'show_search',
+        'show_brand',
+        'show_author',
+        'show_status',
+        'show_onsale',
+        'show_dimension',
+        'show_sku',
+        'show_discount',
+        'show_date_filter',
+        'update_filter_options',
+        'show_loader',
+    );
+    $sanitized = dapfforwc_keep_unposted_option_values($sanitized, $input, get_option('dapfforwc_options'), $form_manage_checkboxes);
+
+    if (function_exists('dapfforwc_clear_woocommerce_caches')) {
+        dapfforwc_clear_woocommerce_caches();
+    }
+
+    return $sanitized;
+}
+
+function dapfforwc_sanitize_seo_permalinks_options($input)
+{
+    $existing = get_option('dapfforwc_seo_permalinks_options');
+
+    // In Ajax URL mode the SEO tab renders no field of this option, so nothing is posted: keep what is stored.
+    if (!is_array($input)) {
+        return is_array($existing) ? $existing : array();
+    }
+
+    $sanitized = dapfforwc_sanitize_option_values($input);
+    $is_seo_permalinks_submission =
+        array_key_exists('dapfforwc_permalinks_prefix_options', $input) ||
+        array_key_exists('seo_title', $input) ||
+        array_key_exists('seo_description', $input) ||
+        array_key_exists('seo_keywords', $input) ||
+        array_key_exists('enable_seo', $input) ||
+        array_key_exists('use_attribute_type_in_permalinks', $input);
+
+    if ($is_seo_permalinks_submission) {
+        // Unchecked checkboxes are omitted from POST; keep an explicit off-state
+        // so the SEO permalink defaults logic does not turn this back on.
+        $sanitized['use_attribute_type_in_permalinks'] =
+            isset($input['use_attribute_type_in_permalinks']) && $input['use_attribute_type_in_permalinks'] === 'on' ? 'on' : '';
+    }
+
+    // Turning "Use Attribute Type in Permalinks" off makes duplicate slugs matter again: show the duplicate-slug notice right away.
+    // Only on that change, so "Remind Me Later" still holds across later saves.
+    if ($is_seo_permalinks_submission && $sanitized['use_attribute_type_in_permalinks'] !== 'on'
+        && is_array($existing) && ($existing['use_attribute_type_in_permalinks'] ?? '') === 'on') {
+        update_option('woocommerce_slug_check_dismissed_time', 0);
+    }
+
+    // "Enable SEO" and "Use Attribute Type in Permalinks" are rendered unlocked only outside Ajax URL mode;
+    // there an unchecked box means "off". Pro-only fields (SEO texts, filters word, indexable links) and fields
+    // disabled in the page (the meta tag while SEO is off) are not posted and keep their stored values.
+    $stored_options = get_option('dapfforwc_options');
+    $cleared_when_missing = array();
+    if (is_array($stored_options) && isset($stored_options['use_url_filter']) && $stored_options['use_url_filter'] !== 'ajax') {
+        $cleared_when_missing = array('enable_seo', 'use_attribute_type_in_permalinks');
+    }
+    $sanitized = dapfforwc_keep_unposted_option_values($sanitized, $input, $existing, $cleared_when_missing, array('dapfforwc_permalinks_prefix_options'));
 
     if (function_exists('dapfforwc_clear_woocommerce_caches')) {
         dapfforwc_clear_woocommerce_caches();
@@ -596,11 +733,13 @@ function dapfforwc_sanitize_advance_options($input)
         'allow_data_share' => "off",
         'sidebar_on_top' => "on",
         'mobile_breakpoint' => 768,
+        'mobile_responsive_default' => '',
         'default_value_selected' => 0,
         'exclude_attributes' => "",
         'exclude_custom_fields' => "",
         'no_products_text' => 'No products were found matching your selection.',
         'select2_placeholder' => 'Select Options',
+        'delete_data_on_uninstall' => 'off',
     ];
 
     $existing = get_option('dapfforwc_advance_options');
@@ -651,23 +790,30 @@ function dapfforwc_sanitize_advance_options($input)
         }
     }
 
+    // Shared with Pro: stored as 'on'/'off' (default 'off'); uninstall.php only deletes data when it is 'on'.
+    if ($is_full_submission) {
+        $sanitized['delete_data_on_uninstall'] = isset($input['delete_data_on_uninstall']) && $input['delete_data_on_uninstall'] === 'on' ? 'on' : 'off';
+    } elseif (array_key_exists('delete_data_on_uninstall', $input)) {
+        $sanitized['delete_data_on_uninstall'] = $input['delete_data_on_uninstall'] === 'on' ? 'on' : 'off';
+    }
+
     if (array_key_exists('product_selector', $input)) {
-        $product_selector = sanitize_text_field(wp_unslash($input['product_selector']));
+        $product_selector = sanitize_text_field($input['product_selector']);
         $sanitized['product_selector'] = $product_selector !== '' ? $product_selector : 'ul.products';
     }
 
     if (array_key_exists('pagination_selector', $input)) {
-        $pagination_selector = sanitize_text_field(wp_unslash($input['pagination_selector']));
+        $pagination_selector = sanitize_text_field($input['pagination_selector']);
         $sanitized['pagination_selector'] = $pagination_selector !== '' ? $pagination_selector : '.woocommerce-pagination';
     }
 
     if (array_key_exists('sorting_selector', $input)) {
-        $sorting_selector = sanitize_text_field(wp_unslash($input['sorting_selector']));
+        $sorting_selector = sanitize_text_field($input['sorting_selector']);
         $sanitized['sorting_selector'] = $sorting_selector !== '' ? $sorting_selector : 'form.woocommerce-ordering select';
     }
 
     if (array_key_exists('result_count_selector', $input)) {
-        $result_count_selector = sanitize_text_field(wp_unslash($input['result_count_selector']));
+        $result_count_selector = sanitize_text_field($input['result_count_selector']);
         $sanitized['result_count_selector'] = $result_count_selector !== '' ? $result_count_selector : '.woocommerce-result-count';
     }
 
@@ -678,7 +824,7 @@ function dapfforwc_sanitize_advance_options($input)
             'load_more',
             'infinite_scroll',
         ];
-        $advanced_pagination_mode = sanitize_key(wp_unslash($input['advanced_pagination_mode']));
+        $advanced_pagination_mode = sanitize_key($input['advanced_pagination_mode']);
         $sanitized['advanced_pagination_mode'] = in_array($advanced_pagination_mode, $allowed_modes, true) ? $advanced_pagination_mode : 'number';
     }
 
@@ -694,26 +840,33 @@ function dapfforwc_sanitize_advance_options($input)
             continue;
         }
 
-        $sanitized[$selector_field] = sanitize_text_field(wp_unslash($input[$selector_field]));
+        $sanitized[$selector_field] = sanitize_text_field($input[$selector_field]);
     }
 
     if (array_key_exists('product_shortcode', $input)) {
-        $product_shortcode = sanitize_text_field(wp_unslash($input['product_shortcode']));
+        $product_shortcode = sanitize_text_field($input['product_shortcode']);
         $sanitized['product_shortcode'] = $product_shortcode !== '' ? $product_shortcode : 'products';
     }
 
     if (array_key_exists('mobile_breakpoint', $input)) {
         $mobile_breakpoint = absint($input['mobile_breakpoint']);
-        $sanitized['mobile_breakpoint'] = $mobile_breakpoint > 0 ? $mobile_breakpoint : 768;
+        // Same range as the field (min="320"): smaller values are raised to 320, empty/invalid falls back to 768.
+        $sanitized['mobile_breakpoint'] = $mobile_breakpoint > 0 ? max(320, $mobile_breakpoint) : 768;
+    }
+
+    // Shared with Pro: '' (each filter's own default) or one of the mobile_responsive styles.
+    if (array_key_exists('mobile_responsive_default', $input)) {
+        $mobile_responsive_default = is_scalar($input['mobile_responsive_default']) ? sanitize_key((string) $input['mobile_responsive_default']) : '';
+        $sanitized['mobile_responsive_default'] = dapfforwc_is_mobile_responsive_style($mobile_responsive_default) ? $mobile_responsive_default : '';
     }
 
     if (array_key_exists('exclude_attributes', $input)) {
         $raw_values = $input['exclude_attributes'];
         if (!is_array($raw_values)) {
-            $raw_values = explode(',', wp_unslash((string) $raw_values));
+            $raw_values = explode(',', (string) $raw_values);
         }
         $clean_values = array_filter(array_map(static function ($value) {
-            return sanitize_text_field(wp_unslash((string) $value));
+            return sanitize_text_field((string) $value);
         }, array_map('trim', $raw_values)), 'strlen');
         $sanitized['exclude_attributes'] = implode(',', array_unique($clean_values));
     }
@@ -721,21 +874,21 @@ function dapfforwc_sanitize_advance_options($input)
     if (array_key_exists('exclude_custom_fields', $input)) {
         $raw_values = $input['exclude_custom_fields'];
         if (!is_array($raw_values)) {
-            $raw_values = explode(',', wp_unslash((string) $raw_values));
+            $raw_values = explode(',', (string) $raw_values);
         }
         $clean_values = array_filter(array_map(static function ($value) {
-            return sanitize_text_field(wp_unslash((string) $value));
+            return sanitize_text_field((string) $value);
         }, array_map('trim', $raw_values)), 'strlen');
         $sanitized['exclude_custom_fields'] = implode(',', array_unique($clean_values));
     }
 
     if (array_key_exists('no_products_text', $input)) {
-        $no_products_text = sanitize_text_field(wp_unslash($input['no_products_text']));
+        $no_products_text = sanitize_text_field($input['no_products_text']);
         $sanitized['no_products_text'] = $no_products_text !== '' ? $no_products_text : 'No products were found matching your selection.';
     }
 
     if (array_key_exists('select2_placeholder', $input)) {
-        $select2_placeholder = sanitize_text_field(wp_unslash($input['select2_placeholder']));
+        $select2_placeholder = sanitize_text_field($input['select2_placeholder']);
         $sanitized['select2_placeholder'] = $select2_placeholder !== '' ? $select2_placeholder : 'Select Options';
     }
 
@@ -765,22 +918,36 @@ function dapfforwc_normalize_style_term_option_key(string $attribute, $term_key)
         return $term_key;
     }
 
-    $term = null;
-    $term_id = absint($term_key);
-    if ($term_id > 0) {
-        $term = get_term($term_id, $taxonomy);
+    // One id=>slug map per taxonomy instead of get_term() + up to two get_term_by() queries for every key of
+    // every term-keyed group on each save. The key includes the terms last_changed, so edits are seen.
+    static $term_maps = [];
+    $map_key = $taxonomy . '|' . wp_cache_get_last_changed('terms');
+    if (!isset($term_maps[$map_key])) {
+        $id_to_slug = get_terms([
+            'taxonomy' => $taxonomy,
+            'hide_empty' => false,
+            'fields' => 'id=>slug',
+        ]);
+        $id_to_slug = is_array($id_to_slug) ? $id_to_slug : [];
+        $term_maps[$map_key] = [
+            'ids' => $id_to_slug,
+            'slugs' => array_flip(array_map('strval', $id_to_slug)),
+        ];
     }
+    $map = $term_maps[$map_key];
 
-    if (!$term || is_wp_error($term)) {
-        $term = get_term_by('slug', $term_key, $taxonomy);
+    // Same order as before: a numeric key is a term ID first, then a slug (get_term_by() sanitizes slugs).
+    $term_id = absint($term_key);
+    if ($term_id > 0 && isset($map['ids'][$term_id])) {
+        return (string) $term_id;
     }
 
     $sanitized_key = sanitize_title($term_key);
-    if ((!$term || is_wp_error($term)) && $sanitized_key !== '' && $sanitized_key !== $term_key) {
-        $term = get_term_by('slug', $sanitized_key, $taxonomy);
+    if ($sanitized_key !== '' && isset($map['slugs'][$sanitized_key])) {
+        return (string) absint($map['slugs'][$sanitized_key]);
     }
 
-    return ($term && !is_wp_error($term) && !empty($term->term_id)) ? (string) absint($term->term_id) : $term_key;
+    return $term_key;
 }
 
 function dapfforwc_normalize_style_term_keyed_group(array $values, string $attribute): array
@@ -906,14 +1073,15 @@ function dapfforwc_sanitize_style_options($input, bool $normalize_term_keys = tr
             continue;
         }
 
-        $sanitized[$key] = sanitize_text_field(wp_unslash($value));
+        $sanitized[$key] = sanitize_text_field($value);
     }
 
     if ($normalize_term_keys) {
         $sanitized = dapfforwc_normalize_style_option_term_keys($sanitized);
     }
 
-    if (function_exists('dapfforwc_clear_woocommerce_caches')) {
+    // Nested arrays are sanitized with $normalize_term_keys = false: purge once for the whole option.
+    if ($normalize_term_keys && function_exists('dapfforwc_clear_woocommerce_caches')) {
         dapfforwc_clear_woocommerce_caches();
     }
 

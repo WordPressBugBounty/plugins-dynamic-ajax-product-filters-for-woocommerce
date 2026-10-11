@@ -19,7 +19,7 @@ global $template_options, $dapfforwc_allowed_tags;
     <!-- Loading overlay -->
     <div class="dapfforwc-loading-overlay" style="display: none;">
         <div class="dapfforwc-spinner"></div>
-        <p>Activating template...</p>
+        <p><?php esc_html_e('Activating template...', 'dynamic-ajax-product-filters-for-woocommerce'); ?></p>
     </div>
 
     <div class="dapfforwc-templates-grid">
@@ -28,7 +28,7 @@ global $template_options, $dapfforwc_allowed_tags;
         $templates = [
             [
                 'id' => 'clean',
-                'name' => esc_html__('Minimal Template', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'name' => __('Minimal Template', 'dynamic-ajax-product-filters-for-woocommerce'),
                 'type' => 'free',
                 'image' => '<svg width="200" height="150" xmlns="http://www.w3.org/2000/svg">
             <rect width="200" height="150" fill="#fff" stroke="#e2e8f0"/>
@@ -43,12 +43,12 @@ global $template_options, $dapfforwc_allowed_tags;
             <rect x="20" y="110" width="10" height="10" fill="none" stroke="#cbd5e0"/>
             <text x="38" y="119" font-family="Arial" font-size="11" fill="#4a5568">Linux</text>
         </svg>',
-                'description' => esc_html__('Simple, No border, no shadow.', 'dynamic-ajax-product-filters-for-woocommerce'),
-                'features' => ['No box shadow', 'No borders', 'Lightweight']
+                'description' => __('Simple, No border, no shadow.', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'features' => [__('No box shadow', 'dynamic-ajax-product-filters-for-woocommerce'), __('No borders', 'dynamic-ajax-product-filters-for-woocommerce'), __('Lightweight', 'dynamic-ajax-product-filters-for-woocommerce')]
             ],
             [
                 'id' => 'shadow',
-                'name' => esc_html__('Elevated Template', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'name' => __('Elevated Template', 'dynamic-ajax-product-filters-for-woocommerce'),
                 'type' => 'free',
                 'image' => '<svg width="200" height="150" xmlns="http://www.w3.org/2000/svg">
             <defs>
@@ -66,32 +66,32 @@ global $template_options, $dapfforwc_allowed_tags;
             <rect x="30" y="122" width="10" height="10" fill="none" stroke="#cbd5e0"/>
             <text x="48" y="131" font-family="Arial" font-size="11" fill="#4a5568">Linux</text>
         </svg>',
-                'description' => esc_html__('Card UI with subtle box shadow (matches provided reference).', 'dynamic-ajax-product-filters-for-woocommerce'),
-                'features' => ['Box shadow card', 'Soft border', 'Compact spacing']
+                'description' => __('Card UI with subtle box shadow.', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'features' => [__('Box shadow card', 'dynamic-ajax-product-filters-for-woocommerce'), __('Soft border', 'dynamic-ajax-product-filters-for-woocommerce'), __('Compact spacing', 'dynamic-ajax-product-filters-for-woocommerce')]
             ],
             [
                 'id' => 'modern',
-                'name' => esc_html__('Modern Template', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'name' => __('Modern Template', 'dynamic-ajax-product-filters-for-woocommerce'),
                 'type' => 'pro',
-                'image' => '<svg width="200" height="150" viewBox="-14 -14 302 372" xmlns="http://www.w3.org/2000/svg"><defs><filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity=".12"/></filter></defs><g filter="url(#softShadow)"><rect x="12" y="12" width="276" height="280" rx="10" fill="#fff"/></g><path d="M10 25v260" stroke="#0f7abf" stroke-width="3" stroke-linecap="round"/><text x="36" y="45" fill="#333" style="font:600 16px system-ui,-apple-system,Segoe UI,Roboto,&quot;Helvetica Neue&quot;,Arial">Categories</text><path style="stroke:#0f7abf;stroke-width:3;stroke-linecap:round" d="M36 60h226"/><text style="font:500 14px system-ui,-apple-system,Segoe UI,Roboto,&quot;Helvetica Neue&quot;,Arial;fill:#2b2b2b" x="36" y="95">Surgical Gastro</text><g transform="translate(246 86)"><circle fill="#0f7abf" r="14"/><text style="font:700 12px system-ui,-apple-system,Segoe UI,Roboto,&quot;Helvetica Neue&quot;,Arial;fill:#fff;text-anchor:middle;dominant-baseline:central">9</text></g><path style="stroke:#e8e8e8;stroke-width:1" d="M60 110v40"/><text style="font:500 13px system-ui,-apple-system,Segoe UI,Roboto,&quot;Helvetica Neue&quot;,Arial;fill:#4a4a4a" x="76" y="136">Camera Box</text><g transform="translate(246 129)"><circle fill="#0f7abf" r="14"/><text style="font:700 12px system-ui,-apple-system,Segoe UI,Roboto,&quot;Helvetica Neue&quot;,Arial;fill:#fff;text-anchor:middle;dominant-baseline:central">0</text></g><path style="stroke:#e8e8e8;stroke-width:1" d="M36 160h226"/><text style="font:500 14px system-ui,-apple-system,Segoe UI,Roboto,&quot;Helvetica Neue&quot;,Arial;fill:#2b2b2b" x="36" y="190">Urology</text><g transform="translate(246 181)"><circle fill="#0f7abf" r="14"/><text style="font:700 12px system-ui,-apple-system,Segoe UI,Roboto,&quot;Helvetica Neue&quot;,Arial;fill:#fff;text-anchor:middle;dominant-baseline:central">0</text></g><path style="stroke:#e8e8e8;stroke-width:1" d="M60 206v64"/><rect x="64" y="214" width="190" height="26" rx="4" style="fill:#f4f9fe"/><text style="font:500 13px system-ui,-apple-system,Segoe UI,Roboto,&quot;Helvetica Neue&quot;,Arial;fill:#0f7abf" x="76" y="232">Olympus</text><g transform="translate(246 227)"><circle fill="#0f7abf" r="14"/><text style="font:700 12px system-ui,-apple-system,Segoe UI,Roboto,&quot;Helvetica Neue&quot;,Arial;fill:#fff;text-anchor:middle;dominant-baseline:central">0</text></g><text style="font:500 13px system-ui,-apple-system,Segoe UI,Roboto,&quot;Helvetica Neue&quot;,Arial;fill:#4a4a4a" x="76" y="266">Stor 2 Box</text><g transform="translate(246 259)"><circle fill="#0f7abf" r="14"/><text style="font:700 12px system-ui,-apple-system,Segoe UI,Roboto,&quot;Helvetica Neue&quot;,Arial;fill:#fff;text-anchor:middle;dominant-baseline:central">0</text></g></svg>',
-                'description' => esc_html__('A clean and contemporary card design with a balanced mix of shadow and borders. Perfect for modern eCommerce layouts.', 'dynamic-ajax-product-filters-for-woocommerce'),
-                'features' => ['Subtle card shadow for depth', 'Soft borders for clarity', 'Compact spacing for neat alignment']
+                'image' => '<svg width="200" height="150" viewBox="-14 -14 302 372" xmlns="http://www.w3.org/2000/svg"><defs><filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity=".12"/></filter></defs><g filter="url(#softShadow)"><rect x="12" y="12" width="276" height="280" rx="10" fill="#fff"/></g><path d="M10 25v260" stroke="#0f7abf" stroke-width="3" stroke-linecap="round"/><text x="36" y="45" fill="#333" style="font:600 16px system-ui,-apple-system,Segoe UI,Roboto,&quot;Helvetica Neue&quot;,Arial">Categories</text><path style="stroke:#0f7abf;stroke-width:3;stroke-linecap:round" d="M36 60h226"/><text style="font:500 14px system-ui,-apple-system,Segoe UI,Roboto,&quot;Helvetica Neue&quot;,Arial;fill:#2b2b2b" x="36" y="95">Computers</text><g transform="translate(246 86)"><circle fill="#0f7abf" r="14"/><text style="font:700 12px system-ui,-apple-system,Segoe UI,Roboto,&quot;Helvetica Neue&quot;,Arial;fill:#fff;text-anchor:middle;dominant-baseline:central">9</text></g><path style="stroke:#e8e8e8;stroke-width:1" d="M60 110v40"/><text style="font:500 13px system-ui,-apple-system,Segoe UI,Roboto,&quot;Helvetica Neue&quot;,Arial;fill:#4a4a4a" x="76" y="136">Laptop</text><g transform="translate(246 129)"><circle fill="#0f7abf" r="14"/><text style="font:700 12px system-ui,-apple-system,Segoe UI,Roboto,&quot;Helvetica Neue&quot;,Arial;fill:#fff;text-anchor:middle;dominant-baseline:central">0</text></g><path style="stroke:#e8e8e8;stroke-width:1" d="M36 160h226"/><text style="font:500 14px system-ui,-apple-system,Segoe UI,Roboto,&quot;Helvetica Neue&quot;,Arial;fill:#2b2b2b" x="36" y="190">Accessories</text><g transform="translate(246 181)"><circle fill="#0f7abf" r="14"/><text style="font:700 12px system-ui,-apple-system,Segoe UI,Roboto,&quot;Helvetica Neue&quot;,Arial;fill:#fff;text-anchor:middle;dominant-baseline:central">0</text></g><path style="stroke:#e8e8e8;stroke-width:1" d="M60 206v64"/><rect x="64" y="214" width="190" height="26" rx="4" style="fill:#f4f9fe"/><text style="font:500 13px system-ui,-apple-system,Segoe UI,Roboto,&quot;Helvetica Neue&quot;,Arial;fill:#0f7abf" x="76" y="232">Keyboards</text><g transform="translate(246 227)"><circle fill="#0f7abf" r="14"/><text style="font:700 12px system-ui,-apple-system,Segoe UI,Roboto,&quot;Helvetica Neue&quot;,Arial;fill:#fff;text-anchor:middle;dominant-baseline:central">0</text></g><text style="font:500 13px system-ui,-apple-system,Segoe UI,Roboto,&quot;Helvetica Neue&quot;,Arial;fill:#4a4a4a" x="76" y="266">Monitors</text><g transform="translate(246 259)"><circle fill="#0f7abf" r="14"/><text style="font:700 12px system-ui,-apple-system,Segoe UI,Roboto,&quot;Helvetica Neue&quot;,Arial;fill:#fff;text-anchor:middle;dominant-baseline:central">0</text></g></svg>',
+                'description' => __('A clean and contemporary card design with a balanced mix of shadow and borders. Perfect for modern eCommerce layouts.', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'features' => [__('Subtle card shadow for depth', 'dynamic-ajax-product-filters-for-woocommerce'), __('Soft borders for clarity', 'dynamic-ajax-product-filters-for-woocommerce'), __('Compact spacing for neat alignment', 'dynamic-ajax-product-filters-for-woocommerce')]
             ],
             [
                 'id' => 'basic',
-                'name' => esc_html__('Classic Template', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'name' => __('Classic Template', 'dynamic-ajax-product-filters-for-woocommerce'),
                 'type' => 'pro',
                 'image' => '<svg width="200" height="150" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" stroke="#e2e8f0" d="M0 0h200v150H0z"/><text x="20" y="30" font-family="Arial" font-size="12" font-weight="600" fill="#2d3748">Category</text><path fill="none" stroke="#cbd5e0" d="M20 50h10v10H20z"/><text x="38" y="59" font-family="Arial" font-size="11" fill="#4a5568">Laptop</text><text x="100" y="59" font-family="Arial" font-size="10" fill="#a0aec0">(12)</text><path fill="none" stroke="#cbd5e0" d="M20 70h10v10H20z"/><text x="38" y="79" font-family="Arial" font-size="11" fill="#4a5568">MacBook</text><text x="100" y="79" font-family="Arial" font-size="10" fill="#a0aec0">(5)</text><path fill="none" stroke="#cbd5e0" d="M20 90h10v10H20z"/><text x="38" y="99" font-family="Arial" font-size="11" fill="#4a5568">Desktop</text><text x="100" y="99" font-family="Arial" font-size="10" fill="#a0aec0">(8)</text><path fill="none" stroke="#cbd5e0" d="M20 110h10v10H20z"/><text x="38" y="119" font-family="Arial" font-size="11" fill="#4a5568">Linux</text><text x="100" y="119" font-family="Arial" font-size="10" fill="#a0aec0">(3)</text></svg>',
-                'description' => esc_html__('A timeless and versatile filter style with soft shadows and structured spacing. Works with any theme.', 'dynamic-ajax-product-filters-for-woocommerce'),
-                'features' => ['Box shadow card for subtle emphasis', 'Soft border separation', 'Compact and space-efficient layout']
+                'description' => __('A timeless and versatile filter style with soft shadows and structured spacing. Works with any theme.', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'features' => [__('Box shadow card for subtle emphasis', 'dynamic-ajax-product-filters-for-woocommerce'), __('Soft border separation', 'dynamic-ajax-product-filters-for-woocommerce'), __('Compact and space-efficient layout', 'dynamic-ajax-product-filters-for-woocommerce')]
             ],
             [
                 'id' => 'basic_bordered',
-                'name' => esc_html__('Bordered Template', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'name' => __('Bordered Template', 'dynamic-ajax-product-filters-for-woocommerce'),
                 'type' => 'pro',
-                'image' => '<svg width="220" height="170" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#fff"/><text x="16" y="24" font-family="Arial" font-size="13" font-weight="700" fill="#2d3748" letter-spacing=".3">FILTRÉ PAR</text><path stroke="#e2e8f0" stroke-width="3" stroke-linecap="round" d="M16 32h32"/><text x="16" y="64" font-family="Arial" font-size="13" fill="#2d3748">Bleu</text><text x="204" y="64" font-family="Arial" font-size="12" fill="#a0aec0" text-anchor="end">(12)</text><path stroke="#edf2f7" d="M16 76h188"/><text x="16" y="96" font-family="Arial" font-size="13" fill="#2d3748">Gris</text><text x="204" y="96" font-family="Arial" font-size="12" fill="#a0aec0" text-anchor="end">(33)</text><path stroke="#edf2f7" d="M16 108h188"/><text x="16" y="128" font-family="Arial" font-size="13" fill="#2d3748">Marron</text><text x="204" y="128" font-family="Arial" font-size="12" fill="#a0aec0" text-anchor="end">(13)</text><path stroke="#edf2f7" d="M16 140h188"/><text x="16" y="160" font-family="Arial" font-size="13" fill="#2d3748">Noisette</text><text x="204" y="160" font-family="Arial" font-size="12" fill="#a0aec0" text-anchor="end">(12)</text></svg>',
-                'description' => esc_html__('A sharper design with clear borders and neat spacing, ideal for structured product categories.', 'dynamic-ajax-product-filters-for-woocommerce'),
-                'features' => ['Defined soft borders for separation', 'Subtle box shadow for balance', 'Compact spacing for organized display']
+                'image' => '<svg width="220" height="170" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#fff"/><text x="16" y="24" font-family="Arial" font-size="13" font-weight="700" fill="#2d3748" letter-spacing=".3">FILTER BY</text><path stroke="#e2e8f0" stroke-width="3" stroke-linecap="round" d="M16 32h32"/><text x="16" y="64" font-family="Arial" font-size="13" fill="#2d3748">Blue</text><text x="204" y="64" font-family="Arial" font-size="12" fill="#a0aec0" text-anchor="end">(12)</text><path stroke="#edf2f7" d="M16 76h188"/><text x="16" y="96" font-family="Arial" font-size="13" fill="#2d3748">Grey</text><text x="204" y="96" font-family="Arial" font-size="12" fill="#a0aec0" text-anchor="end">(33)</text><path stroke="#edf2f7" d="M16 108h188"/><text x="16" y="128" font-family="Arial" font-size="13" fill="#2d3748">Brown</text><text x="204" y="128" font-family="Arial" font-size="12" fill="#a0aec0" text-anchor="end">(13)</text><path stroke="#edf2f7" d="M16 140h188"/><text x="16" y="160" font-family="Arial" font-size="13" fill="#2d3748">Beige</text><text x="204" y="160" font-family="Arial" font-size="12" fill="#a0aec0" text-anchor="end">(12)</text></svg>',
+                'description' => __('A sharper design with clear borders and neat spacing, ideal for structured product categories.', 'dynamic-ajax-product-filters-for-woocommerce'),
+                'features' => [__('Defined soft borders for separation', 'dynamic-ajax-product-filters-for-woocommerce'), __('Subtle box shadow for balance', 'dynamic-ajax-product-filters-for-woocommerce'), __('Compact spacing for organized display', 'dynamic-ajax-product-filters-for-woocommerce')]
             ]
         ];
 
@@ -101,7 +101,7 @@ global $template_options, $dapfforwc_allowed_tags;
         ?>
             <div class="dapfforwc-template-card <?php echo $is_active ? 'active' : ''; ?>" data-template-id="<?php echo esc_attr($template['id']); ?>">
                 <div class="dapfforwc-template-image">
-                    <?php echo wp_kses($template['image'], $dapfforwc_allowed_tags); ?>
+                    <?php echo dapfforwc_kses($template['image'], $dapfforwc_allowed_tags); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- dapfforwc_kses() is wp_kses() with the plugin allow-list. ?>
                     <div class="dapfforwc-template-status">
                         <?php if ($is_active && $template_type === 'free') : ?>
                             <span class="active-badge"><?php esc_html_e('Active', 'dynamic-ajax-product-filters-for-woocommerce'); ?></span>
@@ -117,8 +117,8 @@ global $template_options, $dapfforwc_allowed_tags;
                         <?php endif; ?>
                     </div>
                     <div class="dapfforwc-template-overlay">
-                        <button class="preview-template-btn" data-template="<?php echo esc_attr($template['id']); ?>">
-                            <span class="dashicons dashicons-visibility"></span>
+                        <button type="button" class="preview-template-btn" data-template="<?php echo esc_attr($template['id']); ?>">
+                            <span class="dashicons dashicons-visibility" aria-hidden="true"></span>
                             <?php esc_html_e('Quick Preview', 'dynamic-ajax-product-filters-for-woocommerce'); ?>
                         </button>
                     </div>
@@ -144,17 +144,13 @@ global $template_options, $dapfforwc_allowed_tags;
                                 </span>
                             </button>
                         <?php elseif($is_active && $template_type === 'free') : ?>
-                            <span class="current-template">
-                                <span class="dashicons dashicons-yes-alt"></span>
-                                <?php esc_html_e('Activated', 'dynamic-ajax-product-filters-for-woocommerce'); ?>
-                            </span>
+                            <span class="current-template">✓ <?php esc_html_e('Activated', 'dynamic-ajax-product-filters-for-woocommerce'); ?></span>
                         <?php else: ?>
                             <span class="button" style="border: 1px solid #ff5a36;color:#ff5a36">
                                 <?php esc_html_e('Pro Feature Only', 'dynamic-ajax-product-filters-for-woocommerce'); ?>
                             </span>
                         <?php endif; ?>
-                        <button class="button preview-template" data-template="<?php echo esc_attr($template['id']); ?>">
-                            <span class="dashicons dashicons-visibility"></span>
+                        <button type="button" class="button preview-template" data-template="<?php echo esc_attr($template['id']); ?>">
                             <?php esc_html_e('Preview', 'dynamic-ajax-product-filters-for-woocommerce'); ?>
                         </button>
                     </div>
@@ -283,10 +279,10 @@ global $template_options, $dapfforwc_allowed_tags;
 <!-- Preview Modal -->
 <div id="dapfforwc-preview-modal" class="dapfforwc-modal" style="display: none;">
     <div class="dapfforwc-modal-backdrop"></div>
-    <div class="dapfforwc-modal-content">
+    <div class="dapfforwc-modal-content" role="dialog" aria-modal="true" aria-labelledby="dapfforwc-preview-modal-title">
         <div class="dapfforwc-modal-header">
-            <h3><?php esc_html_e('Template Preview', 'dynamic-ajax-product-filters-for-woocommerce'); ?></h3>
-            <button class="dapfforwc-modal-close">&times;</button>
+            <h3 id="dapfforwc-preview-modal-title"><?php esc_html_e('Template Preview', 'dynamic-ajax-product-filters-for-woocommerce'); ?></h3>
+            <button type="button" class="dapfforwc-modal-close" aria-label="<?php esc_attr_e('Close preview', 'dynamic-ajax-product-filters-for-woocommerce'); ?>">&times;</button>
         </div>
         <div class="dapfforwc-modal-body">
             <div class="preview-container">
@@ -303,8 +299,8 @@ global $template_options, $dapfforwc_allowed_tags;
             </div>
         </div>
         <div class="dapfforwc-modal-footer">
-            <button class="button button-primary" id="activate-from-preview"><?php esc_html_e('Activate This Template', 'dynamic-ajax-product-filters-for-woocommerce'); ?></button>
-            <button class="button" id="close-preview"><?php esc_html_e('Close Preview', 'dynamic-ajax-product-filters-for-woocommerce'); ?></button>
+            <button type="button" class="button button-primary" id="activate-from-preview"><?php esc_html_e('Activate This Template', 'dynamic-ajax-product-filters-for-woocommerce'); ?></button>
+            <button type="button" class="button" id="close-preview"><?php esc_html_e('Close Preview', 'dynamic-ajax-product-filters-for-woocommerce'); ?></button>
         </div>
     </div>
 </div>
@@ -408,7 +404,8 @@ global $template_options, $dapfforwc_allowed_tags;
         transition: opacity 0.3s ease;
     }
 
-    .dapfforwc-template-card:hover .dapfforwc-template-overlay {
+    .dapfforwc-template-card:hover .dapfforwc-template-overlay,
+    .dapfforwc-template-card:focus-within .dapfforwc-template-overlay {
         opacity: 1;
     }
 
@@ -441,8 +438,8 @@ global $template_options, $dapfforwc_allowed_tags;
 
     .active-badge,
     .inactive-badge {
-        padding: 6px 12px;
-        border-radius: 20px;
+        padding: 3px 10px;
+        border-radius: 999px;
         font-size: 11px;
         font-weight: 600;
         display: inline-block;
@@ -451,7 +448,7 @@ global $template_options, $dapfforwc_allowed_tags;
     }
 
     .active-badge {
-        background: #667eea;
+        background: #7457d1;
         color: #fff;
         box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
     }
@@ -471,9 +468,9 @@ global $template_options, $dapfforwc_allowed_tags;
 
     .free-badge,
     .paid-badge {
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-size: 11px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 10px;
         font-weight: 600;
         display: inline-block;
         text-transform: uppercase;
@@ -481,13 +478,12 @@ global $template_options, $dapfforwc_allowed_tags;
     }
 
     .free-badge {
-        background: #48bb78;
+        background: #009b53;
         color: #fff;
-        box-shadow: 0 2px 8px rgba(72, 187, 120, 0.3);
     }
 
     .paid-badge {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: #6647c0;
         color: #fff;
         box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
     }
@@ -540,28 +536,31 @@ global $template_options, $dapfforwc_allowed_tags;
     }
 
     .dapfforwc-template-actions .button {
-        flex: 1;
-        text-align: center;
-        position: relative;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 5px;
+        flex: 1 1 0%;
+        border-radius: 7px;
+        border: 1px solid oklch(0.55 0.18 290);
+        background: white;
+        color: oklch(0.55 0.18 290);
+        font-size: 12.5px;
+        font-weight: 700;
+        cursor: pointer;
     }
 
     .current-template {
-        flex: 1;
-        padding: 8px 12px;
-        background: #f0fff4;
-        border: 1px solid #9ae6b4;
-        border-radius: 6px;
-        color: #276749;
-        text-align: center;
-        font-weight: 500;
+        flex: 1 1 0%;
+        padding: 9px 0px;
+        border-radius: 7px;
+        border-width: medium;
+        border-style: none;
+        border-color: currentcolor;
+        border-image: none;
+        background: #009b53;
+        color: white;
+        font-size: 12.5px;
+        font-weight: 700;
+        cursor: pointer;
         display: flex;
-        align-items: center;
         justify-content: center;
-        gap: 5px;
     }
 
     .current-template .dashicons {
@@ -827,14 +826,16 @@ global $template_options, $dapfforwc_allowed_tags;
       networkError:    <?php echo wp_json_encode( __( 'Network error. Please try again.', 'dynamic-ajax-product-filters-for-woocommerce' ) ); ?>,
       category:        <?php echo wp_json_encode( __( 'Category', 'dynamic-ajax-product-filters-for-woocommerce' ) ); ?>,
       categories:      <?php echo wp_json_encode( __( 'Categories', 'dynamic-ajax-product-filters-for-woocommerce' ) ); ?>,
-      dismissNotice:   'Dismiss this notice.'
+      dismissNotice:   <?php echo wp_json_encode( __( 'Dismiss this notice.', 'dynamic-ajax-product-filters-for-woocommerce' ) ); ?>,
+      noPreview:       <?php echo wp_json_encode( __( 'No preview available.', 'dynamic-ajax-product-filters-for-woocommerce' ) ); ?>
     };
 
     // If you localized via wp_localize_script, use that first:
     const cfg = window.dapfforwcConfig || {};
 
     return {
-      templates:      cfg.templates || <?php echo wp_json_encode( $templates ); ?>,
+      // Only the fields the preview script reads; the inline SVG images stay in the cards (they were sent twice).
+      templates:      cfg.templates || <?php echo wp_json_encode( array_values( array_map( function ( $template ) { return array_intersect_key( $template, array_flip( array( 'id', 'name', 'description', 'features', 'type' ) ) ); }, $templates ) ), JSON_HEX_TAG | JSON_HEX_AMP ); ?>,
       activeTemplate: cfg.activeTemplate || <?php echo wp_json_encode( (string) ($template_options['active_template'] ?? '') ); ?>,
       nonce:          cfg.nonce || <?php echo wp_json_encode( wp_create_nonce('dapfforwc_template_nonce') ); ?>,
       i18n:           Object.assign(i18nFallback, cfg.i18n || {})
@@ -843,6 +844,11 @@ global $template_options, $dapfforwc_allowed_tags;
 
   // ---------- Helpers ----------
   const $body    = $(document.body);
+
+  // Translated strings arrive as plain text; escape them before they go into HTML strings.
+  function escHtml(text) {
+    return $('<div>').text(text == null ? '' : String(text)).html();
+  }
   const selectors = {
     card:              '.dapfforwc-template-card',
     activateBtn:       '.activate-template',
@@ -871,7 +877,7 @@ global $template_options, $dapfforwc_allowed_tags;
         <div class="notice notice-${type} is-dismissible dapfforwc-notification"
              style="position:fixed;top:32px;right:20px;z-index:100001;max-width:350px;animation:slideInRight .3s ease;">
           <p></p>
-          <button type="button" class="notice-dismiss"><span class="screen-reader-text">${CONFIG.i18n.dismissNotice}</span></button>
+          <button type="button" class="notice-dismiss"><span class="screen-reader-text">${escHtml(CONFIG.i18n.dismissNotice)}</span></button>
         </div>
       `);
       $n.find('p').text(message);
@@ -952,7 +958,7 @@ global $template_options, $dapfforwc_allowed_tags;
       const hostId = $hostCard.data('template-id');
       $badge.replaceWith(
         `<button class="button button-primary activate-template" data-template="${hostId}">
-           <span class="button-text">${CONFIG.i18n.activate}</span>
+           <span class="button-text">${escHtml(CONFIG.i18n.activate)}</span>
            <span class="button-spinner" style="display:none;"><span class="spinner is-active"></span></span>
          </button>`
       );
@@ -966,11 +972,9 @@ global $template_options, $dapfforwc_allowed_tags;
       .addClass('active-badge')
       .text(CONFIG.i18n.active);
 
-    // Swap button → static “Activated” pill
+    // Swap button → static “Activated” pill, built like the server-rendered one ('✓ Activated')
     $activeCard.find(selectors.activateBtn).replaceWith(
-      `<span class="current-template">
-         <span class="dashicons dashicons-yes-alt"></span> ${CONFIG.i18n.activated}
-       </span>`
+      $('<span class="current-template"></span>').text('✓ ' + CONFIG.i18n.activated)
     );
 
     // 3) Persist in hidden field
@@ -987,13 +991,13 @@ global $template_options, $dapfforwc_allowed_tags;
 
     // Build features list
     const feats = Array.isArray(template.features) ? template.features : [];
-    const featHtml = [
-      `<h5>${CONFIG.i18n.keyFeatures}</h5>`,
-      '<ul>',
-      ...feats.map(f => `<li><span class="dashicons dashicons-yes-alt"></span> ${String(f)}</li>`),
-      '</ul>'
-    ].join('');
-    $(selectors.previewFeatures).html(featHtml);
+    const $featList = $('<ul></ul>');
+    feats.forEach(f => {
+      $('<li><span class="dashicons dashicons-yes-alt"></span></li>')
+        .append(document.createTextNode(' ' + String(f)))
+        .appendTo($featList);
+    });
+    $(selectors.previewFeatures).empty().append($('<h5></h5>').text(CONFIG.i18n.keyFeatures), $featList);
 
     // Build demo widget
     buildDemoWidget(template);
@@ -1004,7 +1008,7 @@ global $template_options, $dapfforwc_allowed_tags;
     const isFree   = String(template.type || 'free') === 'free';
 
     if (isActive && isFree) {
-      $act.html(`<span class="dashicons dashicons-yes-alt"></span> ${CONFIG.i18n.activated}`)
+      $act.html(`<span class="dashicons dashicons-yes-alt"></span> ${escHtml(CONFIG.i18n.activated)}`)
           .prop('disabled', true)
           .removeClass('button-primary')
           .addClass('button-secondary');
@@ -1020,19 +1024,54 @@ global $template_options, $dapfforwc_allowed_tags;
           .addClass('button-primary');
     }
 
+    // Focus moves into the dialog and returns to the opener when it closes.
+    previewOpener = document.activeElement;
     $(selectors.modal).fadeIn(200);
     $body.addClass('modal-open');
+    $(selectors.modal).find('.dapfforwc-modal-close').trigger('focus');
   }
 
-  function closePreviewModal() {
+  let previewOpener = null;
+
+  function closePreviewModal(restoreFocus) {
     $(selectors.modal).fadeOut(200);
     $body.removeClass('modal-open');
+    if (restoreFocus && previewOpener && document.contains(previewOpener)) {
+      previewOpener.focus();
+    }
+    previewOpener = null;
   }
+
+  // Escape closes the preview; Tab stays inside it while it is open.
+  $(document).on('keydown', function (e) {
+    const $modal = $(selectors.modal);
+    if (!$modal.is(':visible')) return;
+    if (e.key === 'Escape') {
+      closePreviewModal(true);
+      return;
+    }
+    if (e.key === 'Tab') {
+      const $focusable = $modal.find(selectors.modalContent).find('a[href], button, input, select, textarea, [tabindex]').filter(function () {
+        return !this.disabled && this.tabIndex >= 0 && $(this).is(':visible');
+      });
+      if (!$focusable.length) return;
+      const first = $focusable.get(0);
+      const last = $focusable.get($focusable.length - 1);
+      const inside = $modal.get(0).contains(document.activeElement);
+      if (e.shiftKey && (!inside || document.activeElement === first)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (!inside || document.activeElement === last)) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  });
 
   // ---------- Demo Widget (purely illustrative) ----------
   function buildDemoWidget(template) {
-    const catLabel  = CONFIG.i18n.category;
-    const catsLabel = CONFIG.i18n.categories;
+    const catLabel  = escHtml(CONFIG.i18n.category);
+    const catsLabel = escHtml(CONFIG.i18n.categories);
 
     let demoHtml = '';
     switch (String(template.id)) {
@@ -1078,8 +1117,8 @@ global $template_options, $dapfforwc_allowed_tags;
             </div>
             <div style="padding:12px 16px;">
               ${[
-                {label:'Surgical Gastro', count:9, sub:[{label:'Camera Box',count:0}]},
-                {label:'Urology', count:0, sub:[{label:'Olympus',count:0},{label:'Stor 2 Box',count:0}]}
+                {label:'Computers', count:9, sub:[{label:'Laptop',count:0}]},
+                {label:'Accessories', count:0, sub:[{label:'Keyboards',count:0},{label:'Monitors',count:0}]}
               ].map(cat => `
                 <div style="margin:10px 0;">
                   <div style="display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:600;color:#2d3748;margin-bottom:6px;">
@@ -1149,7 +1188,7 @@ global $template_options, $dapfforwc_allowed_tags;
       }
 
       default:
-        demoHtml = '<div style="padding:16px;color:#666;">No preview available.</div>';
+        demoHtml = '<div style="padding:16px;color:#666;">' + escHtml(CONFIG.i18n.noPreview) + '</div>';
     }
 
     $(selectors.demoWidget).html(demoHtml);
@@ -1176,7 +1215,7 @@ global $template_options, $dapfforwc_allowed_tags;
     .on('click', selectors.previewActivate, function () {
       const templateId = $(this).data('template');
       if (!templateId) return;
-      closePreviewModal();
+      closePreviewModal(false);
       // Find the corresponding card button if present (nice UX), else pass null
       const $cardBtn = $(`${selectors.activateBtn}[data-template="${templateId}"]`).first();
       activateTemplate(templateId, $cardBtn.length ? $cardBtn : null);
@@ -1184,7 +1223,7 @@ global $template_options, $dapfforwc_allowed_tags;
 
     // Modal closing
     .on('click', selectors.modalClose, function () {
-      closePreviewModal();
+      closePreviewModal(true);
     })
 
     // Prevent modal backdrop click from closing when clicking inside content

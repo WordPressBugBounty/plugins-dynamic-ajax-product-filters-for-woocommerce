@@ -262,7 +262,7 @@ class dapfforwc_Custom_Class_Injector
             $html
         );
 
-        echo wp_kses($html, $dapfforwc_allowed_tags);
+        echo dapfforwc_kses($html, $dapfforwc_allowed_tags); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- dapfforwc_kses() is wp_kses() with the plugin allow-list.
     }
 
 
@@ -275,7 +275,7 @@ class dapfforwc_Custom_Class_Injector
             $result_count_selector = $this->get_advanced_selector_setting('result_count_selector', '.woocommerce-result-count');
             $pagination_class = $this->custom_classes['pagination'];
             dapfforwc_add_inline_script('
-                jQuery(document).ready(function($) {
+                ' . dapfforwc_inline_jquery_ready_open() . '
                     // Target multiple possible pagination selectors
                     var paginationSelectors = [
                         ".woocommerce-pagination:not(header .woocommerce-pagination)",
@@ -307,7 +307,7 @@ class dapfforwc_Custom_Class_Injector
             if (is_woocommerce()) {
                 $pagination_class = $this->custom_classes['pagination'];
                 dapfforwc_add_inline_script('
-                    jQuery(document).ready(function($) {
+                    ' . dapfforwc_inline_jquery_ready_open() . '
                         // Wait for AJAX updates and late-loading pagination
                         setTimeout(function() {
                             $(".woocommerce-pagination:not(header .woocommerce-pagination), .woocommerce nav.navigation:not(header nav), .pagination:not(header .pagination)").addClass("' . esc_js($pagination_class) . '");
@@ -425,7 +425,7 @@ class dapfforwc_Custom_Class_Injector
             $content = str_replace('<form', '<form class="' . $this->custom_classes['orderby'] . '"', $content);
         }
 
-        echo wp_kses($content, $dapfforwc_allowed_tags);
+        echo dapfforwc_kses($content, $dapfforwc_allowed_tags); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- dapfforwc_kses() is wp_kses() with the plugin allow-list.
     }
 
     /**
@@ -455,7 +455,7 @@ class dapfforwc_Custom_Class_Injector
         if (is_woocommerce()) {
             $result_count_selector = $this->get_advanced_selector_setting('result_count_selector', '.woocommerce-result-count');
             dapfforwc_add_inline_script('
-                jQuery(document).ready(function($) {
+                ' . dapfforwc_inline_jquery_ready_open() . '
                     $("' . esc_js($result_count_selector) . '").addClass("' . esc_attr($this->custom_classes['result_count']) . '");
                 });
             ', 'urlfilter-ajax');
@@ -544,7 +544,7 @@ if (!class_exists('dapfforwc_Pagination_Normalizer')) {
                 return;
             }
             $html = ob_get_clean();
-            echo wp_kses($this->inject_into_any_pagination($html), $dapfforwc_allowed_tags);
+            echo dapfforwc_kses($this->inject_into_any_pagination($html), $dapfforwc_allowed_tags); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- dapfforwc_kses() is wp_kses() with the plugin allow-list.
         }
 
         /* ----------------------------------------------

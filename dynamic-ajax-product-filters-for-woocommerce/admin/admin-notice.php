@@ -7,8 +7,8 @@ if (!defined('ABSPATH')) {
 
 function dapfforwc_check_woocommerce_duplicate_slugs() {
     global $dapfforwc_seo_permalinks_options;
-    // Only run in the admin area
-    if (is_admin()) {
+    // Only run on admin screens, for users who can act on the notice
+    if (is_admin() && !wp_doing_ajax() && current_user_can('manage_options')) {
         // Check if the notice should be displayed
         $dismissed_time = get_option('woocommerce_slug_check_dismissed_time');
         if ($dismissed_time === false) {
@@ -48,10 +48,14 @@ function dapfforwc_check_woocommerce_duplicate_slugs() {
                 'fields'     => 'slugs',
                 'hide_empty' => false,
             ));
-            $attribute_terms = array_merge($attribute_terms, $terms);
+            if (!is_wp_error($terms) && is_array($terms)) {
+                $attribute_terms = array_merge($attribute_terms, $terms);
+            }
         }
 
-        // Merge all slugs into one array
+        // Merge all slugs into one array (get_terms() returns a WP_Error when a taxonomy is not registered)
+        $category_terms = is_array($category_terms) ? $category_terms : array();
+        $tag_terms = is_array($tag_terms) ? $tag_terms : array();
         $all_slugs = array_merge($category_terms, $tag_terms, $attribute_terms);
 
         // Find duplicate slugs
@@ -84,6 +88,13 @@ function dapfforwc_check_woocommerce_duplicate_slugs() {
                                 $('#woocommerce-slug-check-notice').fadeOut();
                             });
                         });
+                        // The core X button only hid the notice until the next page load: store the same "remind me later" time.
+                        $(document).on('click', '#woocommerce-slug-check-notice .notice-dismiss', function() {
+                            $.post(dapfforwcAdminAjax.ajax_url, {
+                                action: 'dapfforwc_dismiss_slug_check_notice',
+                                nonce: dapfforwcAdminAjax.slug_check_nonce,
+                            });
+                        });
                     });
                 <?php dapfforwc_add_inline_script(ob_get_clean(), 'dapfforwc-admin-menu-script'); ?>
                 <?php
@@ -91,7 +102,9 @@ function dapfforwc_check_woocommerce_duplicate_slugs() {
         }
     }
 }
-add_action('admin_init', 'dapfforwc_check_woocommerce_duplicate_slugs');
+// On admin_notices (priority 5, before the notice it adds at 10): admin_notices only fires on rendered admin
+// screens, while admin_init also ran the term scan on every admin-ajax, admin-post and options.php request.
+add_action('admin_notices', 'dapfforwc_check_woocommerce_duplicate_slugs', 5);
 
 // Handle AJAX dismiss action
 function dapfforwc_dismiss_slug_check_notice() {

@@ -29,7 +29,29 @@
   display: inline-block;
   margin-left: 10px;
 }
-.plugincyajaxfilter-tab-panel span.dashicons.selected {
+.plugincyajaxfilter-tab-panel .device-selector button.dashicons,
+.plugincyajaxfilter-tab-panel .draggable-option-actions button.dashicons {
+  padding: 0;
+  margin: 0 5px 0 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  vertical-align: middle;
+}
+.plugincyajaxfilter-tab-panel .draggable-option-actions button.dashicons {
+  margin: 0 0 0 5px;
+}
+.plugincyajaxfilter-tab-panel .draggable-option-actions button.dashicons:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.plugincyajaxfilter-tab-panel .device-selector button.dashicons:focus-visible,
+.plugincyajaxfilter-tab-panel .draggable-option-actions button.dashicons:focus-visible {
+  outline: 2px solid var(--wp-admin-theme-color, #3858e9);
+  outline-offset: 1px;
+}
+.plugincyajaxfilter-tab-panel .dashicons.selected {
   background: green;
   color: #fff;
   border-radius: 50%;
@@ -58,6 +80,10 @@
   font-size: 14px;
   color: #333;
 }
+.plugincyajaxfilter-tab-panel .components-tab-panel__tabs button:focus-visible {
+  outline: 2px solid var(--wp-admin-theme-color, #3858e9);
+  outline-offset: -2px;
+}
 .plugincyajaxfilter-tab-panel .components-tab-panel__tabs button:hover {
   background-color: #e0e0e0;
 }
@@ -78,8 +104,9 @@
 .plugincyajaxfilter-tab-panel .components-circular-option-picker {
   position: absolute;
   top: -12px;
-  max-width: 7px !important;
+  /* Fixed width (the old max-width: 7px was always overridden by min-width: 56px). */
   min-width: 56px !important;
+  max-width: 56px !important;
   right: 0;
 }
 .plugincyajaxfilter-tab-panel .components-circular-option-picker button.components-button {

@@ -6,11 +6,12 @@ if (!defined('ABSPATH')) {
 function dapfforwc_product_selector_callback()
 {
     global $dapfforwc_advance_settings;
-    $product_selector = isset($dapfforwc_advance_settings['product_selector']) ? esc_attr($dapfforwc_advance_settings['product_selector']) : '.products';
+    // Same default as the advanced settings defaults (dapfforwc_settings_init / the advance sanitizer fallback).
+    $product_selector = isset($dapfforwc_advance_settings['product_selector']) ? (string) $dapfforwc_advance_settings['product_selector'] : 'ul.products';
 ?>
-    <input type="text" name="dapfforwc_advance_options[product_selector]" value="<?php echo esc_attr($product_selector); ?>" placeholder=".products">
+    <input type="text" name="dapfforwc_advance_options[product_selector]" value="<?php echo esc_attr($product_selector); ?>" placeholder="ul.products">
     <p class="description">
-        <?php esc_html_e('Enter the CSS selector for the product container. Default is .products.', 'dynamic-ajax-product-filters-for-woocommerce'); ?>
+        <?php esc_html_e('Enter the CSS selector for the product container. Default is ul.products.', 'dynamic-ajax-product-filters-for-woocommerce'); ?>
     </p>
 <?php
 }
@@ -228,16 +229,16 @@ function dapfforwc_product_shortcode_callback()
 function dapfforwc_text_manage_render()
 {
     global $dapfforwc_advance_settings;
-    $no_products_text = isset($dapfforwc_advance_settings['no_products_text']) && $dapfforwc_advance_settings['no_products_text'] !== '' ? $dapfforwc_advance_settings['no_products_text'] : 'No products were found matching your selection.';
-    $select2_placeholder = isset($dapfforwc_advance_settings['select2_placeholder']) && $dapfforwc_advance_settings['select2_placeholder'] !== '' ? $dapfforwc_advance_settings['select2_placeholder'] : 'Select Options';
+    $no_products_text = isset($dapfforwc_advance_settings['no_products_text']) && $dapfforwc_advance_settings['no_products_text'] !== '' ? $dapfforwc_advance_settings['no_products_text'] : __('No products were found matching your selection.', 'woocommerce'); // phpcs:ignore WordPress.WP.I18n.TextDomainMismatch -- Same message (and translation) as WooCommerce's own empty-result notice.
+    $select2_placeholder = isset($dapfforwc_advance_settings['select2_placeholder']) && $dapfforwc_advance_settings['select2_placeholder'] !== '' ? $dapfforwc_advance_settings['select2_placeholder'] : __('Select Options', 'dynamic-ajax-product-filters-for-woocommerce');
     ?>
     <div style="max-width: 500px;">
         <label for="dapfforwcpro-no-products-text" style="font-weight: 600; display:block; margin-bottom:4px;"><?php esc_html_e('No products message', 'dynamic-ajax-product-filters-for-woocommerce'); ?></label>
-        <input type="text" id="dapfforwcpro-no-products-text" name="dapfforwc_advance_options[no_products_text]" value="<?php echo esc_attr($no_products_text); ?>" class="regular-text" placeholder="No products were found matching your selection.">
+        <input type="text" id="dapfforwcpro-no-products-text" name="dapfforwc_advance_options[no_products_text]" value="<?php echo esc_attr($no_products_text); ?>" class="regular-text" placeholder="<?php echo esc_attr__('No products were found matching your selection.', 'woocommerce'); // phpcs:ignore WordPress.WP.I18n.TextDomainMismatch ?>">
         <p class="description"><?php esc_html_e('Shown when a filter results in zero products.', 'dynamic-ajax-product-filters-for-woocommerce'); ?></p>
 
         <label for="dapfforwcpro-select2-placeholder" style="font-weight: 600; display:block; margin:14px 0 4px;"><?php esc_html_e('Select2 dropdown placeholder', 'dynamic-ajax-product-filters-for-woocommerce'); ?></label>
-        <input type="text" id="dapfforwcpro-select2-placeholder" name="dapfforwc_advance_options[select2_placeholder]" value="<?php echo esc_attr($select2_placeholder); ?>" class="regular-text" placeholder="Select Options">
+        <input type="text" id="dapfforwcpro-select2-placeholder" name="dapfforwc_advance_options[select2_placeholder]" value="<?php echo esc_attr($select2_placeholder); ?>" class="regular-text" placeholder="<?php echo esc_attr__('Select Options', 'dynamic-ajax-product-filters-for-woocommerce'); ?>">
         <p class="description"><?php esc_html_e('Default placeholder text for Select2 dropdowns.', 'dynamic-ajax-product-filters-for-woocommerce'); ?></p>
     </div>
     <?php
@@ -364,11 +365,34 @@ function dapfforwc_mobile_breakpoint_render()
     </p>
     <?php
 }
+function dapfforwc_mobile_responsive_default_render()
+{
+    $current = function_exists('dapfforwc_get_global_mobile_responsive_style') ? dapfforwc_get_global_mobile_responsive_style() : '';
+    ?>
+    <select name="dapfforwc_advance_options[mobile_responsive_default]">
+        <option value="" <?php selected($current, ''); ?>><?php esc_html_e('Default (each filter\'s own style)', 'dynamic-ajax-product-filters-for-woocommerce'); ?></option>
+        <?php foreach (dapfforwc_get_mobile_responsive_styles() as $style_key => $style_label) { ?>
+            <option value="<?php echo esc_attr($style_key); ?>" <?php selected($current, $style_key); ?>><?php echo esc_html($style_label); ?></option>
+        <?php } ?>
+    </select>
+    <p class="description">
+        <?php esc_html_e('Applies to filters that do not set their own mobile style (classic widget, shortcode without mobile_responsive, blocks and Elementor widgets set to "Use global setting"). Choose Style 2 when your theme has its own mobile or off-canvas filter panel (for example Rey, Savoy, WoodMart, Flatsome, Martfury, Electro, TheGem, Woostify, Botiga, Riode, Zota, Shoptimizer): the plugin then leaves the filter in the sidebar so it shows inside the theme\'s panel.', 'dynamic-ajax-product-filters-for-woocommerce'); ?>
+    </p>
+    <?php
+}
 function dapfforwc_default_value_selected_render()
 {
     dapfforwc_render_advance_checkbox('default_value_selected', esc_html__('Make default value from shortcode & pages selected/checked', 'dynamic-ajax-product-filters-for-woocommerce'));
 }
 
+
+function dapfforwc_delete_data_on_uninstall_render()
+{
+    dapfforwc_render_advance_checkbox(
+        'delete_data_on_uninstall',
+        esc_html__('When the plugin is deleted from the Plugins page, remove its settings, caches and scheduled tasks. Off by default. While the Pro version is still installed, the settings shared with Pro are kept.', 'dynamic-ajax-product-filters-for-woocommerce')
+    );
+}
 
 function dapfforwc_render_advance_checkbox($key, $message = null)
 {
@@ -383,7 +407,7 @@ function dapfforwc_render_advance_checkbox($key, $message = null)
     </label>
     <?php
     if (isset($message) && !empty($message)) {
-        echo "<p class='description' style='max-width: 800px;'>" . wp_kses($message, $dapfforwc_allowed_tags) . "</p>";
+        echo "<p class='description' style='max-width: 800px;'>" . dapfforwc_kses($message, $dapfforwc_allowed_tags) . "</p>"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- dapfforwc_kses() is wp_kses() with the plugin allow-list.
     }
 }
 
@@ -403,10 +427,10 @@ function dapfforwc_exclude_attributes_render()
     }
     ?>
     <input type="hidden" name="dapfforwc_advance_options[exclude_attributes][]" value="">
-    <select class="plugincy_select2" id="exclude-attributes" name="dapfforwc_advance_options[exclude_attributes][]" multiple style="scrollbar-width: thin;min-width: 141px;" data-placeholder="<?php esc_html_e('Select Attributes to Exclude', 'dynamic-ajax-product-filters-for-woocommerce'); ?>">
+    <select class="plugincy_select2" id="exclude-attributes" name="dapfforwc_advance_options[exclude_attributes][]" multiple style="scrollbar-width: thin;min-width: 141px;" data-placeholder="<?php esc_attr_e('Select Attributes to Exclude', 'dynamic-ajax-product-filters-for-woocommerce'); ?>">
         <?php foreach ($dapfforwc_attributes as $option) : ?>
             <option value="<?php echo esc_attr($option->attribute_name); ?>" 
-                <?php echo in_array($option->attribute_name, $exclude_attributes) ? 'selected' : ''; ?>>
+                <?php echo in_array((string) $option->attribute_name, array_map('strval', $exclude_attributes), true) ? 'selected' : ''; ?>>
                 <?php echo esc_html($option->attribute_label); ?>
             </option>
         <?php endforeach; ?>
@@ -429,10 +453,10 @@ function dapfforwc_exclude_custom_fields_render()
     }
     ?>
     <div class="pro-only">
-        <select class="plugincy_select2" disabled id="exclude_custom_fields" name="dapfforwc_advance_options[exclude_custom_fields][]" multiple style="scrollbar-width: thin;min-width: 141px;" data-placeholder="<?php esc_html_e('Select Custom Fields to Exclude', 'dynamic-ajax-product-filters-for-woocommerce'); ?>">
+        <select class="plugincy_select2" disabled id="exclude_custom_fields" name="dapfforwc_advance_options[exclude_custom_fields][]" multiple style="scrollbar-width: thin;min-width: 141px;" data-placeholder="<?php esc_attr_e('Select Custom Fields to Exclude', 'dynamic-ajax-product-filters-for-woocommerce'); ?>">
             <?php foreach ($dapfforwc_attributes as $option) : ?>
                 <option value="<?php echo esc_attr($option->attribute_name); ?>" 
-                    <?php echo in_array($option->attribute_name, $exclude_custom_fields) ? 'selected' : ''; ?>>
+                    <?php echo in_array((string) $option->attribute_name, array_map('strval', $exclude_custom_fields), true) ? 'selected' : ''; ?>>
                     <?php echo esc_html($option->attribute_label); ?>
                 </option>
             <?php endforeach; ?>

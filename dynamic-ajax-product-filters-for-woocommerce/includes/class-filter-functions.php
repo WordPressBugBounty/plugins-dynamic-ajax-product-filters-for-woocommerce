@@ -7,12 +7,13 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
 {
 
     private static $instance = null;
-    private $nonce_valid = null;
+    private $filter_form_request = null;
     private $filter_params = null;
     private $rating_style = null;
     private $third_party_hooks_initialized = false;
     private $dimension_product_ids = array();
     private $category_alias_request_values = array();
+    private $aws_search_page_query = null;
 
     public static function get_instance()
     {
@@ -82,6 +83,152 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
         // AJAX handlers
         add_action('wp_ajax_woocommerce_get_products', array($this, 'ajax_handler'));
         add_action('wp_ajax_nopriv_woocommerce_get_products', array($this, 'ajax_handler'));
+
+        // Advanced Woo Search results page (?type_aws=true): AWS replaces the main query with its own result list.
+        add_filter('aws_search_page_filters', array($this, 'capture_aws_search_page_query'), 10, 2);
+        add_filter('aws_search_page_products_filtered', array($this, 'filter_aws_search_page_products'));
+
+        // Essential Addons product grid/gallery: "Load more", AJAX pagination and gallery tabs run through admin-ajax
+        // (before Essential Addons' own handlers at priority 10).
+        foreach (array('load_more', 'woo_product_pagination_product', 'woo_product_pagination', 'eael_product_gallery') as $builder_ajax_action) {
+            add_action('wp_ajax_' . $builder_ajax_action, array($this, 'activate_page_filters_for_builder_ajax'), 5);
+            add_action('wp_ajax_nopriv_' . $builder_ajax_action, array($this, 'activate_page_filters_for_builder_ajax'), 5);
+        }
+    }
+
+    /**
+     * Essential Addons rebuilds the next grid page in an admin-ajax POST from query args printed into the page, so
+     * the visitor's filters were lost there and "Load more" appended unfiltered products. The filter script sends the
+     * page address (dapfforwc_page_url) with those requests; its filter state is applied to this request's product
+     * queries like on a filtered page load. Same-site addresses only; nothing happens without the filters marker.
+     */
+    public function activate_page_filters_for_builder_ajax()
+    {
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only listing state, the same values a public GET filter URL carries.
+        $page_url = isset($_REQUEST['dapfforwc_page_url']) && is_string($_REQUEST['dapfforwc_page_url']) ? esc_url_raw(wp_unslash($_REQUEST['dapfforwc_page_url'])) : '';
+        if ($page_url === '' || !wp_doing_ajax() || dapfforwc_is_filter_form_request()) {
+            return;
+        }
+
+        $page_parts = wp_parse_url($page_url);
+        $home_host = wp_parse_url(home_url(), PHP_URL_HOST);
+        if (!is_array($page_parts) || empty($page_parts['host']) || !$home_host || strtolower($page_parts['host']) !== strtolower($home_host)) {
+            return;
+        }
+
+        $values = array();
+        if (!empty($page_parts['query'])) {
+            parse_str($page_parts['query'], $values);
+        }
+        foreach (array('paged', 'product-page', 'page', 'add-to-cart', 'action') as $listing_only_key) {
+            unset($values[$listing_only_key]);
+        }
+
+        // Only a filtered page counts (its address carries the filters marker); a plain ?orderby= does not.
+        if (empty($values['filters'])) {
+            return;
+        }
+
+        foreach ($values as $key => $value) {
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Only checks whether the request already carries this key.
+            if (is_string($key) && !isset($_GET[$key]) && (is_scalar($value) || is_array($value))) {
+                $_GET[$key] = $value;
+            }
+        }
+
+        // Presence marker of the public filter form, so this POST reads the filter values (see get_filter_params()).
+        $_GET['gm-product-filter-nonce'] = '1';
+        $this->reset_request_cache();
+        add_action('pre_get_posts', array($this, 'apply_filters_to_builder_ajax_query'), 9999);
+    }
+
+    public function apply_filters_to_builder_ajax_query($query)
+    {
+        if (!$query instanceof WP_Query) {
+            return;
+        }
+        $post_type = $query->get('post_type');
+        if ($post_type === 'product' || (is_array($post_type) && in_array('product', $post_type, true))) {
+            $this->apply_filters_to_query($query);
+        }
+    }
+
+    /**
+     * Remember the query AWS is filtering; its "products filtered" hook does not pass it.
+     */
+    public function capture_aws_search_page_query($filters, $query = null)
+    {
+        $this->aws_search_page_query = $query instanceof WP_Query ? $query : null;
+
+        // AWS also reads ?rating= (as "exactly N stars"). With the default prefix that is this plugin's rating
+        // filter, which filter_aws_search_page_products() applies with its own rules.
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Only checks whether WooCommerce's own rating filter is present.
+        if (is_array($filters) && isset($filters['rating']) && $this->aws_search_page_query && $this->aws_search_page_query->get('dapfforwc_filters_applied') && empty($_GET['rating_filter'])) {
+            $prefixes = $this->get_prefixes_config();
+            $rating_key = isset($prefixes['rating']) && is_string($prefixes['rating']) && trim($prefixes['rating']) !== '' ? trim($prefixes['rating']) : 'rating';
+            if ($rating_key === 'rating') {
+                unset($filters['rating']);
+            }
+        }
+
+        return $filters;
+    }
+
+    /**
+     * AWS answers the search page from its own index and only re-applies plain top-level taxonomy clauses of the
+     * main query, so price, rating, stock, sale and grouped (OR/AND) filter clauses were ignored there. Keep only
+     * the AWS results that match the filter vars this plugin put on that query, in AWS's own order.
+     */
+    public function filter_aws_search_page_products($product_ids)
+    {
+        $query = $this->aws_search_page_query;
+        $this->aws_search_page_query = null;
+
+        if (!is_array($product_ids) || empty($product_ids) || !($query instanceof WP_Query) || !$query->get('dapfforwc_filters_applied')) {
+            return $product_ids;
+        }
+
+        $ids = $this->sanitize_id_list($product_ids);
+        if (empty($ids)) {
+            return $product_ids;
+        }
+
+        // AWS can list variations; they match through their parent product.
+        $parent_of = array();
+        foreach ($ids as $id) {
+            $parent_id = get_post_type($id) === 'product_variation' ? (int) wp_get_post_parent_id($id) : 0;
+            $parent_of[$id] = $parent_id > 0 ? $parent_id : $id;
+        }
+
+        $args = array(
+            'post_type' => 'product',
+            'post_status' => 'publish',
+            'fields' => 'ids',
+            'posts_per_page' => -1,
+            'no_found_rows' => true,
+            'ignore_sticky_posts' => true,
+            'cache_results' => false,
+            'update_post_meta_cache' => false,
+            'update_post_term_cache' => false,
+            'orderby' => 'none',
+            'dapfforwc_filters_applied' => true,
+            'post__in' => $this->merge_post_in_lists($query->get('post__in'), array_values(array_unique($parent_of))),
+        );
+        foreach (array('post__not_in', 'tax_query', 'meta_query') as $key) {
+            $value = $query->get($key);
+            if (!empty($value)) {
+                $args[$key] = $value;
+            }
+        }
+
+        // posts_clauses adds the filters that are not query vars (filter_posts_clauses), as on the main query.
+        $matched_query = new WP_Query($args);
+        $matched = array_flip(array_map('intval', (array) $matched_query->posts));
+
+        return array_values(array_filter($product_ids, static function ($product_id) use ($matched, $parent_of) {
+            $product_id = (int) $product_id;
+            return isset($parent_of[$product_id], $matched[$parent_of[$product_id]]);
+        }));
     }
 
     public function init_elementor_hooks()
@@ -89,6 +236,7 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
         // Hook into Elementor after it's loaded
         if (class_exists('\Elementor\Plugin')) {
             add_action('elementor/query/custom_query', array($this, 'elementor_custom_query'), 10, 2);
+            add_filter('elementor/query/query_args', array($this, 'elementor_query_args'), 10, 2);
             add_filter('elementor_pro/woocommerce/query', array($this, 'elementor_woocommerce_query'), 10, 2);
         }
 
@@ -257,6 +405,10 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
             return $clauses;
         }
 
+        if (!$this->is_filterable_request() || $this->is_singular_query($query)) {
+            return $clauses;
+        }
+
         $params = $this->get_filter_params();
 
         if (empty($params)) {
@@ -315,6 +467,18 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
     }
 
     /**
+     * Handle Elementor Loop Grid/Posts query arguments.
+     */
+    public function elementor_query_args($args, $widget)
+    {
+        if (!is_array($args) || !$this->query_args_target_products($args)) {
+            return $args;
+        }
+
+        return $this->filter_product_grid_args($args, $widget);
+    }
+
+    /**
      * Filter product grid arguments
      */
     public function filter_product_grid_args($args, $settings = null)
@@ -329,12 +493,43 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
     }
 
     /**
+     * Filter generic page-builder loop arguments (Divi, Beaver, Oxygen, Bricks).
+     * These hooks also run for blog and other post type grids, so only product queries are changed.
+     */
+    public function filter_page_builder_query_args($args, $settings = null)
+    {
+        if (!is_array($args) || !$this->query_args_target_products($args)) {
+            return $args;
+        }
+
+        return $this->filter_product_grid_args($args, $settings);
+    }
+
+    /**
+     * Determine whether query args are explicitly for WooCommerce products.
+     */
+    private function query_args_target_products(array $args): bool
+    {
+        $post_type = $args['post_type'] ?? null;
+
+        if ($post_type === 'product') {
+            return true;
+        }
+
+        if (is_array($post_type) && in_array('product', $post_type, true)) {
+            return true;
+        }
+
+        return isset($args['wc_query']) && $args['wc_query'] === 'product_query';
+    }
+
+    /**
      * Filter JetEngine query
      */
     public function filter_jet_engine_query($args, $widget)
     {
-        // Only apply to product queries
-        if (!isset($args['post_type']) || $args['post_type'] !== 'product') {
+        // Only apply to product queries (post_type 'product' or an array containing it, like every other entry point)
+        if (!is_array($args) || !$this->query_args_target_products($args)) {
             return $args;
         }
 
@@ -352,8 +547,8 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
      */
     public function parse_custom_query($query)
     {
-        // Only apply to product queries
-        if (!isset($query->query_vars['post_type']) || $query->query_vars['post_type'] !== 'product') {
+        // Only apply to product queries (post_type 'product' or an array containing it, like every other entry point)
+        if (!$query instanceof WP_Query || !$this->query_args_target_products(array('post_type' => $query->query_vars['post_type'] ?? null))) {
             return;
         }
 
@@ -368,20 +563,37 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
 
 
     /**
-     * Determine if the current request carries a verified nonce.
+     * Determine if the current request comes from the plugin's filter form (see dapfforwc_is_filter_form_request()).
      */
-    private function is_nonce_valid(): bool
+    private function is_filter_form_request(): bool
     {
-        if ($this->nonce_valid !== null) {
-            return $this->nonce_valid;
+        if ($this->filter_form_request !== null) {
+            return $this->filter_form_request;
         }
 
-        if (!isset($_GET['gm-product-filter-nonce'])) {
-            return $this->nonce_valid = false;
+        return $this->filter_form_request = dapfforwc_is_filter_form_request();
+    }
+
+    /**
+     * Storefront filter parameters only narrow storefront listings. REST and Store
+     * API calls share keys such as sku, per_page and orderby, and a single product
+     * page (its related/upsell grids included) is not a filtered listing.
+     */
+    private function is_filterable_request(): bool
+    {
+        if (defined('REST_REQUEST') && REST_REQUEST) {
+            return false;
         }
 
-        $nonce = sanitize_text_field(wp_unslash($_GET['gm-product-filter-nonce']));
-        return $this->nonce_valid = (bool) wp_verify_nonce($nonce, 'gm-product-filter-action');
+        return !is_singular('product');
+    }
+
+    /**
+     * A query for one specific post (single product, page) is never a listing.
+     */
+    private function is_singular_query($query): bool
+    {
+        return $query instanceof WP_Query && $query->is_singular();
     }
 
     /**
@@ -389,7 +601,7 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
      */
     private function reset_request_cache()
     {
-        $this->nonce_valid = null;
+        $this->filter_form_request = null;
         $this->filter_params = null;
     }
 
@@ -480,17 +692,19 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
     // phpcs:enable WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotValidated, WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 
     /**
-     * Determine if the current request is a safe, read-only GET.
+     * Whether the query-string filters may shape this request. They are read from the query string only and change
+     * nothing, so this covers GET/HEAD and also a form posted back to the filtered page it sits on (a theme's
+     * "Show N per page" select, currency or language switchers), which must keep showing the same listing.
      */
     private function request_is_read_only(): bool
     {
         $method = isset($_SERVER['REQUEST_METHOD'])
             ? strtoupper(sanitize_text_field(wp_unslash($_SERVER['REQUEST_METHOD'])))
             : 'GET';
-        return $method === 'GET';
+        return in_array($method, array('GET', 'HEAD', 'POST'), true);
     }
 
-    // phpcs:disable WordPress.Security.NonceVerification.Recommended -- Public storefront filter query vars are read-only and intentionally support shareable URLs. Non-GET requests without the AJAX nonce are rejected before this parser is used.
+    // phpcs:disable WordPress.Security.NonceVerification.Recommended -- Public storefront filter query vars are read-only and intentionally support shareable URLs. Only the query string is read: a POST back to the filtered page keeps its query-string filters (POST bodies are never read), and other request methods are only filtered when they come from the filter form.
     /**
      * Check if the request contains any filter-related query vars.
      */
@@ -570,13 +784,17 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
             return;
         }
 
+        if (!$this->is_filterable_request() || $this->is_singular_query($query)) {
+            return;
+        }
+
         $params = $this->get_filter_params();
 
         if (empty($params)) {
             return;
         }
 
-        if (!$this->is_nonce_valid() && !$this->request_is_read_only()) {
+        if (!$this->is_filter_form_request() && !$this->request_is_read_only()) {
             return;
         }
 
@@ -586,303 +804,15 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
             $query->set('cache_results', false);
         }
 
-        $tax_query = array();
-        $meta_query = array();
-        $cat_operator = $this->get_style_operator('product-category', $params['cat_operator'] ?? 'IN');
-        if (is_product_category()) {
-            $cat_operator = "AND";
-        }
-        $tag_operator = $this->get_style_operator('tag', $params['tag_operator'] ?? 'IN');
-        if (is_product_tag()) {
-            $tag_operator = "AND";
-        }
-        $terms_operator = isset($params['terms_operator']) ? $params['terms_operator'] : 'IN';
-        if (dapfforwc_is_product_attribute()) {
-            $terms_operator = "AND";
-        }
-        $brand_operator = $this->get_style_operator('brands', $params['brand_operator'] ?? 'IN');
-        if (dapfforwc_is_product_brand()) {
-            $brand_operator = "AND";
+        $current_vars = array();
+        foreach (array('post__in', 'post__not_in', 'tax_query', 'meta_query') as $key) {
+            $current_vars[$key] = $query->get($key);
         }
 
-        if (isset($params['per_page']) && $params['per_page'] > 0) {
-            $query->set('posts_per_page', $params['per_page']);
-        }
-        if (isset($params['paged']) && $params['paged'] > 0) {
-            $query->set('paged', absint($params['paged']));
-        }
-        $ordering_args = $this->resolve_ordering_args($params);
-        foreach ($ordering_args as $key => $value) {
-            $query->set($key, $value);
-        }
-
-        $requested_category_slugs = isset($params["product-category"])
-            ? $this->normalize_filter_values($params["product-category"])
-            : array();
-
-        // Apply category filter
-        if (!empty($requested_category_slugs)) {
-            $categories = $requested_category_slugs;
-
-            // WP ignores include_children when operator=AND on a single clause.
-            // Split into multiple IN clauses so child terms are honoured.
-            if ($cat_operator === 'AND' && count($categories) > 1) {
-                $category_group = array('relation' => 'AND');
-
-                foreach ($categories as $category_slug) {
-                    $category_group[] = array(
-                        'taxonomy' => 'product_cat',
-                        'field'    => 'slug',
-                        'terms'    => array($category_slug),
-                        'operator' => 'IN',
-                        'include_children' => true,
-                    );
-                }
-
-                $tax_query[] = $category_group;
-            } else {
-                $category_clause_operator = ($cat_operator === 'AND' && count($categories) === 1) ? 'IN' : $cat_operator;
-
-                $category_clause = array(
-                    'taxonomy' => 'product_cat',
-                    'field'    => 'slug',
-                    'terms'    => $categories,
-                    'operator' => $category_clause_operator,
-                );
-
-                if ($cat_operator === 'AND') {
-                    $category_clause['include_children'] = true;
-                }
-
-                $tax_query[] = $category_clause;
+        foreach ($this->build_filter_query_vars($params, $current_vars, $query->is_main_query()) as $key => $value) {
+            if (!array_key_exists($key, $current_vars) || $current_vars[$key] !== $value) {
+                $query->set($key, $value);
             }
-        }
-
-        // Apply tag filter
-        if (isset($params['tags']) && !empty($params['tags'])) {
-            $tax_query[] = array(
-                'taxonomy' => 'product_tag',
-                'field'    => 'slug',
-                'terms'    => $params['tags'],
-                'operator' => $tag_operator,
-            );
-        }
-
-        // Apply attribute filters
-        if (isset($params['attributes']) && is_array($params['attributes'])) {
-            foreach ($params['attributes'] as $attribute_name => $attribute_values) {
-                if (!empty($attribute_values)) {
-                    $tax_query[] = array(
-                        'taxonomy' => 'pa_' . $attribute_name,
-                        'field'    => 'slug',
-                        'terms'    => $attribute_values,
-                        'operator' => $this->get_style_operator($attribute_name, $terms_operator),
-                    );
-                }
-            }
-        }
-
-        // Apply price range filter
-        if ((isset($params['mn_price']) && $params['mn_price'] > 0) ||
-            (isset($params['mx_price']) && $params['mx_price'] > 0)
-        ) {
-            $min = isset($params['mn_price']) ? floatval($params['mn_price']) : 0;
-            $max = isset($params['mx_price']) ? floatval($params['mx_price']) : 0;
-
-            if ($max > 0) {
-                $meta_query[] = array(
-                    'key'     => '_price',
-                    'value'   => array($min, $max),
-                    'type'    => 'NUMERIC',
-                    'compare' => 'BETWEEN',
-                );
-            } else {
-                $meta_query[] = array(
-                    'key'     => '_price',
-                    'value'   => $min,
-                    'type'    => 'NUMERIC',
-                    'compare' => '>=',
-                );
-            }
-        }
-
-        // Apply rating filter
-        if (isset($params['rating']) && !empty($params['rating'])) {
-            $rating_meta_query = $this->build_rating_meta_query($params['rating']);
-            if (!empty($rating_meta_query)) {
-                $meta_query[] = $rating_meta_query;
-            }
-        }
-
-        // Apply plugincy_search filter
-        if (isset($params['plugincy_search']) && !empty($params['plugincy_search'])) {
-            add_filter('posts_search', 'dapfforwc_search_by_title_only', 500, 2);
-            $query->set('s', $params['plugincy_search']);
-            $query->set('dapfforwc_search_post_title', true);
-        }
-
-
-        // Apply rplurand filter (assuming rplurand is a taxonomy)
-        if (isset($params['rplurand']) && !empty($params['rplurand'])) {
-            $brand_clause = $this->build_product_brand_tax_clause($params['rplurand'], $brand_operator);
-            if (!empty($brand_clause)) {
-                $tax_query[] = $brand_clause;
-            }
-        }
-
-        // Apply stock status filter
-        if (isset($params['rplutock_status']) && !empty($params['rplutock_status'])) {
-            if ($this->get_style_operator('status') === 'AND' && count((array) $params['rplutock_status']) > 1) {
-                $query->set('post__in', array(0));
-            } else {
-                $meta_query[] = array(
-                    'key'     => '_stock_status',
-                    'value'   => $params['rplutock_status'],
-                    'compare' => 'IN',
-                );
-            }
-        }
-
-        // Apply rpluthor filter
-        if (isset($params['rpluthor']) && !empty($params['rpluthor'])) {
-            if ($this->get_style_operator('authors') === 'AND' && count((array) $params['rpluthor']) > 1) {
-                $query->set('post__in', array(0));
-            } else {
-                $query->set('author__in', $params['rpluthor']);
-            }
-        }
-
-        // Apply sale status filter (supports on sale and not on sale)
-        $sale_filter = $this->get_sale_filter_flags($params);
-        if (!$this->use_database_safe_mode() && ($sale_filter['onsale'] || $sale_filter['notonsale'])) {
-            $sale_product_ids = $this->get_on_sale_product_filter_ids();
-
-            if ($sale_filter['onsale'] && !$sale_filter['notonsale']) {
-                // Limit to WooCommerce's sale lookup IDs so variable parents are included reliably.
-                $post_in = $this->merge_post_in_lists($query->get('post__in'), $sale_product_ids);
-                $query->set('post__in', !empty($post_in) ? $post_in : array(0));
-            } elseif ($sale_filter['notonsale'] && !$sale_filter['onsale']) {
-                // Exclude WooCommerce's sale lookup IDs for the inverse filter.
-                if (!empty($sale_product_ids)) {
-                    $query->set('post__not_in', $this->merge_post_not_in_lists($query->get('post__not_in'), $sale_product_ids));
-                }
-            }
-            elseif ($sale_filter['onsale'] && $sale_filter['notonsale'] && $this->get_style_operator('sale_status') === 'AND') {
-                $query->set('post__in', array(0));
-            }
-        }
-
-        // Match dimensions against the effective dimension rows for each
-        // product so variable parents only pass when a real variation satisfies
-        // the full requested range.
-        $dimension_filters = $this->get_dimension_filters($params);
-        if (!$this->use_database_safe_mode() && !empty($dimension_filters)) {
-            $dimension_product_ids = $this->get_product_ids_by_dimensions($dimension_filters);
-            $post_in = $this->merge_post_in_lists($query->get('post__in'), $dimension_product_ids);
-            $query->set('post__in', !empty($post_in) ? $post_in : array(0));
-        }
-
-        // Apply custom meta filters
-        if (isset($params['custom_meta']) && is_array($params['custom_meta'])) {
-            foreach ($params['custom_meta'] as $meta_key => $meta_values) {
-                if (!empty($meta_values)) {
-                    if ($this->get_style_operator($meta_key, $terms_operator) === 'AND' && count((array) $meta_values) > 1) {
-                        $meta_group = array('relation' => 'AND');
-                        foreach ((array) $meta_values as $meta_value) {
-                            $meta_group[] = array(
-                                'key'     => $meta_key,
-                                'value'   => $meta_value,
-                                'compare' => '=',
-                            );
-                        }
-                        $meta_query[] = $meta_group;
-                    } else {
-                        $meta_query[] = array(
-                            'key'     => $meta_key,
-                            'value'   => $meta_values,
-                            'compare' => 'IN',
-                        );
-                    }
-                }
-            }
-        }
-
-        // Apply SKU filter
-        if (isset($params['sku']) && !empty($params['sku'])) {
-            $meta_query[] = array(
-                'key'     => '_sku',
-                'value'   => $params['sku'],
-                'compare' => 'IN',
-            );
-        }
-
-        // Apply product ID filter
-        if (isset($params['product_id']) && !empty($params['product_id'])) {
-            $query->set('post__in', $params['product_id']);
-        }
-
-        // Apply discount filter
-        if (!$this->use_database_safe_mode() && isset($params['discount']) && $params['discount'] > 0) {
-            $discount_products = $this->get_products_with_discount($params['discount']);
-            if (!empty($discount_products)) {
-                $post_in = $this->merge_post_in_lists($query->get('post__in'), $discount_products);
-                $query->set('post__in', !empty($post_in) ? $post_in : array(0));
-            } else {
-                $query->set('post__in', array(0)); // No products found
-            }
-        }
-
-        // Apply new arrivals filter
-        if (isset($params['new_arrivals']) && $params['new_arrivals'] > 0) {
-            $date_from = gmdate('Y-m-d', strtotime('-' . $params['new_arrivals'] . ' days'));
-            $query->set('date_query', array(
-                array(
-                    'after' => $date_from,
-                    'inclusive' => true,
-                ),
-            ));
-        }
-
-        // Apply date filters
-        if (isset($params['date_filter'])) {
-            $date_query = $this->get_date_query($params);
-            if (!empty($date_query)) {
-                $query->set('date_query', $date_query);
-            }
-        }
-
-        // Apply tax_query if we have any
-        if (!empty($tax_query)) {
-            $existing_tax_query = $query->get('tax_query');
-
-            if (!empty($requested_category_slugs)) {
-                $existing_tax_query = $this->remove_duplicate_category_alias_tax_clauses($existing_tax_query, $requested_category_slugs);
-            }
-
-            if (!empty($existing_tax_query)) {
-                $tax_query = array_merge($existing_tax_query, $tax_query);
-            }
-
-            if (count($tax_query) > 1) {
-                $tax_query['relation'] = $params['tax_relation'] ?? 'AND';
-            }
-
-            $query->set('tax_query', $tax_query);
-        }
-
-        // Apply meta_query if we have any
-        if (!empty($meta_query)) {
-            $existing_meta_query = $query->get('meta_query');
-
-            if (!empty($existing_meta_query)) {
-                $meta_query = array_merge($existing_meta_query, $meta_query);
-            }
-
-            if (count($meta_query) > 1) {
-                $meta_query['relation'] = $params['meta_relation'] ?? 'AND';
-            }
-
-            $query->set('meta_query', $meta_query);
         }
     }
 
@@ -891,13 +821,17 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
      */
     private function apply_filters_to_args($args)
     {
+        if (!$this->is_filterable_request()) {
+            return $args;
+        }
+
         $params = $this->get_filter_params();
 
         if (empty($params)) {
             return $args;
         }
 
-        if (!$this->is_nonce_valid() && !$this->request_is_read_only()) {
+        if (!$this->is_filter_form_request() && !$this->request_is_read_only()) {
             return $args;
         }
 
@@ -905,30 +839,41 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
             $args['cache_results'] = false;
         }
 
-        $tax_query = isset($args['tax_query']) ? $args['tax_query'] : array();
-        $meta_query = isset($args['meta_query']) ? $args['meta_query'] : array();
+        // The WP_Query built from these args must not get the filters a second time through parse_query.
+        $args['dapfforwc_filters_applied'] = true;
+
+        // Query-args hooks (shortcodes, blocks, builder grids) are never the archive's main query.
+        return $this->build_filter_query_vars($params, $args, false);
+    }
+
+    /**
+     * Add the active filters to a set of query vars. Shared by the WP_Query and
+     * query-args paths so both build the same query.
+     */
+    private function build_filter_query_vars(array $params, array $args, bool $is_main_query = false): array
+    {
+        $tax_query = array();
+        $meta_query = array();
         $requested_category_slugs = isset($params["product-category"])
             ? $this->normalize_filter_values($params["product-category"])
             : array();
 
-        if (!empty($requested_category_slugs)) {
-            $tax_query = $this->remove_duplicate_category_alias_tax_clauses($tax_query, $requested_category_slugs);
-        }
-
         $cat_operator = $this->get_style_operator('product-category', $params['cat_operator'] ?? 'IN');
-        if (is_product_category()) {
+        // Archive scope (AND within the archive's own taxonomy) is read from the main query's conditionals,
+        // so it is only forced on the main query, not on related/shortcode/builder queries on that page.
+        if ($is_main_query && is_product_category()) {
             $cat_operator = "AND";
         }
         $tag_operator = $this->get_style_operator('tag', $params['tag_operator'] ?? 'IN');
-        if (is_product_tag()) {
+        if ($is_main_query && is_product_tag()) {
             $tag_operator = "AND";
         }
         $terms_operator = isset($params['terms_operator']) ? $params['terms_operator'] : 'IN';
-        if (dapfforwc_is_product_attribute()) {
+        if ($is_main_query && dapfforwc_is_product_attribute()) {
             $terms_operator = "AND";
         }
         $brand_operator = $this->get_style_operator('brands', $params['brand_operator'] ?? 'IN');
-        if (dapfforwc_is_product_brand()) {
+        if ($is_main_query && dapfforwc_is_product_brand()) {
             $brand_operator = "AND";
         }
 
@@ -1010,6 +955,15 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
         ) {
             $min = isset($params['mn_price']) ? floatval($params['mn_price']) : 0;
             $max = isset($params['mx_price']) ? floatval($params['mx_price']) : 0;
+            if ($max > 0 && $min > $max) {
+                // ?mn_price=500&mx_price=100: treat as the range 100-500 instead of an impossible BETWEEN 500 AND 100.
+                list($min, $max) = array($max, $min);
+            }
+            // The range is in the shopper's currency (currency switchers), _price in the store currency.
+            if (function_exists('dapfforwc_price_filter_to_store_currency')) {
+                $min = dapfforwc_price_filter_to_store_currency($min);
+                $max = dapfforwc_price_filter_to_store_currency($max);
+            }
 
             if ($max > 0) {
                 $meta_query[] = array(
@@ -1038,6 +992,7 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
 
         // Apply plugincy_search filter
         if (isset($params['plugincy_search']) && !empty($params['plugincy_search'])) {
+            add_filter('posts_search', 'dapfforwc_search_by_title_only', 500, 2);
             $args['s'] = $params['plugincy_search'];
             $args['dapfforwc_search_post_title'] = true;
         }
@@ -1080,8 +1035,7 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
 
             if ($sale_filter['onsale'] && !$sale_filter['notonsale']) {
                 // Limit to WooCommerce's sale lookup IDs so variable parents are included reliably.
-                $post_in = $this->merge_post_in_lists($args['post__in'] ?? array(), $sale_product_ids);
-                $args['post__in'] = !empty($post_in) ? $post_in : array(0);
+                $args['post__in'] = $this->merge_post_in_lists($args['post__in'] ?? array(), $sale_product_ids);
             } elseif ($sale_filter['notonsale'] && !$sale_filter['onsale']) {
                 // Exclude WooCommerce's sale lookup IDs for the inverse filter.
                 if (!empty($sale_product_ids)) {
@@ -1099,8 +1053,7 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
         $dimension_filters = $this->get_dimension_filters($params);
         if (!$this->use_database_safe_mode() && !empty($dimension_filters)) {
             $dimension_product_ids = $this->get_product_ids_by_dimensions($dimension_filters);
-            $post_in = $this->merge_post_in_lists($args['post__in'] ?? array(), $dimension_product_ids);
-            $args['post__in'] = !empty($post_in) ? $post_in : array(0);
+            $args['post__in'] = $this->merge_post_in_lists($args['post__in'] ?? array(), $dimension_product_ids);
         }
 
         // Apply custom meta filters
@@ -1139,81 +1092,99 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
 
         // Apply product ID filter
         if (isset($params['product_id']) && !empty($params['product_id'])) {
-            $args['post__in'] = $params['product_id'];
+            // Narrow, never replace, the constraints set above (stock, sale, shortcode ids, ...).
+            $args['post__in'] = $this->merge_post_in_lists($args['post__in'] ?? array(), $params['product_id']);
         }
 
         // Apply discount filter
         if (!$this->use_database_safe_mode() && isset($params['discount']) && $params['discount'] > 0) {
             $discount_products = $this->get_products_with_discount($params['discount']);
-            if (!empty($discount_products)) {
-                $post_in = $this->merge_post_in_lists($args['post__in'] ?? array(), $discount_products);
-                $args['post__in'] = !empty($post_in) ? $post_in : array(0);
-            } else {
-                $args['post__in'] = array(0);
-            }
+            $args['post__in'] = $this->merge_post_in_lists($args['post__in'] ?? array(), $discount_products);
         }
 
 
         // Apply new arrivals filter
         if (isset($params['new_arrivals']) && $params['new_arrivals'] > 0) {
-            $date_from = gmdate('Y-m-d', strtotime('-' . $params['new_arrivals'] . ' days'));
-            $args['date_query'] = array(
+            // post_date is in the site timezone, so the cut-off day is computed in the site timezone too.
+            $date_from = wp_date('Y-m-d', time() - absint($params['new_arrivals']) * DAY_IN_SECONDS);
+            $this->append_date_query($args, array(
                 array(
                     'after' => $date_from,
                     'inclusive' => true,
                 ),
-            );
+            ));
         }
 
         // Apply date filters
         if (isset($params['date_filter'])) {
             $date_query = $this->get_date_query($params);
             if (!empty($date_query)) {
-                $args['date_query'] = $date_query;
+                $this->append_date_query($args, $date_query);
             }
         }
 
-        // Apply queries
+        // Apply queries: the filter clauses are added to the query's own tax/meta query, never replace it.
         if (!empty($tax_query)) {
-            if (count($tax_query) > 1) {
-                $tax_query['relation'] = $params['tax_relation'] ?? 'AND';
+            $existing_tax_query = isset($args['tax_query']) ? $args['tax_query'] : array();
+            if (!empty($requested_category_slugs)) {
+                $existing_tax_query = $this->remove_duplicate_category_alias_tax_clauses($existing_tax_query, $requested_category_slugs);
             }
             // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- User-selected taxonomy filters require WP_Query tax constraints.
-            $args['tax_query'] = $tax_query;
+            $args['tax_query'] = $this->merge_filter_query_clauses($existing_tax_query, $tax_query, $params['tax_relation'] ?? 'AND');
         }
 
         if (!empty($meta_query)) {
-            if (count($meta_query) > 1) {
-                $meta_query['relation'] = $params['meta_relation'] ?? 'AND';
-            }
             // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- User-selected meta filters require WP_Query meta constraints.
-            $args['meta_query'] = $meta_query;
+            $args['meta_query'] = $this->merge_filter_query_clauses(isset($args['meta_query']) ? $args['meta_query'] : array(), $meta_query, $params['meta_relation'] ?? 'AND');
         }
 
         return $args;
     }
 
     /**
-     * Get normalized on-sale product IDs for archive filtering.
+     * Combine the filter clauses with a query's existing tax/meta query.
      *
-     * WooCommerce may return variation IDs here; map them back to the parent product
-     * so product archive queries include variable products consistently.
+     * The existing query (catalog visibility, shortcode or builder scope) always
+     * applies in full: its own relation is kept by nesting it, and the requested
+     * relation (tax_relation/meta_relation) only joins the filter clauses with
+     * each other.
+     */
+    private function merge_filter_query_clauses($existing, array $clauses, string $relation): array
+    {
+        $existing = is_array($existing) ? $existing : array();
+
+        if ($relation === 'OR' && count($clauses) > 1) {
+            $clauses = array(array_merge(array('relation' => 'OR'), $clauses));
+        }
+
+        if (!empty($existing)) {
+            $existing_relation = isset($existing['relation']) && is_string($existing['relation']) ? strtoupper($existing['relation']) : 'AND';
+            if ($existing_relation === 'AND') {
+                unset($existing['relation']);
+                $clauses = array_merge($existing, $clauses);
+            } else {
+                $clauses = array_merge(array($existing), $clauses);
+            }
+        }
+
+        if (count($clauses) > 1) {
+            $clauses['relation'] = 'AND';
+        }
+
+        return $clauses;
+    }
+
+    /**
+     * Get on-sale product IDs for archive filtering.
+     *
+     * WooCommerce's lookup already lists the parents of on-sale variations, so variable products
+     * are included without loading every sale product. Same source as the on-sale option counts.
      */
     private function get_on_sale_product_filter_ids(): array
     {
-        $ids = array();
-
-        foreach (wc_get_product_ids_on_sale() as $sale_id) {
-            $product = wc_get_product($sale_id);
-            if (!$product) {
-                continue;
-            }
-
-            $target_id = $product->is_type('variation') ? $product->get_parent_id() : $product->get_id();
-            if ($target_id) {
-                $ids[] = $target_id;
-            }
-        }
+        $ids = function_exists('dapfforwc_get_on_sale_product_ids')
+            ? dapfforwc_get_on_sale_product_ids()
+            : (array) wc_get_product_ids_on_sale();
 
         return $this->sanitize_id_list($ids);
     }
@@ -1346,71 +1317,35 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
             return array();
         }
 
-        $ids = array();
-        foreach ($this->get_on_sale_product_filter_ids() as $sale_id) {
-            $product = wc_get_product($sale_id);
-            if (!$product) {
-                continue;
-            }
+        $sale_ids = $this->get_on_sale_product_filter_ids();
+        if (empty($sale_ids)) {
+            return array();
+        }
 
-            $discount = $this->calculate_product_discount_percentage($product);
-            if ($discount >= $min_discount) {
-                $ids[] = $sale_id;
-            }
+        global $wpdb;
+
+        // One query over the on-sale lookup (it holds products and on-sale variations), with the same
+        // regular/sale-price percentage as the posts_clauses discount clause, instead of wc_get_product() for
+        // every on-sale product. A variation that qualifies counts for its parent product.
+        $ids = array();
+        foreach (array_chunk($sale_ids, 1000) as $sale_ids_chunk) {
+            // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- IDs are absint()-sanitized integers; the threshold is prepared.
+            $chunk_ids = $wpdb->get_col($wpdb->prepare(
+                "SELECT DISTINCT IF(p.post_type = 'product_variation', p.post_parent, p.ID)
+                FROM {$wpdb->posts} p
+                INNER JOIN {$wpdb->postmeta} rp ON rp.post_id = p.ID AND rp.meta_key = '_regular_price'
+                INNER JOIN {$wpdb->postmeta} sp ON sp.post_id = p.ID AND sp.meta_key = '_sale_price'
+                WHERE p.ID IN (" . implode(',', array_map('absint', $sale_ids_chunk)) . ")
+                  AND rp.meta_value <> '' AND sp.meta_value <> ''
+                  AND CAST(sp.meta_value AS DECIMAL(10,2)) < CAST(rp.meta_value AS DECIMAL(10,2))
+                  AND ((CAST(rp.meta_value AS DECIMAL(10,2)) - CAST(sp.meta_value AS DECIMAL(10,2))) / NULLIF(CAST(rp.meta_value AS DECIMAL(10,2)), 0) * 100) >= %f",
+                $min_discount
+            ));
+            // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+            $ids = array_merge($ids, (array) $chunk_ids);
         }
 
         return $this->sanitize_id_list($ids); // removes duplicates
-    }
-
-
-    /**
-     * Calculate the discount percentage for a WooCommerce product.
-     */
-    private function calculate_product_discount_percentage($product): float
-    {
-        if (!$product || !$product->is_on_sale()) {
-            return 0.0;
-        }
-
-        if ($product->is_type('variable')) {
-            $variation_prices = $product->get_variation_prices();
-
-            if (empty($variation_prices['regular_price'])) {
-                return 0.0;
-            }
-
-            $discounts = array();
-            foreach ($variation_prices['regular_price'] as $variation_id => $regular_price) {
-                $regular_price = floatval($regular_price);
-                $sale_price_raw = $variation_prices['sale_price'][$variation_id] ?? '';
-
-                if ($regular_price <= 0 || $sale_price_raw === '' || $sale_price_raw === null) {
-                    continue;
-                }
-
-                $sale_price = floatval($sale_price_raw);
-                if ($sale_price < $regular_price) {
-                    $discounts[] = (($regular_price - $sale_price) / $regular_price) * 100;
-                }
-            }
-
-            return !empty($discounts) ? max($discounts) : 0.0;
-        }
-
-        $regular_price = floatval($product->get_regular_price());
-        $sale_price_raw = $product->get_sale_price();
-
-        if ($regular_price <= 0 || $sale_price_raw === '' || $sale_price_raw === null) {
-            return 0.0;
-        }
-
-        $sale_price = floatval($sale_price_raw);
-
-        if ($sale_price >= $regular_price) {
-            return 0.0;
-        }
-
-        return (($regular_price - $sale_price) / $regular_price) * 100;
     }
 
     /**
@@ -1433,10 +1368,14 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
                     break;
 
                 case 'this_week':
+                    // The week starts on the day set in Settings > General ("Week Starts On"), 0 = Sunday.
+                    $start_of_week = (int) get_option('start_of_week', 1);
+                    $days_since_week_start = ((int) gmdate('w') - $start_of_week + 7) % 7;
+                    $week_start = strtotime('today -' . $days_since_week_start . ' days');
                     $date_query = array(
                         array(
-                            'after' => gmdate('Y-m-d', strtotime('monday this week')),
-                            'before' => gmdate('Y-m-d', strtotime('sunday this week')),
+                            'after' => gmdate('Y-m-d', $week_start),
+                            'before' => gmdate('Y-m-d', $week_start + 6 * DAY_IN_SECONDS),
                             'inclusive' => true,
                         ),
                     );
@@ -1568,6 +1507,13 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
                     $where_clauses[] = "{$posts_table}.ID NOT IN (" . implode(',', $sale_product_ids) . ')';
                 }
             }
+        } elseif (
+            $sale_filter['onsale']
+            && $sale_filter['notonsale']
+            && $this->get_style_operator('sale_status') === 'AND'
+        ) {
+            // A product cannot be both on sale and not on sale.
+            $where_clauses[] = '1=0';
         }
 
         $dimension_filters = $this->get_dimension_filters($params);
@@ -1589,8 +1535,13 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
         if (isset($params['discount']) && floatval($params['discount']) > 0) {
             $threshold = floatval($params['discount']);
             $postmeta = $wpdb->postmeta;
+            $now = time();
+            // Only a sale that is active now counts (same rule as WC_Product::is_on_sale()): no future start, no past end.
+            // The dates are read from the row that carries the prices, so variations use their own schedule.
+            $sale_schedule_sql = "AND NOT EXISTS (SELECT 1 FROM {$postmeta} sdf WHERE sdf.post_id = rp.post_id AND sdf.meta_key = '_sale_price_dates_from' AND sdf.meta_value <> '' AND CAST(sdf.meta_value AS UNSIGNED) > %d) " .
+                "AND NOT EXISTS (SELECT 1 FROM {$postmeta} sdt WHERE sdt.post_id = rp.post_id AND sdt.meta_key = '_sale_price_dates_to' AND sdt.meta_value <> '' AND CAST(sdt.meta_value AS UNSIGNED) < %d) ";
 
-            // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table names and the posts-table alias are internal WordPress SQL identifiers; discount thresholds are prepared.
+            // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- Table names and the posts-table alias are internal WordPress SQL identifiers; $sale_schedule_sql is a fixed fragment whose four %d date placeholders are filled by this prepare() together with the two thresholds.
             $discount_clause = $wpdb->prepare(
                 '(' .
                     'EXISTS (' .
@@ -1599,6 +1550,7 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
                     "WHERE rp.post_id = {$posts_table}.ID " .
                     "AND rp.meta_key = '_regular_price' " .
                     "AND rp.meta_value <> '' AND sp.meta_value <> '' " .
+                    $sale_schedule_sql .
                     'AND CAST(sp.meta_value AS DECIMAL(10,2)) < CAST(rp.meta_value AS DECIMAL(10,2)) ' .
                     'AND ((CAST(rp.meta_value AS DECIMAL(10,2)) - CAST(sp.meta_value AS DECIMAL(10,2))) / NULLIF(CAST(rp.meta_value AS DECIMAL(10,2)), 0) * 100) >= %f' .
                     ')' .
@@ -1611,14 +1563,19 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
                     "AND variation.post_type = 'product_variation' " .
                     "AND variation.post_status = 'publish' " .
                     "AND rp.meta_value <> '' AND sp.meta_value <> '' " .
+                    $sale_schedule_sql .
                     'AND CAST(sp.meta_value AS DECIMAL(10,2)) < CAST(rp.meta_value AS DECIMAL(10,2)) ' .
                     'AND ((CAST(rp.meta_value AS DECIMAL(10,2)) - CAST(sp.meta_value AS DECIMAL(10,2))) / NULLIF(CAST(rp.meta_value AS DECIMAL(10,2)), 0) * 100) >= %f' .
                     ')' .
                     ')',
+                $now,
+                $now,
                 $threshold,
+                $now,
+                $now,
                 $threshold
             );
-            // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
             if (!empty($discount_clause)) {
                 $where_clauses[] = $discount_clause;
@@ -1667,12 +1624,15 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
             return array();
         }
 
+        // As with WooCommerce's rated-N terms, an average counts as N stars from N - 0.5
+        // up to N + 0.5; dapfforwc_product_matches_rating_filter() uses the same bounds.
+        // The DECIMAL type needs an explicit scale, a bare DECIMAL rounds the average.
         if ($this->get_rating_style() === 'rating-text') {
             return array(
                 'key'     => '_wc_average_rating',
-                'value'   => min($ratings),
+                'value'   => min($ratings) - 0.5,
                 'compare' => '>=',
-                'type'    => 'DECIMAL',
+                'type'    => 'DECIMAL(5,2)',
             );
         }
 
@@ -1684,13 +1644,13 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
                     'key'     => '_wc_average_rating',
                     'value'   => $rating - 0.5,
                     'compare' => '>=',
-                    'type'    => 'DECIMAL',
+                    'type'    => 'DECIMAL(5,2)',
                 ),
                 array(
                     'key'     => '_wc_average_rating',
                     'value'   => $rating + 0.5,
                     'compare' => '<',
-                    'type'    => 'DECIMAL',
+                    'type'    => 'DECIMAL(5,2)',
                 ),
             );
         }
@@ -1750,8 +1710,8 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
             return $this->filter_params;
         }
 
-        $nonce_valid = $this->is_nonce_valid();
-        if (!$nonce_valid) {
+        $from_filter_form = $this->is_filter_form_request();
+        if (!$from_filter_form) {
             if (!$this->request_is_read_only()) {
                 return $this->filter_params = array();
             }
@@ -1761,10 +1721,6 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
         }
 
         $params = array();
-        $cat_operator = 'IN';
-        $tag_operator = 'IN';
-        $terms_operator = 'IN';
-        $brand_operator = 'IN';
         $permalink_params = $this->normalize_prefixed_query_params($_GET);
         $attributes = $permalink_params['attributes'] ?? array();
         $custom_meta = $permalink_params['custom_meta'] ?? array();
@@ -1854,7 +1810,7 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
                 }
 
                 $author_slugs = !empty($all_data['authors']) ? array_column($all_data['authors'], 'slug') : array();
-                $matched_authors = array_values(array_intersect($filters_values, $author_slugs));
+                $matched_authors = array_values(array_intersect(dapfforwc_normalize_author_filter_values($filters_values), $author_slugs));
                 if (!empty($matched_authors)) {
                     $filters_author_slugs = array_values(array_unique(array_merge($filters_author_slugs, $matched_authors)));
                     $filters_matched_values = array_merge($filters_matched_values, $matched_authors);
@@ -2007,41 +1963,14 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
             }
         }
 
-        if (isset($_GET['cat_operator']) && $_GET['cat_operator'] !== '') {
-            $operator = strtoupper(sanitize_text_field(wp_unslash($_GET['cat_operator'])));
-            if (in_array($operator, array('IN', 'NOT IN', 'AND'), true)) {
-                $params['cat_operator'] = $operator;
-                $cat_operator = $operator;
+        // Operators only modify selected values; unset ones fall back to IN where they are used.
+        foreach (array('cat_operator', 'tag_operator', 'terms_operator', 'brand_operator') as $operator_key) {
+            if (isset($_GET[$operator_key]) && $_GET[$operator_key] !== '') {
+                $operator = strtoupper(sanitize_text_field(wp_unslash($_GET[$operator_key])));
+                if (in_array($operator, array('IN', 'NOT IN', 'AND'), true)) {
+                    $params[$operator_key] = $operator;
+                }
             }
-        } else {
-            $params['cat_operator'] = $cat_operator;
-        }
-        if (isset($_GET['tag_operator']) && $_GET['tag_operator'] !== '') {
-            $operator = strtoupper(sanitize_text_field(wp_unslash($_GET['tag_operator'])));
-            if (in_array($operator, array('IN', 'NOT IN', 'AND'), true)) {
-                $params['tag_operator'] = $operator;
-                $tag_operator = $operator;
-            }
-        } else {
-            $params['tag_operator'] = $tag_operator;
-        }
-        if (isset($_GET['terms_operator']) && $_GET['terms_operator'] !== '') {
-            $operator = strtoupper(sanitize_text_field(wp_unslash($_GET['terms_operator'])));
-            if (in_array($operator, array('IN', 'NOT IN', 'AND'), true)) {
-                $params['terms_operator'] = $operator;
-                $terms_operator = $operator;
-            }
-        } else {
-            $params['terms_operator'] = $terms_operator;
-        }
-        if (isset($_GET['brand_operator']) && $_GET['brand_operator'] !== '') {
-            $operator = strtoupper(sanitize_text_field(wp_unslash($_GET['brand_operator'])));
-            if (in_array($operator, array('IN', 'NOT IN', 'AND'), true)) {
-                $params['brand_operator'] = $operator;
-                $brand_operator = $operator;
-            }
-        } else {
-            $params['brand_operator'] = $brand_operator;
         }
 
         if (isset($_GET['tax_relation'])) {
@@ -2101,7 +2030,11 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
                     }
                 }
                 if (!empty($category_slugs)) {
-                    $params['product-category'] = $category_slugs;
+                    // Merge with categories from cata, product-category, ?filters= and path aliases (like rtag does for tags).
+                    $params['product-category'] = array_values(array_unique(array_merge(
+                        $this->normalize_filter_values($params['product-category'] ?? array()),
+                        $category_slugs
+                    )));
                 }
             }
         }
@@ -2176,14 +2109,8 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
             );
         }
         if (!empty($author_values)) {
-            // Convert usernames to user IDs
-            $user_ids = array();
-            foreach (array_unique($author_values) as $username) {
-                $user = get_user_by('login', $username);
-                if ($user) {
-                    $user_ids[] = $user->ID;
-                }
-            }
+            // Convert author slugs (user_nicename; login names from older links) to user IDs
+            $user_ids = $this->get_author_ids_by_slugs($author_values);
 
             if (!empty($user_ids)) {
                 $params['rpluthor'] = $user_ids;
@@ -2227,29 +2154,14 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
                 $params[$dimension_key] = $permalink_params[$dimension_key];
             }
         }
-        if (isset($_GET['min_length']) && !empty($_GET['min_length'])) {
-            $params['min_length'] = floatval($_GET['min_length']);
-        }
-        if (isset($_GET['max_length']) && !empty($_GET['max_length'])) {
-            $params['max_length'] = floatval($_GET['max_length']);
-        }
-        if (isset($_GET['min_width']) && !empty($_GET['min_width'])) {
-            $params['min_width'] = floatval($_GET['min_width']);
-        }
-        if (isset($_GET['max_width']) && !empty($_GET['max_width'])) {
-            $params['max_width'] = floatval($_GET['max_width']);
-        }
-        if (isset($_GET['min_height']) && !empty($_GET['min_height'])) {
-            $params['min_height'] = floatval($_GET['min_height']);
-        }
-        if (isset($_GET['max_height']) && !empty($_GET['max_height'])) {
-            $params['max_height'] = floatval($_GET['max_height']);
-        }
-        if (isset($_GET['min_weight']) && !empty($_GET['min_weight'])) {
-            $params['min_weight'] = floatval($_GET['min_weight']);
-        }
-        if (isset($_GET['max_weight']) && !empty($_GET['max_weight'])) {
-            $params['max_weight'] = floatval($_GET['max_weight']);
+        foreach (array('min_length', 'max_length', 'min_width', 'max_width', 'min_height', 'max_height', 'min_weight', 'max_weight') as $dimension_key) {
+            if (isset($_GET[$dimension_key]) && is_scalar($_GET[$dimension_key])) {
+                // Only numbers: ?min_weight=abc must not become an active "0" filter that drops products without a weight.
+                $dimension_value = trim(sanitize_text_field(wp_unslash((string) $_GET[$dimension_key])));
+                if (!empty($dimension_value) && is_numeric($dimension_value)) {
+                    $params[$dimension_key] = floatval($dimension_value);
+                }
+            }
         }
 
         // Custom meta filters
@@ -2262,6 +2174,11 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
                 $existing = $custom_meta[$meta_key] ?? array();
                 $custom_meta[$meta_key] = array_values(array_unique(array_merge($existing, $new_values)));
             }
+        }
+        if (!empty($custom_meta)) {
+            $custom_meta = array_filter($custom_meta, function ($meta_key) {
+                return $this->is_filterable_custom_meta_key((string) $meta_key);
+            }, ARRAY_FILTER_USE_KEY);
         }
         if (!empty($custom_meta)) {
             $params['custom_meta'] = $custom_meta;
@@ -2279,9 +2196,12 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
 
         // Product ID filter
         if (isset($_GET['product_id']) && !empty($_GET['product_id'])) {
-            $params['product_id'] = is_array($_GET['product_id'])
-                ? array_map('intval', $_GET['product_id'])
-                : array_map('intval', explode(',', sanitize_text_field(wp_unslash($_GET['product_id']))));
+            // Nested arrays (product_id[][]=x) are ignored instead of becoming ID 1; invalid values leave [0] (no results).
+            $product_id_values = is_array($_GET['product_id'])
+                ? array_filter(wp_unslash($_GET['product_id']), 'is_scalar') // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Each value is cast to an integer ID by sanitize_id_list() below.
+                : explode(',', sanitize_text_field(wp_unslash($_GET['product_id'])));
+            $product_id_values = $this->sanitize_id_list($product_id_values);
+            $params['product_id'] = !empty($product_id_values) ? $product_id_values : array(0);
         }
 
         // Discount filter
@@ -2317,6 +2237,42 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
         return $this->filter_params = $params;
     }
     // phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+    /**
+     * Custom field filters may only target meta keys the custom field filter can
+     * list: public meta (no protected "_" keys such as _cost or _tax_status) that
+     * the admin has not excluded. Otherwise the URL is an oracle for private meta.
+     */
+    private function is_filterable_custom_meta_key(string $meta_key): bool
+    {
+        global $dapfforwc_advance_settings;
+
+        if ($meta_key === '' || is_protected_meta($meta_key, 'post')) {
+            return false;
+        }
+
+        if (empty($dapfforwc_advance_settings) && false === get_option('dapfforwc_advance_options', false)) {
+            // New install whose settings are not created yet (dapfforwc_settings_init() stores this same default).
+            $excluded = 'total_sales';
+        } else {
+            $excluded = isset($dapfforwc_advance_settings['exclude_custom_fields']) ? $dapfforwc_advance_settings['exclude_custom_fields'] : array();
+        }
+        $excluded = is_array($excluded) ? $excluded : explode(',', (string) $excluded);
+
+        return !in_array($meta_key, array_map('trim', $excluded), true);
+    }
+
+    /**
+     * Whether the request selects at least one filter value. Sorting, page size,
+     * pagination and operator/relation keys alone (e.g. WooCommerce's ?orderby= links) do not.
+     */
+    public function has_active_filters(): bool
+    {
+        $params = $this->get_filter_params();
+        unset($params['orderby'], $params['order'], $params['per_page'], $params['paged'], $params['cat_operator'], $params['tag_operator'], $params['terms_operator'], $params['brand_operator'], $params['tax_relation'], $params['meta_relation']);
+
+        return !empty($params);
+    }
 
     /**
      * Normalize permalinks-based query params to the standard filter keys
@@ -2541,6 +2497,8 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
                 continue;
             }
             if ($item === false) {
+                // Boolean false (e.g. from a block or shortcode attribute) means "not on sale", like true means "on sale".
+                $prepared_values[] = 'notonsale';
                 continue;
             }
             $prepared_values[] = $item;
@@ -2566,6 +2524,11 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
      */
     private function normalize_orderby_value($value): string
     {
+        // orderby[]=... (array) from the URL or a permalink segment is not a valid sort key.
+        if (!is_scalar($value)) {
+            return '';
+        }
+
         $orderby_key = sanitize_key(str_replace('-', '_', (string) wp_unslash($value)));
         $allowed_orderby = array(
             'date'        => 'date',
@@ -2599,6 +2562,59 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
     /**
      * Ensure ID lists are clean integers.
      */
+    /**
+     * Map author filter values to user IDs.
+     * Only authors of published products are matched: by their public user_nicename (the slug in author URLs) first,
+     * then by login name for links made before the switch to nicenames (see dapfforwc_normalize_author_filter_values()).
+     */
+    private function get_author_ids_by_slugs($values): array
+    {
+        $slugs = array_flip(dapfforwc_normalize_author_filter_values($values));
+        if (empty($slugs)) {
+            return array();
+        }
+
+        global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Small lookup of product authors for the current request.
+        $authors = $wpdb->get_results(
+            "SELECT DISTINCT u.ID, u.user_nicename FROM {$wpdb->users} u
+            INNER JOIN {$wpdb->posts} p ON p.post_author = u.ID
+            WHERE p.post_type = 'product' AND p.post_status = 'publish'",
+            ARRAY_A
+        );
+
+        $user_ids = array();
+        foreach ((array) $authors as $author) {
+            if (isset($slugs[(string) $author['user_nicename']])) {
+                $user_ids[] = (int) $author['ID'];
+            }
+        }
+
+        return $user_ids;
+    }
+
+    /**
+     * Add a date constraint without replacing one already on the query (a shortcode's own date_query,
+     * or new_arrivals combined with date_filter): both must hold.
+     */
+    private function append_date_query(array &$args, array $date_query)
+    {
+        if (empty($date_query)) {
+            return;
+        }
+
+        if (empty($args['date_query']) || !is_array($args['date_query'])) {
+            $args['date_query'] = $date_query;
+            return;
+        }
+
+        $args['date_query'] = array(
+            'relation' => 'AND',
+            $args['date_query'],
+            $date_query,
+        );
+    }
+
     private function sanitize_id_list($ids): array
     {
         $ids = is_array($ids) ? $ids : array($ids);
@@ -2611,23 +2627,25 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
     }
 
     /**
-     * Merge new inclusion IDs with any existing inclusion list.
-     * If a list already exists, intersect so both constraints hold.
+     * Apply a filter's matching IDs on top of an existing post__in constraint.
+     *
+     * An empty existing list means "no constraint yet". A non-empty list without valid IDs (the [0] sentinel)
+     * already means "nothing matches" and stays that way. Both constraints must hold, so no overlap, or a filter
+     * that matches nothing, gives [0] (no results) instead of dropping the earlier constraint.
+     *
+     * @return int[] Value for post__in; never empty.
      */
     private function merge_post_in_lists($existing, $ids): array
     {
+        $existing_is_constrained = is_array($existing) ? !empty($existing) : ($existing !== null && $existing !== '');
         $ids = $this->sanitize_id_list($ids);
         $existing = $this->sanitize_id_list($existing);
 
-        if (empty($ids)) {
-            return array();
+        if ($existing_is_constrained) {
+            $ids = empty($existing) ? array() : array_values(array_intersect($existing, $ids));
         }
 
-        if (empty($existing)) {
-            return $ids;
-        }
-
-        return array_values(array_intersect($existing, $ids));
+        return !empty($ids) ? $ids : array(0);
     }
 
     /**
@@ -2932,10 +2950,19 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
             return false;
         }
 
+        // Compare in the clause's own field: term_taxonomy_id values can differ from term IDs (split terms),
+        // and a slug clause with numeric slugs such as "2024" must still be compared as slugs.
         $field = isset($clause['field']) ? strtolower((string) $clause['field']) : '';
-        if (in_array($field, array('term_id', 'id', 'term_taxonomy_id'), true) || $this->values_are_numeric($terms)) {
+        if ($field === 'term_taxonomy_id') {
+            $category_ids = $this->get_product_category_ids_by_slugs($category_slugs, 'term_taxonomy_id');
+            return !empty(array_intersect(array_map('absint', $terms), $category_ids));
+        }
+        if (in_array($field, array('term_id', 'id'), true) || ($field === '' && $this->values_are_numeric($terms))) {
             $category_ids = $this->get_product_category_ids_by_slugs($category_slugs);
             return !empty(array_intersect(array_map('absint', $terms), $category_ids));
+        }
+        if ($field !== '' && $field !== 'slug') {
+            return false;
         }
 
         return !empty(array_intersect($terms, $category_slugs));
@@ -2963,14 +2990,15 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
         return !empty($values);
     }
 
-    private function get_product_category_ids_by_slugs(array $category_slugs): array
+    private function get_product_category_ids_by_slugs(array $category_slugs, string $id_field = 'term_id'): array
     {
         $ids = array();
+        $id_field = $id_field === 'term_taxonomy_id' ? 'term_taxonomy_id' : 'term_id';
 
         foreach ($category_slugs as $slug) {
             $term = get_term_by('slug', $slug, 'product_cat');
             if ($term && !is_wp_error($term)) {
-                $ids[] = absint($term->term_id);
+                $ids[] = absint($term->{$id_field});
             }
         }
 
@@ -3011,7 +3039,7 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
     public function ajax_handler()
     {
 
-        if (!isset($_GET['gm-product-filter-nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['gm-product-filter-nonce'])), 'gm-product-filter-action')) {
+        if (!dapfforwc_is_filter_form_request()) {
             return;
         }
 
@@ -3123,22 +3151,22 @@ add_action('wp_loaded', function () {
 
     // Hook into Divi Builder
     if (class_exists('ET_Builder_Plugin')) {
-        add_filter('et_builder_module_posts_query_args', array($filter_instance, 'filter_product_grid_args'), 10, 2);
+        add_filter('et_builder_module_posts_query_args', array($filter_instance, 'filter_page_builder_query_args'), 10, 2);
     }
 
     // Hook into Beaver Builder
     if (class_exists('FLBuilder')) {
-        add_filter('fl_builder_loop_query_args', array($filter_instance, 'filter_product_grid_args'), 10, 2);
+        add_filter('fl_builder_loop_query_args', array($filter_instance, 'filter_page_builder_query_args'), 10, 2);
     }
 
     // Hook into Oxygen Builder
     if (class_exists('OxygenElement')) {
-        add_filter('oxygen_repeater_query_args', array($filter_instance, 'filter_product_grid_args'), 10, 2);
+        add_filter('oxygen_repeater_query_args', array($filter_instance, 'filter_page_builder_query_args'), 10, 2);
     }
 
-    // Hook into Bricks Builder
+    // Hook into Bricks Builder (bricks/query/run filters loop results, not query args)
     if (class_exists('Bricks\Database')) {
-        add_filter('bricks/query/run', array($filter_instance, 'filter_product_grid_args'), 10, 2);
+        add_filter('bricks/posts/query_vars', array($filter_instance, 'filter_page_builder_query_args'), 10, 2);
     }
 });
 
@@ -3151,7 +3179,7 @@ add_action('wp', function () {
     }
 
     $filter_instance = DAPFFORWC_WC_Query_Filter_Enhanced::get_instance();
-    if (empty($filter_instance->get_filter_params())) {
+    if (!$filter_instance->has_active_filters()) {
         return;
     }
 
