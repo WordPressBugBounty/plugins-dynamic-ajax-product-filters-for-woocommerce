@@ -4,7 +4,7 @@ Contributors: plugincy, hellomasum
 Tags: product filter, ajax product filter, woocommerce filter, woocommerce product filter, shop filter
 Requires at least: 5.9
 Tested up to: 7.0
-Stable tag: 1.6.6
+Stable tag: 1.6.7
 Requires PHP: 7.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -433,6 +433,10 @@ Yes. You can use Elementor widgets, Gutenberg blocks, `[plugincy_filters]`, `[pl
 Yes. Pro includes WPML compatibility for saved option strings, translated taxonomy/product filter data, language-aware filter caches, and current-language frontend labels.
 
 == Changelog ==
+
+= 1.6.7 =
+* Fixed: with the Elementor widget, the floating mobile filter button opens the filter drawer again (it did nothing since 1.6.6), and the top filter bar scrolls again.
+* Fixed: the mobile filter button also works on pages cached from an older version.
 
 = 1.6.6 =
 * Added: filter titles, labels, button texts and SEO texts can be translated with WPML and Polylang using wpml-config.xml.

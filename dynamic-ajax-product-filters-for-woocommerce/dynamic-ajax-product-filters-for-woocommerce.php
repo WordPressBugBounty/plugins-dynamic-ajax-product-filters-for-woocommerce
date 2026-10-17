@@ -4,7 +4,7 @@
  * Plugin Name: Dynamic AJAX Product Filters for WooCommerce
  * Plugin URI:  https://plugincy.com/
  * Description: A WooCommerce plugin to filter products by attributes, categories, and tags using AJAX for seamless user experience.
- * Version:     1.6.6
+ * Version:     1.6.7
  * Author:      Plugincy
  * Author URI:  https://plugincy.com
  * License:     GPL-2.0-or-later
@@ -24,7 +24,7 @@ if (!defined('DAY_IN_SECONDS')) {
     define('DAY_IN_SECONDS', 86400);
 }
 
-define('DAPFFORWC_VERSION', '1.6.6');
+define('DAPFFORWC_VERSION', '1.6.7');
 
 define('DAPFFORWC_ENABLE_THIRD_PARTY_HOOKS', true);
 
@@ -1106,6 +1106,13 @@ $dapfforwc_allowed_tags = array(
         'role' => array(),
         'tabindex' => array(),
         'aria-label' => array(),
+        'aria-hidden' => array(),
+        // Mobile drawer and top-view rail (read by filter.min.js; stripped here, the Elementor widget's mobile
+        // button stopped opening the drawer in 1.6.6).
+        'data-dapfforwc-mobile' => array(),
+        'data-dapfforwc-mobile-style' => array(),
+        'data-dapfforwc-mobile-bp' => array(),
+        'data-dapfforwc-top-view-rail' => array(),
     ),
     'img' => array(
         'src' => array(),
@@ -1282,6 +1289,8 @@ $dapfforwc_allowed_tags = array(
         'data-product_selector' => array(),
         'data-pagination_selector' => array(),
         'data-layout' => array(),
+        'data-mobile-breakpoint' => array(),
+        'data-mobile-style-source' => array(),
     ),
     'input' => array(
         'type' => array(),
@@ -1374,6 +1383,8 @@ $dapfforwc_allowed_tags = array(
         'form' => array(),
         'formnovalidate' => array(),
         'autofocus' => array(),
+        'aria-label' => array(),
+        'data-dapfforwc-mobile' => array(),
     ),
     'label' => array(
         'for' => array(),
@@ -1735,6 +1746,7 @@ $dapfforwc_allowed_tags = array(
         'role' => array(),
         'aria-label' => array(),
         'aria-hidden' => array(),
+        'focusable' => array(),
         'version' => array(),
         'x' => array(),
         'y' => array(),
