@@ -4,6 +4,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+require_once __DIR__ . '/dependent-options.php';
+
 if (!function_exists('dapfforwc_array_intersect_values')) {
     function dapfforwc_array_intersect_values($arrays)
     {
@@ -1251,13 +1253,9 @@ function dapfforwc_product_filter_shortcode($atts)
             $prefix_options = $dapfforwc_seo_permalinks_options['dapfforwc_permalinks_prefix_options'];
 
             if (isset($prefix_options['attribute']) && is_array($prefix_options['attribute'])) {
-                foreach ($prefix_options['attribute'] as $attr_key => $attr_prefix) {
-                    $attr_prefix = trim((string)$attr_prefix);
-                    if ($attr_prefix === '' || !isset($_GET[$attr_prefix])) {
-                        continue;
-                    }
+                $prefixed_attributes = DAPFFORWC_WC_Query_Filter_Enhanced::get_instance()->get_filter_params()['attributes'] ?? array();
+                foreach ($prefixed_attributes as $attr_key => $incoming) {
                     $existing = $filteroptionsfromurl["attribute"][$attr_key] ?? [];
-                    $incoming = is_array($_GET[$attr_prefix]) ? array_map('sanitize_text_field', wp_unslash($_GET[$attr_prefix])) : array_map('sanitize_text_field', explode(',', sanitize_text_field(wp_unslash($_GET[$attr_prefix]))));
                     $filteroptionsfromurl["attribute"][$attr_key] = array_values(array_unique(array_merge($existing, $incoming)));
                 }
             }
@@ -2735,6 +2733,10 @@ function dapfforwc_product_filter_shortcode($atts)
         'attributes'   => $products_for_attributes,
         'custom_fields' => $products_for_custom_meta,
         'selected' => dapfforwc_get_selected_filter_option_slugs($all_data_objects),
+        'query_params' => array_merge(
+            DAPFFORWC_WC_Query_Filter_Enhanced::get_instance()->get_filter_option_params_from_state($default_filter),
+            array('cat_operator' => $cat_op, 'tag_operator' => $tag_op, 'brand_operator' => $brand_op, 'terms_operator' => $terms_operator_fallback)
+        ),
     ]) ?? [];
 
     $has_active_price_filter = isset($filteroptionsfromurl["min_price"], $filteroptionsfromurl["max_price"])
@@ -3946,7 +3948,7 @@ function dapfforwc_get_updated_filters($product_ids, $all_data = [], $context = 
         && dapfforwc_filter_data_uses_database_mode($all_data)
         && function_exists('dapfforwc_get_lightweight_updated_filters')
     ) {
-        return dapfforwc_get_lightweight_updated_filters($all_data);
+        return dapfforwc_get_database_updated_filters($all_data, $context);
     }
 
     if (
@@ -3958,7 +3960,7 @@ function dapfforwc_get_updated_filters($product_ids, $all_data = [], $context = 
         if (empty($all_data) && function_exists('dapfforwc_get_woocommerce_filter_data_for_database_mode')) {
             $all_data = dapfforwc_get_woocommerce_filter_data_for_database_mode();
         }
-        return dapfforwc_get_lightweight_updated_filters($all_data);
+        return dapfforwc_get_database_updated_filters($all_data, $context);
     }
 
     // Selected options stay listed (with count 0) when the current result has no product for them, so the
@@ -4742,6 +4744,10 @@ function dapfforwc_get_woocommerce_filter_data_for_database_mode($args = [])
 
     foreach ($data['attributes'] as $attr_name => $attribute) {
         $data['attributes'][$attr_name]['terms'] = array_values($attribute['terms']);
+    }
+
+    if ($enabled_filter_options['categories']) {
+        $data['categories'] = dapfforwc_add_lightweight_category_ancestors($data['categories']);
     }
 
     if ($enabled_filter_options['authors']) {
@@ -6573,6 +6579,9 @@ function dapfforwc_process_filter_cache_batch($build_id = '')
 
     try {
         $data = get_option(DAPFFORWC_FILTER_CACHE_BUILD_DATA_OPTION, false);
+        $state['status'] = 'running';
+        $state['updated_at'] = time();
+        update_option(DAPFFORWC_FILTER_CACHE_BUILD_STATE_OPTION, $state, false);
         if (!is_array($data)) {
             $data = dapfforwc_get_filter_cache_skeleton_data();
         }
@@ -6587,6 +6596,9 @@ function dapfforwc_process_filter_cache_batch($build_id = '')
             }
 
             $data = dapfforwc_finalize_filter_cache_data($data);
+            if (!dapfforwc_is_current_cache_build(DAPFFORWC_FILTER_CACHE_BUILD_STATE_OPTION, $state_build_id)) {
+                return;
+            }
             set_transient(DAPFFORWC_FILTER_CACHE_DATA_KEY, $data, 12 * HOUR_IN_SECONDS);
             delete_option(DAPFFORWC_FILTER_CACHE_BUILD_DATA_OPTION);
             delete_option('dapfforwc_filter_cache_build_lock');
@@ -6612,6 +6624,9 @@ function dapfforwc_process_filter_cache_batch($build_id = '')
 
         dapfforwc_merge_filter_cache_product_batch($data, $product_ids);
 
+        if (!dapfforwc_is_current_cache_build(DAPFFORWC_FILTER_CACHE_BUILD_STATE_OPTION, $state_build_id)) {
+            return;
+        }
         if (dapfforwc_should_stop_background_cache_batch()) {
             return;
         }
@@ -6652,6 +6667,9 @@ function dapfforwc_process_filter_cache_batch($build_id = '')
             }
         }
     } catch (Throwable $e) {
+        if (!dapfforwc_is_current_cache_build(DAPFFORWC_FILTER_CACHE_BUILD_STATE_OPTION, $state_build_id)) {
+            return;
+        }
         $state['status'] = 'needs_attention';
         $state['updated_at'] = time();
         $state['error'] = sanitize_text_field($e->getMessage());
@@ -7069,6 +7087,9 @@ function dapfforwc_process_product_details_cache_batch($build_id = '')
 
     try {
         $data = get_option(DAPFFORWC_PRODUCT_DETAILS_CACHE_BUILD_DATA_OPTION, false);
+        $state['status'] = 'running';
+        $state['updated_at'] = time();
+        update_option(DAPFFORWC_PRODUCT_DETAILS_CACHE_BUILD_STATE_OPTION, $state, false);
         if (!is_array($data) || !isset($data['products']) || !is_array($data['products'])) {
             $data = ['products' => []];
         }
@@ -7077,6 +7098,9 @@ function dapfforwc_process_product_details_cache_batch($build_id = '')
         $last_id = isset($state['last_id']) ? (int) $state['last_id'] : 0;
         $batch_data = dapfforwc_build_woocommerce_product_details_data($last_id, $batch_size);
         $batch_products = isset($batch_data['products']) && is_array($batch_data['products']) ? $batch_data['products'] : [];
+        if (!dapfforwc_is_current_cache_build(DAPFFORWC_PRODUCT_DETAILS_CACHE_BUILD_STATE_OPTION, $state_build_id)) {
+            return;
+        }
 
         if (empty($batch_products)) {
             if (dapfforwc_should_stop_background_cache_batch()) {
@@ -7138,6 +7162,9 @@ function dapfforwc_process_product_details_cache_batch($build_id = '')
             }
         }
     } catch (Throwable $e) {
+        if (!dapfforwc_is_current_cache_build(DAPFFORWC_PRODUCT_DETAILS_CACHE_BUILD_STATE_OPTION, $state_build_id)) {
+            return;
+        }
         $state['status'] = 'needs_attention';
         $state['updated_at'] = time();
         $state['error'] = sanitize_text_field($e->getMessage());
@@ -7262,40 +7289,20 @@ add_action('delete_term', function ($term_id, $tt_id, $taxonomy) {
 // 4. Product meta updates (price, stock, attributes, etc.)
 add_action('updated_post_meta', function ($meta_id, $post_id, $meta_key, $meta_value) {
     if (get_post_type($post_id) === 'product' || get_post_type($post_id) === 'product_variation') {
-        // Clear cache for important product meta fields
-        $important_meta_keys = [
-            '_price',
-            '_regular_price',
-            '_sale_price',
-            '_stock',
-            '_stock_status',
-            '_manage_stock',
-            '_weight',
-            '_length',
-            '_width',
-            '_height',
-            '_sku',
-            '_featured',
-            '_visibility',
-            '_downloadable',
-            '_virtual',
-            '_product_attributes'
-        ];
-
-        if ((in_array($meta_key, $important_meta_keys) || strpos($meta_key, '_') === 0) && !dapfforwc_is_cache_neutral_meta_key($meta_key)) {
+        if (dapfforwc_product_meta_affects_filter_cache($meta_key)) {
             dapfforwc_clear_woocommerce_caches();
         }
     }
 }, 10, 4);
 
 add_action('added_post_meta', function ($meta_id, $post_id, $meta_key, $meta_value) {
-    if (!dapfforwc_is_cache_neutral_meta_key($meta_key) && (get_post_type($post_id) === 'product' || get_post_type($post_id) === 'product_variation')) {
+    if (dapfforwc_product_meta_affects_filter_cache($meta_key) && (get_post_type($post_id) === 'product' || get_post_type($post_id) === 'product_variation')) {
         dapfforwc_clear_woocommerce_caches();
     }
 }, 10, 4);
 
 add_action('deleted_post_meta', function ($meta_ids, $post_id, $meta_key, $meta_value) {
-    if (!dapfforwc_is_cache_neutral_meta_key($meta_key) && (get_post_type($post_id) === 'product' || get_post_type($post_id) === 'product_variation')) {
+    if (dapfforwc_product_meta_affects_filter_cache($meta_key) && (get_post_type($post_id) === 'product' || get_post_type($post_id) === 'product_variation')) {
         dapfforwc_clear_woocommerce_caches();
     }
 }, 10, 4);
@@ -7328,8 +7335,28 @@ add_action('woocommerce_attribute_updated', 'dapfforwc_clear_woocommerce_caches'
 add_action('woocommerce_attribute_deleted', 'dapfforwc_clear_woocommerce_caches');
 
 // 8. Category/Tag assignments
+add_action('added_term_relationship', function ($object_id, $tt_id, $taxonomy) {
+    if (get_post_type($object_id) === 'product' && dapfforwc_is_woocommerce_taxonomy($taxonomy)) {
+        $GLOBALS['dapfforwc_added_filter_relationships'][$object_id][$taxonomy] = true;
+    }
+}, 10, 3);
+
 add_action('set_object_terms', function ($object_id, $terms, $tt_ids, $taxonomy, $append, $old_tt_ids) {
     if (get_post_type($object_id) === 'product' && dapfforwc_is_woocommerce_taxonomy($taxonomy)) {
+        // WordPress supplies no old IDs in append mode. Only its insert hook can tell
+        // whether this call added a relationship or merely repeated an existing one.
+        $added = !empty($GLOBALS['dapfforwc_added_filter_relationships'][$object_id][$taxonomy]);
+        unset($GLOBALS['dapfforwc_added_filter_relationships'][$object_id][$taxonomy]);
+        if ($append && !$added) {
+            return;
+        }
+        $old = array_values(array_unique(array_map('intval', $old_tt_ids)));
+        $current = array_values(array_unique(array_map('intval', $append ? array_merge($old, $tt_ids) : $tt_ids)));
+        sort($old);
+        sort($current);
+        if ($old === $current) {
+            return;
+        }
         dapfforwc_clear_woocommerce_caches();
     }
 }, 10, 6);

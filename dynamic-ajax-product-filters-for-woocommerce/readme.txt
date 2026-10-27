@@ -4,7 +4,7 @@ Contributors: plugincy, hellomasum
 Tags: product filter, ajax product filter, woocommerce filter, woocommerce product filter, shop filter
 Requires at least: 5.9
 Tested up to: 7.0
-Stable tag: 1.6.7
+Stable tag: 1.6.8
 Requires PHP: 7.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -433,6 +433,14 @@ Yes. You can use Elementor widgets, Gutenberg blocks, `[plugincy_filters]`, `[pl
 Yes. Pro includes WPML compatibility for saved option strings, translated taxonomy/product filter data, language-aware filter caches, and current-language frontend labels.
 
 == Changelog ==
+
+= 1.6.8 =
+* Fixed: Dependent filter options no longer show unrelated terms while filter caches are missing, queued, or rebuilding, in both AJAX and query-string modes.
+* Fixed: Unrelated private product metadata updates and unchanged term assignments no longer trigger unnecessary cache rebuilds.
+* Fixed: Newly queued rebuilds are reused, and outdated batches cannot overwrite newer rebuild results.
+* Fixed: Brand filters and attributes sharing the same URL prefix no longer conflict or cause empty product grids after filtered URL reloads. Existing attribute-only URLs remain supported.
+* Fixed: Category hierarchy, option counts, AND/OR selections, and selected zero-count options remain correct during cache fallback.
+* Improved: Live dependent-option calculations hydrate products in batches of 500 to reduce peak memory usage.
 
 = 1.6.7 =
 * Fixed: with the Elementor widget, the floating mobile filter button opens the filter drawer again (it did nothing since 1.6.6), and the top filter bar scrolls again.

@@ -4,7 +4,7 @@
  * Plugin Name: Dynamic AJAX Product Filters for WooCommerce
  * Plugin URI:  https://plugincy.com/
  * Description: A WooCommerce plugin to filter products by attributes, categories, and tags using AJAX for seamless user experience.
- * Version:     1.6.7
+ * Version:     1.6.8
  * Author:      Plugincy
  * Author URI:  https://plugincy.com
  * License:     GPL-2.0-or-later
@@ -24,7 +24,7 @@ if (!defined('DAY_IN_SECONDS')) {
     define('DAY_IN_SECONDS', 86400);
 }
 
-define('DAPFFORWC_VERSION', '1.6.7');
+define('DAPFFORWC_VERSION', '1.6.8');
 
 define('DAPFFORWC_ENABLE_THIRD_PARTY_HOOKS', true);
 
@@ -4505,6 +4505,7 @@ function dapfforwc_clear_woocommerce_caches($context = null, $schedule_rebuild =
     // Hooked calls get the hook's first argument (post ID, product ...). Lifecycle events and the
     // manual Clear/Build buttons always run a full clean-up; every other call is a routine purge.
     $is_routine_clear = !in_array($context, array('plugin_activation', 'plugin_update', 'lifecycle', 'manual_clear', 'manual_build'), true);
+    $reuse_queued = $is_routine_clear && $schedule_rebuild && dapfforwc_can_reuse_queued_cache_builds();
 
     // One change fires several of the hooks below (one product save fires about four), so a routine
     // purge runs again only after a plugin cache was rebuilt since the last purge in this request.
@@ -4515,7 +4516,7 @@ function dapfforwc_clear_woocommerce_caches($context = null, $schedule_rebuild =
         $GLOBALS['dapfforwc_caches_purged'] = true;
     }
 
-    if (function_exists('dapfforwc_unschedule_filter_cache_background_jobs')) {
+    if (!$reuse_queued && function_exists('dapfforwc_unschedule_filter_cache_background_jobs')) {
         dapfforwc_unschedule_filter_cache_background_jobs();
     }
 
@@ -4566,6 +4567,14 @@ function dapfforwc_clear_woocommerce_caches($context = null, $schedule_rebuild =
         if (file_exists($cache_file)) {
             wp_delete_file($cache_file);
         }
+    }
+
+    // Nothing has been scanned yet: the queued jobs will read the latest catalogue.
+    // Keeping their run IDs prevents a burst of writes from perpetually cancelling them.
+    if ($reuse_queued) {
+        dapfforwc_schedule_filter_cache_rebuild('cache_clear');
+        dapfforwc_schedule_product_details_cache_rebuild('cache_clear');
+        return;
     }
 
     delete_option('dapfforwc_filter_cache_build_lock');
@@ -4633,6 +4642,46 @@ add_action(DAPFFORWC_PRODUCT_DETAILS_CACHE_BATCH_HOOK, 'dapfforwc_rearm_cache_pu
 function dapfforwc_is_cache_neutral_meta_key($meta_key)
 {
     return in_array($meta_key, array('_edit_lock', '_edit_last'), true);
+}
+
+function dapfforwc_product_meta_affects_filter_cache($meta_key): bool
+{
+    $keys = array(
+        '_price', '_regular_price', '_sale_price', '_sale_price_dates_from', '_sale_price_dates_to',
+        '_stock', '_stock_status', '_manage_stock', '_backorders', '_weight', '_length', '_width', '_height',
+        '_sku', '_wc_average_rating', '_wc_rating_count', '_wc_review_count', '_featured', '_visibility',
+        '_product_attributes', '_default_attributes', '_virtual', '_downloadable', '_thumbnail_id', '_product_image_gallery',
+        '_min_variation_price', '_max_variation_price', '_min_variation_regular_price',
+        '_max_variation_regular_price', '_min_variation_sale_price', '_max_variation_sale_price',
+    );
+    $affects = !dapfforwc_is_cache_neutral_meta_key($meta_key)
+        && (strpos((string) $meta_key, '_') !== 0 || in_array($meta_key, $keys, true));
+    // Integrations that filter by private metadata can opt their own keys in.
+    return (bool) apply_filters('dapfforwc_product_meta_affects_filter_cache', $affects, $meta_key);
+}
+
+function dapfforwc_can_reuse_queued_cache_builds(): bool
+{
+    foreach (array(DAPFFORWC_FILTER_CACHE_BUILD_STATE_OPTION, DAPFFORWC_PRODUCT_DETAILS_CACHE_BUILD_STATE_OPTION) as $option) {
+        $state = get_option($option, array());
+        if (!is_array($state) || ($state['status'] ?? '') !== 'queued' || empty($state['build_id'])
+            || !empty($state['processed']) || !empty($state['last_id'])
+            || time() - (int) ($state['updated_at'] ?? 0) >= dapfforwc_get_filter_cache_build_timeout()) {
+            return false;
+        }
+        if ($option === DAPFFORWC_FILTER_CACHE_BUILD_STATE_OPTION && ($state['cache_key'] ?? '') !== DAPFFORWC_FILTER_CACHE_DATA_KEY) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function dapfforwc_is_current_cache_build($option, $build_id): bool
+{
+    // Another request can invalidate a run while this worker is hydrating its batch.
+    wp_cache_delete($option, 'options');
+    $state = get_option($option, array());
+    return $build_id !== '' && ($state['build_id'] ?? '') === $build_id;
 }
 
 

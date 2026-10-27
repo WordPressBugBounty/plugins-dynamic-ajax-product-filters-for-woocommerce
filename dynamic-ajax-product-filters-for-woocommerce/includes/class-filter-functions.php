@@ -409,7 +409,8 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
             return $clauses;
         }
 
-        $params = $this->get_filter_params();
+        $params = $query->get('dapfforwc_filter_option_params');
+        $params = is_array($params) ? $params : $this->get_filter_params();
 
         if (empty($params)) {
             return $clauses;
@@ -850,6 +851,54 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
      * Add the active filters to a set of query vars. Shared by the WP_Query and
      * query-args paths so both build the same query.
      */
+    public function get_filter_option_product_ids(array $params): array
+    {
+        $args = $this->build_filter_query_vars($params, array(
+            'post_type' => 'product',
+            'post_status' => 'publish',
+            'fields' => 'ids',
+            'posts_per_page' => -1,
+            'no_found_rows' => true,
+            'cache_results' => false,
+            'update_post_meta_cache' => false,
+            'update_post_term_cache' => false,
+            'dapfforwc_filters_applied' => true,
+            // Disjunctive option queries must use their own parameters in posts_clauses too.
+            'dapfforwc_filter_option_params' => $params,
+        ));
+        unset($args['paged'], $args['offset']);
+        $args['posts_per_page'] = -1;
+        $query = new WP_Query($args);
+        return array_values(array_unique(array_map('intval', $query->posts)));
+    }
+
+    public function get_filter_option_params_from_state(array $state): array
+    {
+        $params = array();
+        $aliases = array(
+            'product-category[]' => 'product-category', 'tag[]' => 'tags',
+            'brand[]' => 'rplurand', 'stock_status[]' => 'rplutock_status',
+            'sale_status[]' => 'rpn_sale', 'rating[]' => 'rating',
+            'attribute' => 'attributes', 'custom_meta' => 'custom_meta',
+            'min_price' => 'mn_price', 'max_price' => 'mx_price',
+            'plugincy_search' => 'plugincy_search', 'sku' => 'sku', 'discount' => 'discount',
+            'date_filter' => 'date_filter', 'date_from' => 'date_from', 'date_to' => 'date_to',
+        );
+        foreach (array('length', 'width', 'height', 'weight') as $dimension) {
+            $aliases['min_' . $dimension] = 'min_' . $dimension;
+            $aliases['max_' . $dimension] = 'max_' . $dimension;
+        }
+        foreach ($aliases as $from => $to) {
+            if (isset($state[$from]) && $state[$from] !== '' && $state[$from] !== array()) {
+                $params[$to] = $state[$from];
+            }
+        }
+        if (!empty($state['author[]'])) {
+            $params['rpluthor'] = $this->get_author_ids_by_slugs($state['author[]']);
+        }
+        return $params;
+    }
+
     private function build_filter_query_vars(array $params, array $args, bool $is_main_query = false): array
     {
         $tax_query = array();
@@ -2421,7 +2470,21 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
             foreach ($prefixes['attribute'] as $attribute_name => $attribute_prefix) {
                 foreach ($this->get_attribute_query_keys($attribute_name, $attribute_prefix) as $attribute_key) {
                     if (isset($request[$attribute_key]) && $request[$attribute_key] !== '') {
-                        $normalized['attributes'][$attribute_name] = $this->normalize_filter_values($request[$attribute_key]);
+                        $values = $this->normalize_filter_values($request[$attribute_key]);
+                        if ($attribute_key === $prefixed_brand || $attribute_key === 'rplurand') {
+                            // Older defaults assigned "brand" to both the brand filter and pa_brand.
+                            // Keep old attribute-only links, but never add a phantom attribute clause
+                            // to a real brand URL. Explicit pa-* keys can select both independently.
+                            if (!$this->filter_values_exist_for_attribute($attribute_name, $values)) {
+                                continue;
+                            }
+                            $brand_matches = get_terms(array('taxonomy' => 'product_brand', 'slug' => $values, 'hide_empty' => false, 'fields' => 'ids'));
+                            if (!is_wp_error($brand_matches) && !empty($brand_matches)) {
+                                continue;
+                            }
+                            unset($normalized['rplurand']);
+                        }
+                        $normalized['attributes'][$attribute_name] = $values;
                         break;
                     }
                 }
@@ -2739,7 +2802,7 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
         $keys = array($attribute_key);
         $safe_key = $this->get_collision_safe_attribute_query_key($attribute_name, $attribute_key);
         if ($safe_key !== '' && $safe_key !== $attribute_key) {
-            $keys[] = $safe_key;
+            array_unshift($keys, $safe_key);
         }
 
         return array_values(array_unique($keys));
@@ -2748,6 +2811,9 @@ class DAPFFORWC_WC_Query_Filter_Enhanced
     private function get_collision_safe_attribute_query_key(string $attribute_name, string $attribute_key): string
     {
         $reserved_category_keys = $this->get_category_alias_query_keys();
+        $prefixes = $this->get_prefixes_config();
+        $reserved_category_keys[] = $this->resolve_prefix_key($prefixes, 'brand', 'brand');
+        $reserved_category_keys[] = 'rplurand';
 
         if (in_array(sanitize_key($attribute_key), $reserved_category_keys, true)) {
             return sanitize_key('pa-' . $attribute_name);
