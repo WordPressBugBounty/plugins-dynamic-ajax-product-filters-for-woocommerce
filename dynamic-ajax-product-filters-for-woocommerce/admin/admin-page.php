@@ -4257,6 +4257,16 @@ function dapfforwc_save_style_options($input, $old_value = null, $option = '')
         $input = $merged_options;
     }
 
+    // Free does not submit the locked Pro radio. An empty group must not erase
+    // that stored preference when another field is saved; explicit Free modes still replace it.
+    if (
+        is_array($old_value)
+        && ($old_value['product-category']['hierarchical']['type'] ?? null) === 'enable_separate'
+        && ($input['product-category']['hierarchical']['type'] ?? null) === ''
+    ) {
+        $input['product-category']['hierarchical']['type'] = 'enable_separate';
+    }
+
     // Term-keyed values come from posted JSON or the stored option and may be arrays; only scalars reach the sanitizers.
     $scalar = function ($value) {
         return is_scalar($value) ? (string) $value : '';

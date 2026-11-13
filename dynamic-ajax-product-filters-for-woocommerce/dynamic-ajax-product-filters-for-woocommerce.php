@@ -4,7 +4,7 @@
  * Plugin Name: Dynamic AJAX Product Filters for WooCommerce
  * Plugin URI:  https://plugincy.com/
  * Description: A WooCommerce plugin to filter products by attributes, categories, and tags using AJAX for seamless user experience.
- * Version:     1.6.8
+ * Version:     1.6.9
  * Author:      Plugincy
  * Author URI:  https://plugincy.com
  * License:     GPL-2.0-or-later
@@ -24,7 +24,7 @@ if (!defined('DAY_IN_SECONDS')) {
     define('DAY_IN_SECONDS', 86400);
 }
 
-define('DAPFFORWC_VERSION', '1.6.8');
+define('DAPFFORWC_VERSION', '1.6.9');
 
 define('DAPFFORWC_ENABLE_THIRD_PARTY_HOOKS', true);
 

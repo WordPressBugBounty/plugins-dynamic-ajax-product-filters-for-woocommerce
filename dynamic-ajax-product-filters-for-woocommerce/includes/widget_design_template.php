@@ -384,6 +384,12 @@ function dapfforwc_filter_form($updated_filters, $default_filter, $use_anchor, $
         }
     }
 
+    // Separate groups are Pro-only. Keep the saved preference for a Pro upgrade,
+    // but use the same Disabled fallback shown by the Free settings UI.
+    if ($hierarchical === 'enable_separate') {
+        $hierarchical = 'disabled';
+    }
+
     $category_search_settings = $get_terms_search_settings('product-category');
     $category_tooltip_settings = $get_tooltip_settings('product-category');
     $category_layout_settings = $get_layout_settings('product-category');

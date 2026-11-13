@@ -4,7 +4,7 @@ Contributors: plugincy, hellomasum
 Tags: product filter, ajax product filter, woocommerce filter, woocommerce product filter, shop filter
 Requires at least: 5.9
 Tested up to: 7.0
-Stable tag: 1.6.8
+Stable tag: 1.6.9
 Requires PHP: 7.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -433,6 +433,10 @@ Yes. You can use Elementor widgets, Gutenberg blocks, `[plugincy_filters]`, `[pl
 Yes. Pro includes WPML compatibility for saved option strings, translated taxonomy/product filter data, language-aware filter caches, and current-language frontend labels.
 
 == Changelog ==
+
+= 1.6.9 =
+* Fixed: Saved Pro-only "Enabled & Separate" category settings now use the Disabled layout in the free version, while preserving the stored Pro preference for future upgrades.
+* Fixed: Editing category titles or other Form Style settings no longer clears a saved Pro hierarchy preference. Explicitly selecting a free hierarchy mode still saves that choice correctly.
 
 = 1.6.8 =
 * Fixed: Dependent filter options no longer show unrelated terms while filter caches are missing, queued, or rebuilding, in both AJAX and query-string modes.
